@@ -62,9 +62,7 @@ export default function RoleSelectionPage() {
   }, [user, isLoading, router]);
 
   async function handleSelect(role: UserRole) {
-    setRole(role);
-    // Small delay so the cookie write completes before middleware reads it on next navigation
-    await new Promise((r) => setTimeout(r, 50));
+    await (setRole as (r: UserRole) => Promise<void>)(role);
     router.push(role === "fan" ? "/onboarding/fan-setup" : "/onboarding/creator-setup");
   }
 

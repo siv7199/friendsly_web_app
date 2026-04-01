@@ -1,81 +1,269 @@
 "use client";
 
-/**
- * Creator Profile Page  (route: /profile/[id])
- *
- * [id] is a "dynamic segment" — Next.js will match any URL like
- * /profile/1, /profile/2, etc. and pass the id as a param.
- */
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Star, Users, Video, Clock, ArrowLeft,
-  CheckCircle2, Zap, MessageSquare,
+  CheckCircle2, Zap, MessageSquare, Calendar,
+  TrendingUp, Shield, ChevronLeft, ChevronRight, Send, Loader2,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookingModal } from "@/components/fan/BookingModal";
-import { MOCK_CREATORS } from "@/lib/mock-data";
-import { getRegisteredCreators, getCreatorPackages } from "@/lib/mock-auth";
-import type { CallPackage } from "@/types";
-import { formatCurrency } from "@/lib/utils";
+import { LiveJoinModal } from "@/components/fan/LiveJoinModal";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthContext } from "@/lib/context/AuthContext";
+import type { Creator, CallPackage } from "@/types";
+import { formatCurrency, cn } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
-// Looks up mock creators first, then real registered creators
-function getCreator(id: string) {
-  return (
-    MOCK_CREATORS.find((c) => c.id === id) ??
-    getRegisteredCreators().find((c) => c.id === id)
-  );
+// ── Availability Calendar helpers ─────────────────────────────────────────────
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function getWeekDates(offset = 0): Date[] {
+  const today = new Date();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - today.getDay() + 1 + offset * 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
 }
 
-// Demo reviews — only shown for the seeded mock creators (numeric IDs "1"–"6")
-const MOCK_REVIEWS = [
-  {
-    id: "r1",
-    fan: "Jordan K.",
-    initials: "JK",
-    color: "bg-violet-500",
-    rating: 5,
-    comment: "Incredibly prepared — gave me a full 6-week program during the call. Worth every dollar.",
-    date: "2 days ago",
-  },
-  {
-    id: "r2",
-    fan: "Priya S.",
-    initials: "PS",
-    color: "bg-pink-500",
-    rating: 5,
-    comment: "She remembered everything I mentioned in my topic message. So professional, booked a follow-up immediately.",
-    date: "1 week ago",
-  },
-  {
-    id: "r3",
-    fan: "Sam N.",
-    initials: "SN",
-    color: "bg-sky-500",
-    rating: 4,
-    comment: "Really good advice. Call went a bit over time which was a nice bonus. Will be back!",
-    date: "2 weeks ago",
-  },
-];
+function isSameDay(a: Date, b: Date) {
+  return a.toDateString() === b.toDateString();
+}
+
+interface AvailabilitySlot {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+}
+
+// ── Creator data fetcher ──────────────────────────────────────────────────────
+
+async function fetchCreatorData(id: string): Promise<{
+  creator: Creator | null;
+  packages: CallPackage[];
+  availability: AvailabilitySlot[];
+  reviewCount: number;
+}> {
+  const supabase = createClient();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*, creator_profiles(*)")
+    .eq("id", id)
+    .eq("role", "creator")
+    .single();
+
+  const { data: pkgs } = await supabase
+    .from("call_packages")
+    .select("*")
+    .eq("creator_id", id)
+    .eq("is_active", true)
+    .order("price");
+
+  const { data: avail } = await supabase
+    .from("creator_availability")
+    .select("day_of_week, start_time, end_time")
+    .eq("creator_id", id)
+    .eq("is_active", true)
+    .order("day_of_week");
+
+  const { count: reviewCount } = await supabase
+    .from("reviews")
+    .select("*", { count: "exact", head: true })
+    .eq("creator_id", id);
+
+  if (!profile) return { creator: null, packages: [], availability: [], reviewCount: 0 };
+
+  const cp = Array.isArray(profile.creator_profiles)
+    ? profile.creator_profiles[0]
+    : profile.creator_profiles;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const packages: CallPackage[] = (pkgs ?? []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    duration: p.duration,
+    price: Number(p.price),
+    description: p.description,
+    isActive: p.is_active,
+    bookingsCount: p.bookings_count,
+  }));
+
+  const minPrice = packages.length
+    ? Math.min(...packages.map((p) => p.price))
+    : 0;
+
+  const creator: Creator = {
+    id: profile.id,
+    name: profile.full_name,
+    username: `@${profile.username}`,
+    bio: cp?.bio ?? "",
+    category: cp?.category ?? "",
+    tags: cp?.tags ?? [],
+    followers: "New",
+    rating: Number(cp?.avg_rating ?? 0),
+    reviewCount: reviewCount ?? 0,
+    avatarInitials: profile.avatar_initials,
+    avatarColor: profile.avatar_color,
+    avatarUrl: profile.avatar_url ?? undefined,
+    isLive: cp?.is_live ?? false,
+    queueCount: 0,
+    callPrice: minPrice,
+    callDuration: packages[0]?.duration ?? 15,
+    nextAvailable: minPrice > 0 ? "Available this week" : "No packages yet",
+    totalCalls: cp?.total_calls ?? 0,
+    responseTime: cp?.response_time ?? "~5 min",
+    liveRatePerMinute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
+  };
+
+  return {
+    creator,
+    packages,
+    availability: avail ?? [],
+    reviewCount: reviewCount ?? 0,
+  };
+}
+
+// ── Review type ───────────────────────────────────────────────────────────────
+
+interface Review {
+  id: string;
+  fan: string;
+  initials: string;
+  color: string;
+  rating: number;
+  comment: string;
+  date: string;
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage({ params }: { params: { id: string } }) {
-  const creator = getCreator(params.id);
+  const { user } = useAuthContext();
+  const [creator, setCreator] = useState<Creator | null>(null);
+  const [activePackages, setActivePackages] = useState<CallPackage[]>([]);
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [showBooking, setShowBooking] = useState(false);
+  const [showLiveJoin, setShowLiveJoin] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  // Review form state
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+
+  useEffect(() => {
+    fetchCreatorData(params.id).then(({ creator, packages, availability }) => {
+      if (!creator) { setLoading(false); return; }
+      setCreator(creator);
+      setActivePackages(packages);
+      setAvailability(availability);
+      setLoading(false);
+    });
+
+    // Load reviews from Supabase
+    const supabase = createClient();
+    supabase
+      .from("reviews")
+      .select("id, rating, comment, created_at, fan:profiles!fan_id(full_name, avatar_initials, avatar_color)")
+      .eq("creator_id", params.id)
+      .order("created_at", { ascending: false })
+      .limit(10)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(({ data }: { data: any[] | null }) => {
+        if (data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setReviews(data.map((r: any) => {
+            const fan = Array.isArray(r.fan) ? r.fan[0] : r.fan;
+            return {
+              id: r.id,
+              fan: (fan as { full_name: string })?.full_name ?? "Fan",
+              initials: (fan as { avatar_initials: string })?.avatar_initials ?? "F",
+              color: (fan as { avatar_color: string })?.avatar_color ?? "bg-violet-500",
+              rating: r.rating,
+              comment: r.comment ?? "",
+              date: new Date(r.created_at).toLocaleDateString("en-US", {
+                month: "short", day: "numeric",
+              }),
+            };
+          }));
+        }
+      });
+  }, [params.id]);
+
+  // ── Review submission ─────────────────────────────────────────────────────
+  async function handleSubmitReview() {
+    if (!user || reviewRating === 0 || !reviewComment.trim()) return;
+    setSubmittingReview(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("reviews").insert({
+      creator_id: params.id,
+      fan_id: user.id,
+      rating: reviewRating,
+      comment: reviewComment.trim(),
+    });
+    if (!error) {
+      setReviews((prev) => [
+        {
+          id: crypto.randomUUID(),
+          fan: user.full_name ?? "You",
+          initials: user.avatar_initials ?? "?",
+          color: user.avatar_color ?? "bg-violet-600",
+          rating: reviewRating,
+          comment: reviewComment.trim(),
+          date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        },
+        ...prev,
+      ]);
+      setReviewRating(0);
+      setReviewComment("");
+      setReviewSubmitted(true);
+      setTimeout(() => setReviewSubmitted(false), 3000);
+    }
+    setSubmittingReview(false);
+  }
+
+  const isFan = user?.role === "fan";
+  const isOwnProfile = user?.id === params.id;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 rounded-full border-2 border-brand-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   if (!creator) return notFound();
 
-  // Only show mock reviews for the seeded demo creators (ids "1"–"6")
-  const isMockCreator = ["1", "2", "3", "4", "5", "6"].includes(params.id);
-  const reviews = isMockCreator ? MOCK_REVIEWS : [];
+  const hasPackages   = activePackages.length > 0;
+  const hasLiveRate   = Boolean(creator.liveRatePerMinute && creator.liveRatePerMinute > 0);
+  const weekDates     = getWeekDates(weekOffset);
+  const today         = new Date();
 
-  // Load real packages for this creator from localStorage
-  const creatorPackages: CallPackage[] = getCreatorPackages(params.id);
-  const activePackages = creatorPackages.filter((p) => p.isActive);
-  const hasPackages = activePackages.length > 0;
+  // Map availability slots: { [dayOfWeek]: string[] of formatted time ranges }
+  const availMap: Record<number, string[]> = {};
+  availability.forEach(({ day_of_week, start_time, end_time }) => {
+    if (!availMap[day_of_week]) availMap[day_of_week] = [];
+    const fmt = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      const ampm = h >= 12 ? "PM" : "AM";
+      return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
+    };
+    availMap[day_of_week].push(`${fmt(start_time)} – ${fmt(end_time)}`);
+  });
 
   return (
     <>
@@ -90,20 +278,16 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         </Link>
 
         {/* ── Profile Hero ── */}
-        <div className="rounded-2xl border border-brand-border bg-brand-surface overflow-hidden">
-          {/* Header gradient banner */}
-          <div className="h-24 bg-gradient-to-br from-brand-primary/30 to-purple-900/20" />
-
-          {/* Profile content */}
+        <div className="rounded-2xl border border-brand-border bg-brand-surface">
+          <div className="h-24 rounded-t-2xl bg-gradient-to-br from-brand-primary/20 via-purple-900/10 to-transparent" />
           <div className="px-6 pb-6">
-            {/* Avatar — overlaps the banner */}
             <div className="flex items-end justify-between -mt-8 mb-4">
               <Avatar
                 initials={creator.avatarInitials}
                 color={creator.avatarColor}
                 size="xl"
                 isLive={creator.isLive}
-                className="border-4 border-brand-surface"
+                className="border-4 border-brand-surface ring-2 ring-brand-border"
               />
               {creator.isLive && (
                 <Badge variant="live" className="mb-1">
@@ -117,22 +301,32 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             <p className="text-slate-400 text-sm">{creator.username}</p>
 
             <div className="flex flex-wrap items-center gap-4 mt-3">
-              <div className="flex items-center gap-1.5">
-                <Star className="w-4 h-4 fill-brand-gold text-brand-gold" />
-                <span className="font-bold text-brand-gold">{creator.rating}</span>
-                <span className="text-sm text-slate-500">({creator.reviewCount} reviews)</span>
-              </div>
+              {creator.rating > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Star className="w-4 h-4 fill-brand-gold text-brand-gold" />
+                  <span className="font-bold text-brand-gold">{creator.rating}</span>
+                  <span className="text-sm text-slate-500">({creator.reviewCount} reviews)</span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5 text-sm text-slate-400">
                 <Users className="w-4 h-4" />
                 <span>{creator.followers} followers</span>
               </div>
+              {creator.totalCalls > 0 && (
+                <div className="flex items-center gap-1.5 text-sm text-slate-400">
+                  <Video className="w-4 h-4" />
+                  <span>{creator.totalCalls} calls completed</span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5 text-sm text-slate-400">
-                <Video className="w-4 h-4" />
-                <span>{creator.totalCalls} calls completed</span>
+                <Clock className="w-4 h-4" />
+                <span>Responds {creator.responseTime}</span>
               </div>
             </div>
 
-            <p className="mt-4 text-slate-300 leading-relaxed">{creator.bio}</p>
+            {creator.bio && (
+              <p className="mt-4 text-slate-300 leading-relaxed">{creator.bio}</p>
+            )}
 
             <div className="flex flex-wrap gap-2 mt-4">
               {creator.tags.map((tag) => (
@@ -144,90 +338,257 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </span>
               ))}
             </div>
+
+            {/* Pricing summary strip */}
+            <div className="mt-5 flex flex-wrap gap-3">
+              {hasLiveRate && (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-live/10 border border-brand-live/30">
+                  <Zap className="w-4 h-4 text-brand-live" />
+                  <span className="text-sm font-bold text-brand-live">
+                    {formatCurrency(creator.liveRatePerMinute!)}/min
+                  </span>
+                  <span className="text-xs text-slate-400">live queue</span>
+                </div>
+              )}
+              {hasPackages && (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary/10 border border-brand-primary/30">
+                  <Calendar className="w-4 h-4 text-brand-primary-light" />
+                  <span className="text-sm font-bold text-brand-primary-light">
+                    Starts at {formatCurrency(creator.callPrice)}
+                  </span>
+                  <span className="text-xs text-slate-400">per session</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* ── Booking Panel ── */}
+        {/* ── Main Grid ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Packages list */}
-          <div className="md:col-span-2 rounded-2xl border border-brand-border bg-brand-surface p-6">
-            <h2 className="text-lg font-bold text-slate-100 mb-4">Available Sessions</h2>
-            {!hasPackages ? (
-              <div className="p-4 rounded-xl border border-brand-border bg-brand-elevated text-center py-8">
-                <p className="text-slate-400 text-sm">No packages available yet.</p>
-                <p className="text-slate-500 text-xs mt-1">This creator hasn&apos;t set up call packages yet.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {activePackages.map((pkg) => (
-                  <div key={pkg.id} className="p-4 rounded-xl border border-brand-primary/30 bg-brand-primary/10">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-bold text-slate-100">{pkg.name}</p>
-                        <p className="text-sm text-slate-400 mt-1">{pkg.description}</p>
-                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />{pkg.duration} min
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <MessageSquare className="w-3 h-3" />Reply ~{creator.responseTime}
-                          </span>
+
+          {/* ── Left: Sessions + Calendar ── */}
+          <div className="md:col-span-2 space-y-4">
+
+            {/* Available sessions */}
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
+              <h2 className="text-lg font-bold text-slate-100 mb-4">Book a Session</h2>
+              {!hasPackages ? (
+                <div className="p-4 rounded-xl border border-brand-border bg-brand-elevated text-center py-8">
+                  <p className="text-slate-400 text-sm">No booking packages available yet.</p>
+                  <p className="text-slate-500 text-xs mt-1">Check back soon or join their live queue.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {activePackages.map((pkg) => (
+                    <div
+                      key={pkg.id}
+                      className="p-4 rounded-xl border border-brand-primary/30 bg-brand-primary/10 cursor-pointer hover:border-brand-primary/60 transition-colors"
+                      onClick={() => setShowBooking(true)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-bold text-slate-100">{pkg.name}</p>
+                          <p className="text-sm text-slate-400 mt-1">{pkg.description}</p>
+                          <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />{pkg.duration} min
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MessageSquare className="w-3 h-3" />~{creator.responseTime}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 ml-4">
+                          <p className="text-xl font-black text-gradient-gold">{formatCurrency(pkg.price)}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">per session</p>
                         </div>
                       </div>
-                      <div className="text-right shrink-0 ml-4">
-                        <p className="text-xl font-black text-gradient-gold">{formatCurrency(pkg.price)}</p>
-                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* CTA card */}
-          <div className="rounded-2xl border border-brand-border bg-brand-surface p-6 flex flex-col gap-4">
-            <div className="text-center">
-              {hasPackages ? (
-                <>
-                  <p className="text-2xl font-black text-slate-100">
-                    {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
-                  </p>
-                  <p className="text-sm text-slate-500">starting price</p>
-                </>
-              ) : (
-                <p className="text-sm text-slate-500">No packages yet</p>
+                  ))}
+                </div>
               )}
             </div>
 
-            <div className="space-y-2 text-sm">
-              {["Video call via Daily.co", "Instant booking confirmation", "Cancel up to 24h before"].map((item) => (
-                <div key={item} className="flex items-center gap-2 text-slate-400">
-                  <CheckCircle2 className="w-4 h-4 text-brand-live shrink-0" />
-                  <span>{item}</span>
+            {/* Availability Calendar */}
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-brand-primary-light" />
+                  Availability
+                </h2>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
+                    disabled={weekOffset === 0}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-elevated text-xs font-medium text-slate-300 hover:text-slate-100 hover:border-brand-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                  </button>
+                  <span className="text-xs font-semibold text-brand-primary-light px-2 min-w-[80px] text-center">
+                    {weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : `${weekOffset} weeks out`}
+                  </span>
+                  <button
+                    onClick={() => setWeekOffset((w) => Math.min(3, w + 1))}
+                    disabled={weekOffset >= 3}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-elevated text-xs font-medium text-slate-300 hover:text-slate-100 hover:border-brand-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            {creator.isLive ? (
-              <Link href={`/waiting-room/${creator.id}`}>
-                <Button variant="live" size="lg" className="w-full gap-2">
+              {availability.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-6">
+                  No availability set yet. Book a call to find a time.
+                </p>
+              ) : (
+                <div className="grid grid-cols-7 gap-1.5">
+                  {weekDates.map((date) => {
+                    const dow        = date.getDay();
+                    const slots      = availMap[dow] ?? [];
+                    const isToday    = isSameDay(date, today);
+                    const isPast     = date < today && !isToday;
+                    const hasSlots   = slots.length > 0 && !isPast;
+
+                    return (
+                      <div
+                        key={date.toISOString()}
+                        className={cn(
+                          "rounded-xl p-2 text-center border transition-all",
+                          isToday
+                            ? "border-brand-primary/50 bg-brand-primary/10"
+                            : hasSlots
+                            ? "border-brand-live/30 bg-brand-live/5"
+                            : "border-brand-border bg-brand-elevated opacity-50"
+                        )}
+                      >
+                        <p className="text-[10px] uppercase text-slate-500 font-medium">
+                          {DAY_NAMES[dow]}
+                        </p>
+                        <p className={cn(
+                          "text-base font-bold mt-0.5",
+                          isToday ? "text-brand-primary-light" : hasSlots ? "text-slate-100" : "text-slate-600"
+                        )}>
+                          {date.getDate()}
+                        </p>
+                        {hasSlots ? (
+                          <div className="mt-1 space-y-0.5">
+                            {slots.slice(0, 2).map((s, i) => (
+                              <p key={i} className="text-[9px] text-brand-live leading-tight">{s}</p>
+                            ))}
+                            {slots.length > 2 && (
+                              <p className="text-[9px] text-slate-500">+{slots.length - 2} more</p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-[9px] text-slate-600 mt-1">
+                            {isPast ? "—" : "Off"}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Right: CTA + Trust Signals ── */}
+          <div className="space-y-4">
+
+            {/* CTA Card */}
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-6 flex flex-col gap-4">
+              {/* Live queue CTA */}
+              {creator.isLive && hasLiveRate && (
+                <div className="p-3 rounded-xl bg-brand-live/10 border border-brand-live/30 text-center">
+                  <div className="flex items-center justify-center gap-1.5 mb-1">
+                    <span className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />
+                    <span className="text-xs font-bold text-brand-live uppercase tracking-wider">Live Right Now</span>
+                  </div>
+                  <p className="text-xl font-black text-brand-live">
+                    {formatCurrency(creator.liveRatePerMinute!)}/min
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    {creator.queueCount > 0 ? `${creator.queueCount} in queue` : "No wait — join now!"}
+                  </p>
+                </div>
+              )}
+
+              {/* Booking price */}
+              {hasPackages && (
+                <div className="text-center py-2">
+                  <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Starts at</p>
+                  <p className="text-4xl font-black text-slate-100">
+                    {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">per session</p>
+                </div>
+              )}
+
+              {/* Trust items */}
+              <div className="space-y-2 text-sm">
+                {[
+                  "Video call via Daily.co",
+                  "Instant booking confirmation",
+                  "Cancel up to 24h before",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-slate-400">
+                    <CheckCircle2 className="w-4 h-4 text-brand-live shrink-0" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+                {hasLiveRate && (
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <CheckCircle2 className="w-4 h-4 text-brand-live shrink-0" />
+                    <span>Live: pay only for time used</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              {creator.isLive && hasLiveRate ? (
+                <Button variant="live" size="lg" className="w-full gap-2" onClick={() => setShowLiveJoin(true)}>
                   <Zap className="w-4 h-4" />
                   Join Queue — {creator.queueCount} ahead
                 </Button>
-              </Link>
-            ) : hasPackages ? (
-              <Button variant="gold" size="lg" className="w-full" onClick={() => setShowBooking(true)}>
-                Book a Call
-              </Button>
-            ) : (
-              <Button variant="ghost" size="lg" className="w-full opacity-50 cursor-not-allowed" disabled>
-                Coming Soon
-              </Button>
-            )}
+              ) : hasPackages ? (
+                <Button variant="gold" size="lg" className="w-full" onClick={() => setShowBooking(true)}>
+                  Book a Call
+                </Button>
+              ) : (
+                <Button variant="ghost" size="lg" className="w-full opacity-50 cursor-not-allowed" disabled>
+                  Coming Soon
+                </Button>
+              )}
 
-            <p className="text-[11px] text-center text-slate-600">
-              Next available: {creator.nextAvailable}
-            </p>
+              {creator.isLive && hasPackages && (
+                <Button variant="outline" size="sm" className="w-full" onClick={() => setShowBooking(true)}>
+                  Or book a dedicated session
+                </Button>
+              )}
+
+              <p className="text-[11px] text-center text-slate-600">
+                Next available: {creator.nextAvailable}
+              </p>
+            </div>
+
+            {/* Creator Stats */}
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 space-y-3">
+              <h3 className="text-sm font-bold text-slate-300">Creator Stats</h3>
+              {[
+                { icon: TrendingUp, label: "Total calls", value: creator.totalCalls > 0 ? creator.totalCalls.toLocaleString() : "New" },
+                { icon: Clock, label: "Avg response", value: creator.responseTime },
+                { icon: Shield, label: "Verified creator", value: "✓" },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{label}</span>
+                  </div>
+                  <span className="font-semibold text-slate-200">{value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -235,54 +596,131 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-slate-100">
-              Reviews <span className="text-slate-500 font-normal">({creator.reviewCount})</span>
+              Reviews{" "}
+              <span className="text-slate-500 font-normal">({creator.reviewCount})</span>
             </h2>
-            <div className="flex items-center gap-1">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <Star
-                  key={n}
-                  className={`w-4 h-4 ${
-                    n <= Math.round(creator.rating)
-                      ? "fill-brand-gold text-brand-gold"
-                      : "text-slate-600"
-                  }`}
-                />
-              ))}
-              <span className="ml-2 text-sm font-bold text-brand-gold">{creator.rating}</span>
-            </div>
+            {creator.rating > 0 && (
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Star
+                    key={n}
+                    className={cn(
+                      "w-4 h-4",
+                      n <= Math.round(creator.rating)
+                        ? "fill-brand-gold text-brand-gold"
+                        : "text-slate-600"
+                    )}
+                  />
+                ))}
+                <span className="ml-2 text-sm font-bold text-brand-gold">{creator.rating}</span>
+              </div>
+            )}
           </div>
 
-          {reviews.length === 0 && (
+          {reviews.length === 0 && !isFan ? (
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 text-center">
               <Star className="w-8 h-8 text-slate-600 mx-auto mb-3" />
               <p className="text-slate-400">No reviews yet.</p>
               <p className="text-slate-500 text-sm mt-1">Be the first to book a call!</p>
             </div>
-          )}
-          <div className="space-y-3">
-            {reviews.map((review) => (
-              <div
-                key={review.id}
-                className="rounded-2xl border border-brand-border bg-brand-surface p-5"
-              >
-                <div className="flex items-start gap-3">
-                  <Avatar initials={review.initials} color={review.color} size="sm" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-100">{review.fan}</p>
-                      <span className="text-xs text-slate-500">{review.date}</span>
+          ) : (
+            <div className="space-y-4">
+              {/* Review form — only for fans viewing someone else's profile */}
+              {isFan && !isOwnProfile && (
+                <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
+                  {reviewSubmitted ? (
+                    <div className="flex items-center gap-2 text-brand-live">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Thanks for your review!</span>
                     </div>
-                    <div className="flex items-center gap-0.5 mt-0.5 mb-2">
-                      {Array.from({ length: review.rating }).map((_, i) => (
-                        <Star key={i} className="w-3.5 h-3.5 fill-brand-gold text-brand-gold" />
-                      ))}
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold text-slate-200">Leave a review</p>
+                      {/* Star rating */}
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onMouseEnter={() => setReviewHover(n)}
+                            onMouseLeave={() => setReviewHover(0)}
+                            onClick={() => setReviewRating(n)}
+                            className="p-0.5 transition-transform hover:scale-110"
+                          >
+                            <Star
+                              className={cn(
+                                "w-6 h-6 transition-colors",
+                                n <= (reviewHover || reviewRating)
+                                  ? "fill-brand-gold text-brand-gold"
+                                  : "text-slate-600 hover:text-slate-400"
+                              )}
+                            />
+                          </button>
+                        ))}
+                        {reviewRating > 0 && (
+                          <span className="ml-2 text-sm text-brand-gold font-semibold">
+                            {reviewRating}/5
+                          </span>
+                        )}
+                      </div>
+                      {/* Comment */}
+                      <textarea
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value.slice(0, 500))}
+                        placeholder="How was your experience?"
+                        rows={3}
+                        className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500">{reviewComment.length}/500</span>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          disabled={reviewRating === 0 || !reviewComment.trim() || submittingReview}
+                          onClick={handleSubmitReview}
+                          className="gap-1.5"
+                        >
+                          {submittingReview ? (
+                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...</>
+                          ) : (
+                            <><Send className="w-3.5 h-3.5" /> Submit Review</>
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <p className="text-sm text-slate-300 leading-relaxed">{review.comment}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Review list */}
+              {reviews.length === 0 && (
+                <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 text-center">
+                  <Star className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-400">No reviews yet.</p>
+                  <p className="text-slate-500 text-sm mt-1">Be the first to leave a review!</p>
+                </div>
+              )}
+              {reviews.map((review) => (
+                <div key={review.id} className="rounded-2xl border border-brand-border bg-brand-surface p-5">
+                  <div className="flex items-start gap-3">
+                    <Avatar initials={review.initials} color={review.color} size="sm" />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-slate-100">{review.fan}</p>
+                        <span className="text-xs text-slate-500">{review.date}</span>
+                      </div>
+                      <div className="flex items-center gap-0.5 mt-0.5 mb-2">
+                        {Array.from({ length: review.rating }).map((_, i) => (
+                          <Star key={i} className="w-3.5 h-3.5 fill-brand-gold text-brand-gold" />
+                        ))}
+                      </div>
+                      <p className="text-sm text-slate-300 leading-relaxed">{review.comment}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
@@ -292,6 +730,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         onClose={() => setShowBooking(false)}
         packages={activePackages}
       />
+
+      {creator.liveRatePerMinute && (
+        <LiveJoinModal
+          creator={creator}
+          open={showLiveJoin}
+          onClose={() => setShowLiveJoin(false)}
+        />
+      )}
     </>
   );
 }

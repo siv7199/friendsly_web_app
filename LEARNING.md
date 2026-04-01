@@ -815,3 +815,27 @@ On success → booking confirmed, show success screen
 | **FileReader** | A browser API that reads files selected by the user and converts them to base64 strings |
 | **localStorage** | Browser storage that persists between page refreshes. Max ~5MB. Shared across all accounts on the same browser. |
 | **Profile strength** | A % score (0–100) calculated from how complete a creator's profile is. Reaches 100% when all fields + a package are set. |
+
+---
+
+## 23. Recent Features Added During Development
+
+### Pricing Label Standardization
+All pricing information across the application (on Discover cards and the Creator Profile) has been updated to prefix the cost with **"Starts at"** (e.g. "Starts at $25 per session"). This sets clearer expectations for fans before they view specific package variations.
+
+### Dynamic Avatar Uploads
+The onboarding flows for both Creators and Fans were augmented to let users upload profile pictures via a sleek UI featuring a primary `Camera` icon overlay. It uses the `FileReader` API to instantly encode the selected picture as a base64 DataURL and sets it to the user's `avatar_url`. An option to "Remove photo" is also included to revert to the colored initials.
+
+### Booking Navigation
+The availability calendar component logic (now shared in `BookingModal.tsx` and the profile's page context) was improved with explicit pagination. A `weekOffset` state tracks how many weeks into the future the fan is viewing. Clicking "Prev" or "Next" seamlessly shifts the displayed days in 7-day increments up to 3 weeks ahead.
+
+### Creator Review System
+Fans can now submit genuine reviews after a session. To power this securely, database policies were set ensuring fans can only insert reviews for creators they have interacted with. A new `Recent Reviews` feed automatically appears on the creator's profile pulling directly from the Supabase `reviews` table, replacing the static 'No reviews yet' state.
+
+### Database Booking Persistence
+The app no longer relies on mock-data for its booking scheduling flow! Upon a successful synchronous Stripe `PaymentIntent` confirmation within the fan's `BookingModal`, the system securely inserts a new row straight into the Supabase `public.bookings` ledger. While doing this, the platform fees were transitioned: Fans now pay a 2.5% premium at booking checkout, saving exactly `sessionPrice * 1.025` to the gross ledger.
+
+### Creator Earnings & Payout Logic
+The Creator Dashboard and Settings -> Billing tabs were upgraded from static mock arrays to dynamically polling via Supabase!
+- **Dynamic Dashboard Calculations**: The lifetime total earnings stat automatically calculates exactly 85% of their total `bookings` price, representing their net gross cut from the scheduled calls.
+- **Available Balances**: The `settings/page.tsx` compares total earnings against the historical data living natively inside the new `public.payouts` relational table to securely resolve current "Available to Withdraw" amounts. Clicking the robust gold "Withdraw" button inserts a pending transaction request that automatically refreshes their payout history list in real time.

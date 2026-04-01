@@ -28,15 +28,15 @@ export function Avatar({
 }: AvatarProps) {
   const { outer, text } = sizeMap[size];
   return (
-    <div className={cn("relative shrink-0", className)}>
+    <div className={cn("relative shrink-0 rounded-full", className)}>
       <div
         className={cn(
           outer,
-          imageUrl ? "" : color,
+          imageUrl && imageUrl.length > 0 ? "" : color,
           "rounded-full flex items-center justify-center font-bold text-white overflow-hidden"
         )}
       >
-        {imageUrl ? (
+        {imageUrl && imageUrl.length > 0 ? (
           <img src={imageUrl} alt={initials} className="w-full h-full object-cover" />
         ) : (
           <span className={text}>{initials}</span>

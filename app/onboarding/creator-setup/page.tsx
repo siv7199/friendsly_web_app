@@ -3,10 +3,8 @@
 /**
  * Creator Setup  (route: /onboarding/creator-setup)
  *
- * 2-step form → /dashboard
- *
- * Step 1: Name + Username
- * Step 2: Bio + Category  (NO pricing — creators set rates in /management)
+ * Step 1: Name + Username + Avatar color
+ * Step 2: Bio + Category
  * Step 3: Review + Launch
  */
 
@@ -14,14 +12,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   User, ChevronRight, ChevronLeft,
-  CheckCircle2, Sparkles, Loader2,
+  CheckCircle2, Sparkles, Loader2, Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { CREATOR_CATEGORIES, saveRegisteredCreator } from "@/lib/mock-auth";
-import { isCreatorProfile } from "@/types";
+import { CREATOR_CATEGORIES } from "@/lib/mock-auth";
 import { cn } from "@/lib/utils";
 
 type Step = 1 | 2 | 3;
@@ -31,9 +28,26 @@ interface FormData {
   username: string;
   bio: string;
   category: string;
+  avatar_color: string;
+  avatar_url?: string;
 }
 
 const MAX_BIO = 280;
+
+const AVATAR_COLORS = [
+  { cls: "bg-violet-600",  hex: "#7c3aed" },
+  { cls: "bg-purple-600",  hex: "#9333ea" },
+  { cls: "bg-indigo-600",  hex: "#4f46e5" },
+  { cls: "bg-blue-600",    hex: "#2563eb" },
+  { cls: "bg-cyan-600",    hex: "#0891b2" },
+  { cls: "bg-teal-600",    hex: "#0d9488" },
+  { cls: "bg-green-600",   hex: "#16a34a" },
+  { cls: "bg-amber-500",   hex: "#f59e0b" },
+  { cls: "bg-orange-500",  hex: "#f97316" },
+  { cls: "bg-rose-600",    hex: "#e11d48" },
+  { cls: "bg-pink-600",    hex: "#db2777" },
+  { cls: "bg-red-600",     hex: "#dc2626" },
+];
 
 const STEPS = [
   { n: 1, label: "Identity" },
@@ -52,6 +66,8 @@ export default function CreatorSetupPage() {
     username: user?.username ?? "",
     bio: "",
     category: CREATOR_CATEGORIES[0],
+    avatar_color: user?.avatar_color ?? "bg-violet-600",
+    avatar_url: user?.avatar_url ?? "",
   });
 
   function update(field: keyof FormData, value: string) {
@@ -64,39 +80,25 @@ export default function CreatorSetupPage() {
     3: true,
   };
 
+  // Derive initials from current full_name input
+  const initials = form.full_name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "?";
+
   async function handleSubmit() {
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 600));
-
-    // Save to auth profile
-    updateProfile({
+    await (updateProfile as (u: Parameters<typeof updateProfile>[0]) => Promise<void>)({
       full_name: form.full_name,
       username: form.username,
+      avatar_color: form.avatar_color,
+      avatar_url: form.avatar_url,
       bio: form.bio,
-      hourly_rate: 0,        // Set later in /management when creating packages
       category: form.category,
       is_live: false,
-    } as Parameters<typeof updateProfile>[0]);
-
-    // ── Register on the discover page ────────────────────────────────
-    // Build a temporary up-to-date profile snapshot since updateProfile
-    // is async in React state — we construct the merged object directly.
-    if (user) {
-      const updatedProfile = {
-        ...user,
-        full_name: form.full_name,
-        username: form.username,
-        bio: form.bio,
-        hourly_rate: 0,
-        category: form.category,
-        is_live: false,
-        role: "creator" as const,
-      };
-      if (isCreatorProfile(updatedProfile)) {
-        saveRegisteredCreator(updatedProfile);
-      }
-    }
-
+    });
     router.push("/dashboard");
   }
 
@@ -135,15 +137,61 @@ export default function CreatorSetupPage() {
 
           {/* ── Step 1: Identity ── */}
           {step === 1 && (
-            <div className="space-y-4">
-              <div className="text-center mb-2">
-                <Avatar
-                  initials={user?.avatar_initials ?? "?"}
-                  color={user?.avatar_color ?? "bg-violet-600"}
-                  size="lg"
-                  className="mx-auto mb-2"
-                />
-                <p className="text-xs text-slate-500">Avatar is auto-generated from your name</p>
+            <div className="space-y-5">
+              {/* Avatar preview + color picker */}
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative">
+                  <Avatar
+                    initials={initials}
+                    color={form.avatar_color}
+                    size="lg"
+                    imageUrl={form.avatar_url || undefined}
+                  />
+                  <label className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-brand-primary border-2 border-brand-surface flex items-center justify-center cursor-pointer hover:bg-brand-primary-hover transition-colors">
+                    <Camera className="w-3.5 h-3.5 text-white" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          update("avatar_url", ev.target?.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                  </label>
+                </div>
+                {form.avatar_url && (
+                  <button
+                    type="button"
+                    onClick={() => update("avatar_url", "")}
+                    className="text-xs text-red-400 hover:text-red-300 -mt-1"
+                  >
+                    Remove photo
+                  </button>
+                )}
+                <p className="text-xs text-slate-500">Pick a background color</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {AVATAR_COLORS.map(({ cls, hex }) => (
+                    <button
+                      key={cls}
+                      type="button"
+                      onClick={() => update("avatar_color", cls)}
+                      style={{ backgroundColor: hex }}
+                      className={cn(
+                        "w-7 h-7 rounded-full transition-all",
+                        form.avatar_color === cls
+                          ? "ring-2 ring-white ring-offset-2 ring-offset-brand-elevated scale-110"
+                          : "hover:scale-105"
+                      )}
+                      aria-label={cls}
+                    />
+                  ))}
+                </div>
               </div>
 
               <Input
@@ -226,9 +274,10 @@ export default function CreatorSetupPage() {
               <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <Avatar
-                    initials={user?.avatar_initials ?? "?"}
-                    color={user?.avatar_color ?? "bg-violet-600"}
+                    initials={initials}
+                    color={form.avatar_color}
                     size="md"
+                    imageUrl={form.avatar_url || undefined}
                   />
                   <div>
                     <p className="font-bold text-slate-100">{form.full_name}</p>

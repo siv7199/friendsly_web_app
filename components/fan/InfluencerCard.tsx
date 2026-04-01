@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookingModal } from "@/components/fan/BookingModal";
 import type { Creator, CallPackage } from "@/types";
-import { getCreatorPackages } from "@/lib/mock-auth";
+import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 
@@ -20,9 +20,31 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
   const [packages, setPackages] = useState<CallPackage[]>([]);
 
   useEffect(() => {
-    const pkgs = getCreatorPackages(creator.id).filter((p) => p.isActive);
-    setPackages(pkgs);
+    const supabase = createClient();
+    supabase
+      .from("call_packages")
+      .select("*")
+      .eq("creator_id", creator.id)
+      .eq("is_active", true)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(({ data }: { data: any[] | null }) => {
+        if (data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setPackages(data.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            duration: p.duration,
+            price: Number(p.price),
+            description: p.description,
+            isActive: p.is_active,
+            bookingsCount: p.bookings_count,
+          })));
+        }
+      });
   }, [creator.id]);
+
+  const hasLiveRate = Boolean(creator.liveRatePerMinute && creator.liveRatePerMinute > 0);
+  const hasPackages  = creator.callPrice > 0 || packages.length > 0;
 
   return (
     <>
@@ -57,7 +79,7 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
               )}
             </div>
 
-            {/* Rating + Reviews */}
+            {/* Rating + Followers */}
             <div className="flex items-center gap-3 mt-1.5">
               <div className="flex items-center gap-1">
                 <Star className="w-3.5 h-3.5 fill-brand-gold text-brand-gold" />
@@ -95,15 +117,35 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
         </div>
 
         {/* ── Pricing / Availability ── */}
-        <div className="px-5 py-4 mt-3 border-t border-brand-border flex items-center justify-between">
+        <div className="px-5 py-4 mt-3 border-t border-brand-border flex items-center justify-between gap-3">
           <div>
-            {creator.callPrice > 0 ? (
-              <div className="flex items-baseline gap-1">
-                <span className="text-xl font-black text-slate-100">
-                  {formatCurrency(creator.callPrice)}
-                </span>
-                <span className="text-xs text-slate-500">/ {creator.callDuration} min</span>
-              </div>
+            {/* Live rate takes priority when creator is live */}
+            {creator.isLive && hasLiveRate ? (
+              <>
+                <div className="flex items-baseline gap-1">
+                  <Zap className="w-3.5 h-3.5 text-brand-live" />
+                  <span className="text-xl font-black text-brand-live">
+                    {formatCurrency(creator.liveRatePerMinute!)}
+                  </span>
+                  <span className="text-xs text-slate-500">/ min</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">Pay only for time on call</p>
+              </>
+            ) : hasPackages ? (
+              <>
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Starts at</span>
+                  <span className="text-2xl font-black text-slate-100 leading-none">
+                    {formatCurrency(creator.callPrice)}
+                  </span>
+                </div>
+                {hasLiveRate && (
+                  <p className="text-[11px] text-brand-live mt-0.5">
+                    <Zap className="w-2.5 h-2.5 inline mr-0.5" />
+                    Live: {formatCurrency(creator.liveRatePerMinute!)}/min
+                  </p>
+                )}
+              </>
             ) : (
               <span className="text-sm font-semibold text-slate-400">Packages TBD</span>
             )}
@@ -115,17 +157,17 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
 
           {creator.isLive ? (
             <Link href={`/waiting-room/${creator.id}`}>
-              <Button variant="live" size="sm" className="gap-1.5">
+              <Button variant="live" size="sm" className="gap-1.5 shrink-0">
                 <Zap className="w-3.5 h-3.5" />
                 Join Queue ({creator.queueCount})
               </Button>
             </Link>
-          ) : creator.callPrice > 0 ? (
+          ) : hasPackages ? (
             <Button
               variant="primary"
               size="sm"
               onClick={() => setShowBooking(true)}
-              className="gap-1.5"
+              className="gap-1.5 shrink-0"
             >
               <Video className="w-3.5 h-3.5" />
               Book Call
@@ -135,7 +177,7 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
               variant="ghost"
               size="sm"
               disabled
-              className="gap-1.5 opacity-50 cursor-not-allowed"
+              className="gap-1.5 opacity-50 cursor-not-allowed shrink-0"
             >
               <Clock className="w-3.5 h-3.5" />
               Coming Soon
@@ -144,7 +186,6 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
         </div>
       </article>
 
-      {/* Booking Modal */}
       <BookingModal
         creator={creator}
         open={showBooking}

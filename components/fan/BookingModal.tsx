@@ -8,13 +8,15 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import { Calendar, Clock, MessageSquare, CheckCircle2, Loader2 } from "lucide-react";
+import { Calendar, Clock, MessageSquare, CheckCircle2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import type { Creator, CallPackage } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthContext } from "@/lib/context/AuthContext";
 
 // Initialise Stripe once (outside component so it's not recreated on render)
 const stripePromise = loadStripe(
@@ -41,12 +43,12 @@ const TIME_SLOTS = [
   "3:30 PM", "4:00 PM", "5:00 PM", "5:30 PM",
 ];
 
-function getAvailableDates() {
+function getAvailableDates(weekOffset: number) {
   const dates = [];
   const today = new Date();
-  for (let i = 1; i <= 7; i++) {
+  for (let i = 1; i <= 8; i++) {
     const d = new Date(today);
-    d.setDate(today.getDate() + i);
+    d.setDate(today.getDate() + i + (weekOffset * 7));
     dates.push(d);
   }
   return dates;
@@ -59,7 +61,7 @@ function formatShortDate(d: Date) {
 // ── Inner payment form (needs to live inside <Elements>) ───────────────
 
 interface PaymentFormProps {
-  onSuccess: () => void;
+  onSuccess: (paymentIntentId: string) => void;
   onBack: () => void;
   isSubmitting: boolean;
   setIsSubmitting: (v: boolean) => void;
@@ -75,7 +77,7 @@ function PaymentForm({ onSuccess, onBack, isSubmitting, setIsSubmitting, setPayE
     setIsSubmitting(true);
     setPayError("");
 
-    const { error } = await stripe.confirmPayment({
+    const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       redirect: "if_required",
     });
@@ -83,8 +85,8 @@ function PaymentForm({ onSuccess, onBack, isSubmitting, setIsSubmitting, setPayE
     if (error) {
       setPayError(error.message ?? "Payment failed. Please try again.");
       setIsSubmitting(false);
-    } else {
-      onSuccess();
+    } else if (paymentIntent) {
+      onSuccess(paymentIntent.id);
     }
   }
 
@@ -128,11 +130,13 @@ interface BookingModalProps {
 }
 
 export function BookingModal({ creator, open, onClose, packages = [] }: BookingModalProps) {
+  const { user } = useAuthContext();
   const [step, setStep] = useState<Step>("select");
   const [selectedPackage, setSelectedPackage] = useState<CallPackage | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [topic, setTopic] = useState("");
+  const [weekOffset, setWeekOffset] = useState(0);
 
   // Stripe state
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -140,11 +144,43 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [payError, setPayError] = useState("");
 
-  const availableDates = getAvailableDates();
+  const availableDates = getAvailableDates(weekOffset);
   const sessionPrice = selectedPackage?.price ?? creator.callPrice;
   const sessionDuration = selectedPackage?.duration ?? creator.callDuration;
-  // Stripe works in cents
-  const totalCents = Math.round(sessionPrice * 1.05 * 100);
+  // Fan pays a 2.5% platform fee
+  const sessionGrossPrice = sessionPrice * 1.025;
+  const totalCents = Math.round(sessionGrossPrice * 100);
+
+  async function handlePaymentSuccess(paymentIntentId: string) {
+    if (!user || !selectedDate || !selectedTime) return;
+    
+    const timeParts = selectedTime.match(/(\d+):(\d+)\s+(AM|PM)/);
+    let hours = 12;
+    let mins = 0;
+    if (timeParts) {
+      hours = parseInt(timeParts[1]);
+      mins = parseInt(timeParts[2]);
+      if (timeParts[3] === "PM" && hours !== 12) hours += 12;
+      if (timeParts[3] === "AM" && hours === 12) hours = 0;
+    }
+    const scheduledDate = new Date(selectedDate);
+    scheduledDate.setHours(hours, mins, 0, 0);
+
+    const supabase = createClient();
+    await supabase.from("bookings").insert({
+      creator_id: creator.id,
+      fan_id: user.id,
+      package_id: selectedPackage?.id,
+      scheduled_at: scheduledDate.toISOString(),
+      duration: sessionDuration,
+      price: sessionGrossPrice,
+      status: "upcoming",
+      topic: topic || null,
+      stripe_payment_intent_id: paymentIntentId
+    });
+
+    setStep("success");
+  }
 
   // Reset state whenever the modal opens
   useEffect(() => {
@@ -154,6 +190,7 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
       setSelectedDate(null);
       setSelectedTime(null);
       setTopic("");
+      setWeekOffset(0);
       setClientSecret(null);
       setPayError("");
       setIsSubmitting(false);
@@ -271,10 +308,31 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-300 flex items-center gap-2 mb-3">
-                <Calendar className="w-4 h-4 text-brand-primary-light" />
-                Select Date
-              </label>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-brand-primary-light" />
+                  Select Date
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mr-1">
+                    {weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : `+${weekOffset} weeks`}
+                  </span>
+                  <button
+                    onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
+                    disabled={weekOffset === 0}
+                    className="p-1 rounded-md bg-brand-elevated border border-brand-border text-slate-400 hover:text-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setWeekOffset((w) => Math.min(3, w + 1))}
+                    disabled={weekOffset >= 3}
+                    className="p-1 rounded-md bg-brand-elevated border border-brand-border text-slate-400 hover:text-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-4 gap-2">
                 {availableDates.map((date) => {
                   const isSelected = selectedDate?.toDateString() === date.toDateString();
@@ -411,12 +469,12 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
                 <span className="text-slate-200">{formatCurrency(sessionPrice)}</span>
               </div>
               <div className="flex justify-between text-sm mb-3">
-                <span className="text-slate-400">Platform fee (5%)</span>
-                <span className="text-slate-200">{formatCurrency(Math.round(sessionPrice * 0.05))}</span>
+                <span className="text-slate-400">Platform fee (2.5%)</span>
+                <span className="text-slate-200">{formatCurrency(sessionPrice * 0.025)}</span>
               </div>
               <div className="flex justify-between font-bold text-base border-t border-brand-border pt-3">
                 <span className="text-slate-100">Total</span>
-                <span className="text-gradient-gold">{formatCurrency(Math.round(sessionPrice * 1.05))}</span>
+                <span className="text-gradient-gold">{formatCurrency(sessionGrossPrice)}</span>
               </div>
             </div>
 
@@ -442,7 +500,7 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
                   options={{ clientSecret, appearance: STRIPE_APPEARANCE }}
                 >
                   <PaymentForm
-                    onSuccess={() => setStep("success")}
+                    onSuccess={handlePaymentSuccess}
                     onBack={() => setStep("details")}
                     isSubmitting={isSubmitting}
                     setIsSubmitting={setIsSubmitting}

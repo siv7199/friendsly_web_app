@@ -15,19 +15,20 @@ export interface Creator {
   bio: string;
   category: string;
   tags: string[];
-  followers: string;       // Formatted string e.g. "48.2K"
-  rating: number;          // 0–5
+  followers: string;            // Formatted string e.g. "48.2K"
+  rating: number;               // 0–5
   reviewCount: number;
-  avatarInitials: string;  // Fallback if no image — "LV", "MJ"
-  avatarColor: string;     // Tailwind bg class for avatar
-  avatarUrl?: string;      // Profile photo URL (base64 or remote)
+  avatarInitials: string;       // Fallback if no image — "LV", "MJ"
+  avatarColor: string;          // Tailwind bg class for avatar
+  avatarUrl?: string;           // Profile photo URL (base64 or remote)
   isLive: boolean;
-  queueCount: number;      // People currently in queue
-  callPrice: number;       // USD per session
-  callDuration: number;    // Minutes per session
-  nextAvailable: string;   // Human-readable — "Today, 3:00 PM"
+  queueCount: number;           // People currently in queue
+  callPrice: number;            // USD — cheapest active booking package
+  callDuration: number;         // Minutes per session
+  nextAvailable: string;        // Human-readable — "Today, 3:00 PM"
   totalCalls: number;
-  responseTime: string;    // e.g. "~2 min"
+  responseTime: string;         // e.g. "~2 min"
+  liveRatePerMinute?: number;   // USD/min for public live queue sessions
 }
 
 // ── Booking ───────────────────────────────────────────────────────────
@@ -122,9 +123,10 @@ export interface FanProfile extends BaseProfile {
 export interface CreatorProfile extends BaseProfile {
   role: "creator";
   bio: string;
-  hourly_rate: number;     // USD — used as callPrice in the mock Creator cards
-  category: string;        // e.g. "Fitness & Wellness"
+  hourly_rate: number;              // USD — cheapest active booking package price
+  category: string;                 // e.g. "Fitness & Wellness"
   is_live: boolean;
+  live_rate_per_minute?: number;    // USD/min charged during public live queue sessions
 }
 
 /** PendingProfile — signed up but hasn't picked a role yet (mid-onboarding) */

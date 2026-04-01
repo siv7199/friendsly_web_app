@@ -3,44 +3,107 @@
 import { useState, useEffect } from "react";
 import {
   Plus, Edit2, Trash2, DollarSign,
-  Clock, CheckCircle2, ToggleLeft, ToggleRight,
+  Clock, CheckCircle2, ToggleLeft, ToggleRight, Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { MOCK_CALL_PACKAGES } from "@/lib/mock-data";
 import type { CallPackage } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { saveCreatorPackages, getCreatorPackages } from "@/lib/mock-auth";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ManagementPage() {
   const { user } = useAuthContext();
-  const isDemo = user?.id === "1";
 
   const [packages, setPackages] = useState<CallPackage[]>([]);
   const [editingPackage, setEditingPackage] = useState<CallPackage | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", duration: "15", price: "25", description: "" });
 
-  // Load packages from localStorage on mount
+  // Live rate state
+  const [liveRate, setLiveRate] = useState<string>("");
+  const [liveRateSaving, setLiveRateSaving] = useState(false);
+  const [liveRateSaved, setLiveRateSaved] = useState(false);
+
+  const supabase = createClient();
+
+  // Load packages + live rate from Supabase on mount
   useEffect(() => {
     if (!user) return;
-    if (isDemo) {
-      // Demo creator: use mock data as seed if no saved packages yet
-      const saved = getCreatorPackages(user.id);
-      setPackages(saved.length > 0 ? saved : MOCK_CALL_PACKAGES);
-    } else {
-      setPackages(getCreatorPackages(user.id));
-    }
-  }, [user, isDemo]);
 
-  // Persist whenever packages change
+    async function load() {
+      const { data: pkgs } = await supabase
+        .from("call_packages")
+        .select("*")
+        .eq("creator_id", user!.id)
+        .order("created_at");
+
+      if (pkgs) {
+        setPackages(pkgs.map((p) => ({
+          id: p.id,
+          name: p.name,
+          duration: p.duration,
+          price: Number(p.price),
+          description: p.description,
+          isActive: p.is_active,
+          bookingsCount: p.bookings_count,
+        })));
+      }
+
+      const { data: cp } = await supabase
+        .from("creator_profiles")
+        .select("live_rate_per_minute")
+        .eq("id", user!.id)
+        .single();
+
+      if (cp?.live_rate_per_minute != null) {
+        setLiveRate(String(cp.live_rate_per_minute));
+      }
+    }
+
+    load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Persist packages to Supabase whenever they change
   useEffect(() => {
-    if (!user || packages.length === 0 && !isDemo) return;
-    saveCreatorPackages(user.id, packages);
-  }, [packages, user, isDemo]);
+    if (!user || packages.length === 0) return;
+
+    async function persist() {
+      // Upsert all packages for this creator
+      await supabase.from("call_packages").upsert(
+        packages.map((p) => ({
+          id: p.id,
+          creator_id: user!.id,
+          name: p.name,
+          duration: p.duration,
+          price: p.price,
+          description: p.description,
+          is_active: p.isActive,
+          bookings_count: p.bookingsCount,
+        })),
+        { onConflict: "id" }
+      );
+    }
+
+    persist();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages, user?.id]);
+
+  async function saveLiveRate() {
+    if (!user) return;
+    setLiveRateSaving(true);
+    const rate = parseFloat(liveRate) || null;
+    await supabase
+      .from("creator_profiles")
+      .update({ live_rate_per_minute: rate })
+      .eq("id", user.id);
+    setLiveRateSaving(false);
+    setLiveRateSaved(true);
+    setTimeout(() => setLiveRateSaved(false), 2000);
+  }
 
   function openNew() {
     setForm({ name: "", duration: "15", price: "25", description: "" });
@@ -70,7 +133,7 @@ export default function ManagementPage() {
       );
     } else {
       const newPkg: CallPackage = {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         name: form.name,
         duration: parseInt(form.duration),
         price: parseInt(form.price),
@@ -87,8 +150,9 @@ export default function ManagementPage() {
     setPackages((prev) => prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p)));
   }
 
-  function deletePackage(id: string) {
+  async function deletePackage(id: string) {
     setPackages((prev) => prev.filter((p) => p.id !== id));
+    await supabase.from("call_packages").delete().eq("id", id);
   }
 
   return (
@@ -140,6 +204,50 @@ export default function ManagementPage() {
                 onDelete={() => deletePackage(pkg.id)}
               />
             ))
+          )}
+        </div>
+
+        {/* ── Live Rate ── */}
+        <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Zap className="w-5 h-5 text-brand-live" />
+            <h2 className="text-lg font-bold text-slate-100">Public Live Rate</h2>
+          </div>
+          <p className="text-sm text-slate-400 mb-5">
+            When you go live, fans join your queue and are charged this rate per minute for the time
+            they&apos;re on the call with you. Set to blank to disable live queue billing.
+          </p>
+          <div className="flex items-end gap-4">
+            <div className="flex-1 max-w-xs">
+              <label className="text-sm font-medium text-slate-300 mb-2 block">
+                Rate per minute (USD)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                <input
+                  type="number"
+                  min="0.10"
+                  step="0.10"
+                  placeholder="e.g. 1.50"
+                  value={liveRate}
+                  onChange={(e) => setLiveRate(e.target.value)}
+                  className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated pl-7 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                />
+              </div>
+            </div>
+            <Button
+              variant={liveRateSaved ? "surface" : "primary"}
+              onClick={saveLiveRate}
+              disabled={liveRateSaving}
+              className="mb-0.5"
+            >
+              {liveRateSaving ? "Saving…" : liveRateSaved ? "Saved ✓" : "Save Rate"}
+            </Button>
+          </div>
+          {liveRate && parseFloat(liveRate) > 0 && (
+            <p className="text-xs text-brand-live mt-3">
+              Fans will see &quot;{formatCurrency(parseFloat(liveRate))}/min&quot; on your profile and discover card.
+            </p>
           )}
         </div>
 

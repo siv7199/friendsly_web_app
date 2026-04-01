@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -9,11 +10,12 @@ import {
   Sparkles,
   Settings,
   LogOut,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { MOCK_CREATORS } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
 
 const NAV_ITEMS = [
   { label: "Discover",    href: "/discover",   icon: Compass },
@@ -25,10 +27,23 @@ export function FanSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthContext();
+  const [liveCount, setLiveCount] = useState(0);
 
-  function handleLogout() {
-    logout();
-    router.push("/login");
+  // Fetch live creator count from Supabase
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("creator_profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("is_live", true)
+      .then(({ count }: { count: number | null }) => {
+        setLiveCount(count ?? 0);
+      });
+  }, []);
+
+  async function handleLogout() {
+    await logout();
+    router.push("/");
   }
 
   return (
@@ -69,27 +84,22 @@ export function FanSidebar() {
       </nav>
 
       {/* ── Featured Live Banner — only shown when creators are live ── */}
-      {(() => {
-        const liveCreators = MOCK_CREATORS.filter((c) => c.isLive);
-        if (liveCreators.length === 0) return null;
-        const names = liveCreators.slice(0, 2).map((c) => c.name.split(" ")[0]).join(" & ");
-        return (
-          <div className="mx-3 mb-3 p-4 rounded-xl bg-gradient-to-br from-brand-live/10 to-brand-primary/10 border border-brand-live/20">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />
-              <span className="text-xs font-bold text-brand-live uppercase tracking-wider">
-                {liveCreators.length} Live Now
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              {names}{liveCreators.length > 2 ? ` +${liveCreators.length - 2} more` : ""} {liveCreators.length === 1 ? "is" : "are"} live.{" "}
-              <Link href="/discover" className="text-brand-primary-light underline underline-offset-2">
-                Join the queue →
-              </Link>
-            </p>
+      {liveCount > 0 && (
+        <div className="mx-3 mb-3 p-4 rounded-xl bg-gradient-to-br from-brand-live/10 to-brand-primary/10 border border-brand-live/20">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />
+            <span className="text-xs font-bold text-brand-live uppercase tracking-wider">
+              {liveCount} Live Now
+            </span>
           </div>
-        );
-      })()}
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Creator{liveCount !== 1 ? "s are" : " is"} live right now.{" "}
+            <Link href="/discover" className="text-brand-primary-light underline underline-offset-2">
+              Join the queue →
+            </Link>
+          </p>
+        </div>
+      )}
 
       {/* ── Fan Profile ── */}
       <div className="px-3 pb-4 border-t border-brand-border pt-4">

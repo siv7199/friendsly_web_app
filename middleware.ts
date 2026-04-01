@@ -1,141 +1,100 @@
 /**
- * middleware.ts  (root level — Next.js runs this at the Edge before every request)
+ * middleware.ts
  *
- * WHAT THIS DOES:
- * Reads the "mock_session_role" cookie and decides where to send the user.
- * This is the gatekeeper for all protected routes.
+ * Runs at the Edge before every request.
+ * Two jobs:
+ *  1. Refresh the Supabase session cookies (keeps the user logged in).
+ *  2. Redirect unauthenticated / wrong-role users to the right page.
  *
- * WHY COOKIES AND NOT LOCALSTORAGE?
- * Middleware runs on the server (Edge runtime) — it has no access to the
- * browser's localStorage. Cookies are sent with every HTTP request, so
- * the server can read them before deciding whether to serve or redirect.
- *
- * COOKIE FORMAT:  "fan|<uuid>"  |  "creator|<uuid>"  |  "pending|<uuid>"
- *
- * REDIRECT RULES:
- * ┌──────────────────────────────┬─────────────────────┬───────────────────────┐
- * │ Cookie state                 │ Accessing...        │ Action                │
- * ├──────────────────────────────┼─────────────────────┼───────────────────────┤
- * │ No cookie                    │ protected route     │ → / (auth page)       │
- * │ No cookie                    │ / (auth page)       │ allow                 │
- * │ "pending|..."                │ /onboarding/*       │ allow                 │
- * │ "pending|..."                │ anything else       │ → /onboarding/role    │
- * │ "fan|..."                    │ /login, /signup     │ → /discover           │
- * │ "creator|..."                │ /login, /signup     │ → /dashboard          │
- * │ "fan|..." or "creator|..."   │ protected route     │ allow                 │
- * └──────────────────────────────┴─────────────────────┴───────────────────────┘
- *
- * → Future Supabase replacement:
- *   import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
- *   const supabase = createMiddlewareClient({ req, res })
- *   const { data: { session } } = await supabase.auth.getSession()
- *   Then fetch role from the profiles table and apply the same redirect logic.
+ * Role is stored in auth.users.user_metadata.role (set during onboarding).
+ * We read it from the decoded JWT so there's no extra DB round-trip here.
  */
 
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// ── Route classifications ─────────────────────────────────────────────
-
-/** Routes that require a fully authenticated session (role must be set) */
-const PROTECTED_ROUTES = [
-  "/discover",
-  "/bookings",
-  "/saved",
-  "/fan-profile",
-  "/profile",
-  "/waiting-room",
-  "/dashboard",
-  "/management",
-  "/calendar",
-  "/live",
-  "/settings",
-];
-
-/** Routes that a logged-in user should be bounced away from (auth lives at "/") */
-const AUTH_ROUTES = ["/", "/login", "/signup"];
-
-/** Routes only reachable during the "pending" (post-signup, pre-role) state */
+const PROTECTED_FAN     = ["/discover", "/profile", "/waiting-room", "/bookings", "/saved", "/settings"];
+const PROTECTED_CREATOR = ["/dashboard", "/management", "/calendar", "/live", "/settings"];
 const ONBOARDING_PREFIX = "/onboarding";
-
-// ── Helper ────────────────────────────────────────────────────────────
-
-function parseCookie(request: NextRequest): {
-  role: string | null;
-  userId: string | null;
-} {
-  const raw = request.cookies.get("mock_session_role")?.value ?? "";
-  const [role, userId] = raw.split("|");
-  return {
-    role: role || null,
-    userId: userId || null,
-  };
-}
+const AUTH_ROUTES       = ["/", "/login", "/signup"];
 
 function isProtected(pathname: string): boolean {
-  return PROTECTED_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(route + "/")
+  return [...PROTECTED_FAN, ...PROTECTED_CREATOR].some(
+    (r) => pathname === r || pathname.startsWith(r + "/")
   );
 }
 
 function isAuthRoute(pathname: string): boolean {
-  return AUTH_ROUTES.some((route) => pathname === route);
+  return AUTH_ROUTES.some((r) => pathname === r);
 }
 
-// ── Middleware ────────────────────────────────────────────────────────
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({ request });
 
-export function middleware(request: NextRequest) {
+  // Supabase SSR client — refreshes session cookies on every request
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  // getSession decodes the local JWT — no network call
+  const { data: { session } } = await supabase.auth.getSession();
+
   const { pathname } = request.nextUrl;
-  const { role, userId } = parseCookie(request);
-
-  const isFullyAuthenticated = Boolean(role && userId && role !== "pending");
-  const isPending = role === "pending" && Boolean(userId);
+  const role = session?.user?.user_metadata?.role as string | undefined;
+  const isPending   = Boolean(session && !role);
+  const isFullAuth  = Boolean(session && role);
 
   // 1. Fully authenticated → bounce away from auth pages
-  if (isFullyAuthenticated && isAuthRoute(pathname)) {
-    const dest = role === "creator" ? "/dashboard" : "/discover";
-    return NextResponse.redirect(new URL(dest, request.url));
+  if (isFullAuth && isAuthRoute(pathname)) {
+    return NextResponse.redirect(
+      new URL(role === "creator" ? "/dashboard" : "/discover", request.url)
+    );
   }
 
-  // 2. Fully authenticated → allow everywhere (they have a role)
-  if (isFullyAuthenticated) {
-    return NextResponse.next();
-  }
+  // 2. Fully authenticated → allow everywhere
+  if (isFullAuth) return response;
 
-  // 3. Pending (signed up, no role yet) → allow onboarding + auth routes
-  //    (auth routes = "/" so users with a stale pending cookie can still log in)
+  // 3. Pending (signed up, no role yet) → allow onboarding + auth
   if (isPending) {
     if (pathname.startsWith(ONBOARDING_PREFIX) || isAuthRoute(pathname)) {
-      return NextResponse.next();
+      return response;
     }
-    // Anywhere else → send them to finish onboarding
     return NextResponse.redirect(new URL("/onboarding/role", request.url));
   }
 
-  // 4. No session at all — only allow the auth page itself
-  if (pathname === "/" || isAuthRoute(pathname)) {
-    return NextResponse.next();
-  }
+  // 4. No session → allow auth page
+  if (isAuthRoute(pathname)) return response;
 
-  // 5. Trying to access a protected route with no session → auth page
+  // 5. No session + protected route → send to login
   if (isProtected(pathname)) {
-    const loginUrl = new URL("/", request.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    const url = new URL("/", request.url);
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
   }
 
-  // 6. Everything else (static files, API routes handled by matcher) — allow
-  return NextResponse.next();
+  return response;
 }
 
-// ── Matcher ───────────────────────────────────────────────────────────
-
-/**
- * The matcher tells Next.js which requests to run middleware on.
- * We exclude static files and the Next.js internals to avoid overhead.
- */
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$|.*\\.jpg$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$|.*\\.jpg$|api/).*)",
   ],
 };

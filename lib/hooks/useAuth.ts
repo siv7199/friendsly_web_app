@@ -1,235 +1,262 @@
 "use client";
 
-/**
- * lib/hooks/useAuth.ts
- *
- * The core authentication hook. Manages all auth state in one place.
- *
- * HOW IT WORKS:
- * 1. On first render (mount), it reads the cookie + localStorage synchronously
- *    and hydrates the user state — so logged-in users never see a flash of
- *    the unauthenticated state.
- *
- * 2. login() and signup() simulate a real network call with an 800ms delay,
- *    then persist data to localStorage + cookie.
- *
- * 3. logout() is instant — clears both storage layers and resets state.
- *
- * IMPORTANT: This hook is NOT used directly by components.
- * Components use `useAuthContext()` from AuthContext.tsx instead.
- * This hook is the implementation; the context is the distribution layer.
- */
-
 import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
 import type { MockProfile, UserRole } from "@/types";
-import {
-  getProfile,
-  getProfileByEmail,
-  saveProfile,
-  clearProfile,
-  setCookieSession,
-  clearCookieSession,
-  readCookieSession,
-  createPendingProfile,
-} from "@/lib/mock-auth";
-
-// ── State Shape ───────────────────────────────────────────────────────
 
 export interface AuthState {
   user: MockProfile | null;
   isAuthenticated: boolean;
-  isLoading: boolean;   // true during async ops AND on first mount before hydration
+  isLoading: boolean;
   error: string | null;
 }
 
 const INITIAL_STATE: AuthState = {
   user: null,
   isAuthenticated: false,
-  isLoading: true,  // start true — prevents flash of unauthenticated UI
+  isLoading: false,
   error: null,
 };
 
-// ── The Hook ──────────────────────────────────────────────────────────
+// ── Build a minimal profile from JWT data (no DB call) ────────────────────────
+function profileFromSession(session: { user: { id: string; email?: string; user_metadata?: Record<string, unknown> } }): MockProfile {
+  const meta = session.user.user_metadata ?? {};
+  const full_name = (meta.full_name as string) ?? "";
+  const role = (meta.role as UserRole) ?? null;
+  const initials = full_name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
+  return {
+    id: session.user.id,
+    email: session.user.email ?? "",
+    full_name,
+    username: (meta.username as string) ?? "",
+    avatar_initials: initials,
+    avatar_color: (meta.avatar_color as string) ?? "bg-violet-600",
+    avatar_url: meta.avatar_url as string | undefined,
+    created_at: "",
+    role,
+  } as MockProfile;
+}
+
+// ── Fetch full profile from DB (used for enriching state after nav) ───────────
+async function fetchProfile(userId: string): Promise<MockProfile | null> {
+  const supabase = createClient();
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("*, creator_profiles(*)")
+    .eq("id", userId)
+    .single();
+
+  if (error || !profile) return null;
+
+  const cp = Array.isArray(profile.creator_profiles)
+    ? profile.creator_profiles[0]
+    : profile.creator_profiles;
+
+  const base = {
+    id: profile.id,
+    email: profile.email,
+    full_name: profile.full_name,
+    username: profile.username,
+    avatar_initials: profile.avatar_initials,
+    avatar_color: profile.avatar_color,
+    avatar_url: profile.avatar_url ?? undefined,
+    created_at: profile.created_at,
+  };
+
+  if (profile.role === "creator" && cp) {
+    return {
+      ...base,
+      role: "creator",
+      bio: cp.bio ?? "",
+      hourly_rate: 0,
+      category: cp.category ?? "",
+      is_live: cp.is_live ?? false,
+      live_rate_per_minute: cp.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
+    } as MockProfile;
+  }
+  if (profile.role === "fan") return { ...base, role: "fan" } as MockProfile;
+  return { ...base, role: null } as unknown as MockProfile;
+}
+
+// ── The Hook ──────────────────────────────────────────────────────────────────
 
 export function useAuth() {
   const [state, setState] = useState<AuthState>(INITIAL_STATE);
 
-  // ── Hydration on mount ─────────────────────────────────────────────
-  // Reads localStorage + cookie synchronously on first render.
-  // No async delay — storage reads are near-instant.
   useEffect(() => {
-    const cookieSession = readCookieSession();
-    const profile = cookieSession ? getProfile(cookieSession.userId) : null;
+    const supabase = createClient();
+    let mounted = true;
 
-    if (cookieSession && profile && cookieSession.userId === profile.id && profile.role) {
-      // Valid session: cookie and profile map are consistent, role is set
-      setState({
-        user: profile,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-      });
-    } else {
-      // No session, or incomplete (pending role) — treat as logged out
-      setState({ ...INITIAL_STATE, isLoading: false });
+    // On mount: check for existing session, set state from JWT immediately
+    async function init() {
+      try {
+        const { data: { session } } = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<{ data: { session: null } }>((res) =>
+            setTimeout(() => res({ data: { session: null } }), 4000)
+          ),
+        ]);
+        if (!mounted) return;
+        if (!session) { setState({ ...INITIAL_STATE }); return; }
+        const user = profileFromSession(session);
+        setState({ user, isAuthenticated: Boolean(user.role), isLoading: false, error: null });
+
+        // Enrich with DB profile in background (non-blocking)
+        fetchProfile(session.user.id).then((full) => {
+          if (mounted && full) setState((s) => ({ ...s, user: full, isAuthenticated: Boolean(full.role) }));
+        }).catch(() => {/* ignore */});
+      } catch {
+        if (mounted) setState({ ...INITIAL_STATE });
+      }
     }
+
+    init();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      if (!session) {
+        setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
+        return;
+      }
+      // Set state from JWT immediately — no DB call
+      const user = profileFromSession(session);
+      setState({ user, isAuthenticated: Boolean(user.role), isLoading: false, error: null });
+
+      // Enrich with DB profile in background (non-blocking)
+      fetchProfile(session.user.id).then((full) => {
+        if (mounted && full) setState((s) => ({ ...s, user: full, isAuthenticated: Boolean(full.role) }));
+      }).catch(() => {/* ignore */});
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // ── login ──────────────────────────────────────────────────────────
-  /**
-   * Simulates sign-in. Any email/password works — no real validation.
-   *
-   * → Future Supabase:
-   *   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-   *   if (error) throw error
-   *   const { data: profile } = await supabase.from('profiles').select().eq('id', data.user.id).single()
-   */
+  // ── login ─────────────────────────────────────────────────────────────────
   const login = useCallback(async (email: string, password: string): Promise<void> => {
-    // Suppress unused-variable warning for password in mock mode
-    void password;
-
     setState((s) => ({ ...s, isLoading: true, error: null }));
-
-    // Simulate network latency
-    await new Promise((r) => setTimeout(r, 800));
-
     try {
-      const profile = getProfileByEmail(email);
-
-      if (profile) {
-        // Returning user — restore their session
-        if (!profile.role) {
-          // They signed up but never finished onboarding — send them back
-          setCookieSession("pending", profile.id);
-          setState({ user: profile, isAuthenticated: false, isLoading: false, error: null });
-          return;
-        }
-        setCookieSession(profile.role, profile.id);
-        setState({ user: profile, isAuthenticated: true, isLoading: false, error: null });
-      } else {
-        // No stored profile for this email — create a minimal one
-        // (handles the case where localStorage was cleared or it's a new device)
-        const newProfile = createPendingProfile(email, email.split("@")[0]);
-        saveProfile(newProfile);
-        setCookieSession("pending", newProfile.id);
-        setState({ user: newProfile, isAuthenticated: false, isLoading: false, error: null });
+      const supabase = createClient();
+      const { error } = await Promise.race([
+        supabase.auth.signInWithPassword({ email, password }),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Request timed out — check your connection.")), 8000)),
+      ]);
+      if (error) {
+        setState((s) => ({ ...s, isLoading: false, error: error.message }));
+        return;
       }
-    } catch {
-      setState((s) => ({
-        ...s,
-        isLoading: false,
-        error: "Login failed. Please try again.",
-      }));
+      // State is set by onAuthStateChange — just clear loading
+      setState((s) => ({ ...s, isLoading: false }));
+    } catch (e) {
+      setState((s) => ({ ...s, isLoading: false, error: e instanceof Error ? e.message : "Something went wrong." }));
     }
   }, []);
 
-  // ── signup ─────────────────────────────────────────────────────────
-  /**
-   * Creates a new pending profile (role not yet assigned).
-   * After signup, the user is sent to /onboarding/role.
-   *
-   * → Future Supabase:
-   *   const { data, error } = await supabase.auth.signUp({ email, password })
-   *   await supabase.from('profiles').insert({ id: data.user.id, email, full_name, ... })
-   */
-  const signup = useCallback(async (
-    email: string,
-    _password: string,
-    full_name: string
-  ): Promise<void> => {
+  // ── signup ────────────────────────────────────────────────────────────────
+  const signup = useCallback(async (email: string, password: string, full_name: string): Promise<void> => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
-
-    await new Promise((r) => setTimeout(r, 800));
-
     try {
-      const profile = createPendingProfile(email, full_name);
-      saveProfile(profile);
-      // Cookie set to "pending" — middleware allows /onboarding/* only
-      setCookieSession("pending", profile.id);
-      setState({ user: profile, isAuthenticated: false, isLoading: false, error: null });
-    } catch {
-      setState((s) => ({
-        ...s,
-        isLoading: false,
-        error: "Signup failed. Please try again.",
-      }));
+      const supabase = createClient();
+      const { data, error } = await Promise.race([
+        supabase.auth.signUp({ email, password, options: { data: { full_name } } }),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Request timed out — check your connection.")), 8000)),
+      ]);
+      if (error) {
+        setState((s) => ({ ...s, isLoading: false, error: error.message }));
+        return;
+      }
+      if (data.user && !data.session) {
+        setState((s) => ({ ...s, isLoading: false, error: "Check your email to confirm your account." }));
+        return;
+      }
+      // State is set by onAuthStateChange — just clear loading
+      setState((s) => ({ ...s, isLoading: false }));
+    } catch (e) {
+      setState((s) => ({ ...s, isLoading: false, error: e instanceof Error ? e.message : "Something went wrong." }));
     }
   }, []);
 
-  // ── logout ─────────────────────────────────────────────────────────
-  /**
-   * Clears the session cookie and resets state.
-   * The profile stays in localStorage so the user can log back in.
-   *
-   * → Future Supabase:
-   *   await supabase.auth.signOut()
-   *   (session cleared automatically; profile row stays in DB)
-   */
-  const logout = useCallback((): void => {
-    clearCookieSession();
-    setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
+  // ── logout ────────────────────────────────────────────────────────────────
+  const logout = useCallback(async (): Promise<void> => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
   }, []);
 
-  // ── deleteAccount ──────────────────────────────────────────────────
-  /**
-   * Permanently removes the profile from localStorage AND clears the
-   * session cookie. Used by the "Delete Account" button in settings.
-   * Unlike logout(), this cannot be undone.
-   */
-  const deleteAccount = useCallback((): void => {
-    const session = readCookieSession();
-    clearCookieSession();
-    if (session?.userId) clearProfile(session.userId);
+  // ── deleteAccount ─────────────────────────────────────────────────────────
+  const deleteAccount = useCallback(async (): Promise<void> => {
+    const supabase = createClient();
+    await supabase.auth.admin?.deleteUser?.(state.user?.id ?? "");
+    await supabase.auth.signOut();
     setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
-  }, []);
+  }, [state.user?.id]);
 
-  // ── updateProfile ──────────────────────────────────────────────────
-  /**
-   * Merges partial updates into the current profile and persists.
-   * Used by: onboarding steps, settings page.
-   *
-   * → Future Supabase:
-   *   await supabase.from('profiles').update(updates).eq('id', user.id)
-   */
-  const updateProfile = useCallback((updates: Partial<MockProfile>): void => {
-    setState((s) => {
-      if (!s.user) return s;
-      const merged = { ...s.user, ...updates } as MockProfile;
-      saveProfile(merged);
-      // If role just changed, update the cookie
-      if (updates.role && updates.role !== s.user.role) {
-        setCookieSession(updates.role as UserRole, merged.id);
+  // ── updateProfile ─────────────────────────────────────────────────────────
+  const updateProfile = useCallback(async (updates: Partial<MockProfile>): Promise<void> => {
+    if (!state.user) return;
+    const supabase = createClient();
+
+    const profileUpdates: Record<string, unknown> = {};
+    const creatorUpdates: Record<string, unknown> = {};
+
+    if ("full_name" in updates)   profileUpdates.full_name = updates.full_name;
+    if ("username" in updates)    profileUpdates.username = updates.username;
+    if ("avatar_url" in updates)  profileUpdates.avatar_url = updates.avatar_url;
+    if ("avatar_color" in updates) profileUpdates.avatar_color = updates.avatar_color;
+    if ("role" in updates)        profileUpdates.role = updates.role;
+
+    if ("bio" in updates)      creatorUpdates.bio = (updates as { bio?: string }).bio;
+    if ("category" in updates) creatorUpdates.category = (updates as { category?: string }).category;
+    if ("is_live" in updates)  creatorUpdates.is_live = (updates as { is_live?: boolean }).is_live;
+    if ("live_rate_per_minute" in updates) {
+      creatorUpdates.live_rate_per_minute = (updates as { live_rate_per_minute?: number }).live_rate_per_minute;
+    }
+
+    if (Object.keys(profileUpdates).length > 0) {
+      await supabase.from("profiles").update(profileUpdates).eq("id", state.user.id);
+    }
+
+    if (Object.keys(creatorUpdates).length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from("creator_profiles") as any).update(creatorUpdates).eq("id", state.user.id);
+      if (error?.code === "PGRST116") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from("creator_profiles") as any).insert({ id: state.user.id, ...creatorUpdates });
       }
-      return {
-        ...s,
-        user: merged,
-        isAuthenticated: !!merged.role,
-      };
-    });
-  }, []);
+    }
 
-  // ── setRole ────────────────────────────────────────────────────────
-  /**
-   * Convenience method for the onboarding role-selection page.
-   * Equivalent to updateProfile({ role }) but also flips isAuthenticated.
-   */
-  const setRole = useCallback((role: UserRole): void => {
-    setState((s) => {
-      if (!s.user) return s;
-      const merged = { ...s.user, role } as MockProfile;
-      saveProfile(merged);
-      setCookieSession(role, merged.id);
-      return { ...s, user: merged, isAuthenticated: true };
-    });
-  }, []);
+    if (updates.role) {
+      await supabase.auth.updateUser({ data: { role: updates.role } });
+    }
 
-  return {
-    ...state,
-    login,
-    signup,
-    logout,
-    deleteAccount,
-    updateProfile,
-    setRole,
-  };
+    // Update local state optimistically
+    setState((s) => ({
+      ...s,
+      user: s.user ? { ...s.user, ...updates } as MockProfile : null,
+      isAuthenticated: Boolean(updates.role ?? s.user?.role),
+    }));
+  }, [state.user]);
+
+  // ── setRole ───────────────────────────────────────────────────────────────
+  const setRole = useCallback(async (role: UserRole): Promise<void> => {
+    if (!state.user) return;
+    const supabase = createClient();
+
+    await supabase.from("profiles").update({ role }).eq("id", state.user.id);
+    await supabase.auth.updateUser({ data: { role } });
+
+    if (role === "creator") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("creator_profiles") as any).upsert({ id: state.user.id }, { onConflict: "id" });
+    }
+
+    setState((s) => ({
+      ...s,
+      user: s.user ? { ...s.user, role } as MockProfile : null,
+      isAuthenticated: true,
+    }));
+  }, [state.user]);
+
+  return { ...state, login, signup, logout, deleteAccount, updateProfile, setRole };
 }

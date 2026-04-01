@@ -11,7 +11,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  User, Mail,
+  User, Mail, DollarSign,
   CreditCard, CheckCircle2, Save, Loader2,
   Shield, Trash2, Camera, ArrowLeft, X,
 } from "lucide-react";
@@ -29,7 +29,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { isCreatorProfile } from "@/types";
 import { AVATAR_COLORS, CREATOR_CATEGORIES } from "@/lib/mock-auth";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -146,6 +147,12 @@ export default function SettingsPage() {
   const [setupClientSecret, setSetupClientSecret] = useState<string | null>(null);
   const [loadingSetup, setLoadingSetup] = useState(false);
 
+  // Financial state
+  const [earnings, setEarnings] = useState({ available: 0, pending: 0, thisMonth: 0, totalEarned: 0 });
+  const [payouts, setPayouts] = useState<any[]>([]);
+  const [loadingFinancials, setLoadingFinancials] = useState(true);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+
   // Form state seeded from live auth data
   const [form, setForm] = useState({
     full_name: "",
@@ -160,6 +167,57 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) setSavedCardState(getSavedCard(user.id));
   }, [user]);
+
+  // Load backend stats
+  useEffect(() => {
+    // Only run if it's a creator viewing the billing tab
+    if (!user || !isCreatorProfile(user) || activeTab !== "billing") return;
+    
+    async function loadFinancials() {
+      setLoadingFinancials(true);
+      const supabase = createClient();
+      
+      const { data: bData } = await supabase.from("bookings").select("price, scheduled_at, status").eq("creator_id", user!.id);
+      const { data: pData } = await supabase.from("payouts").select("*").eq("creator_id", user!.id).order('created_at', { ascending: false });
+      
+      let totalEarned = 0;
+      let monthEarned = 0;
+      const now = new Date();
+      
+      (bData || []).forEach((b: any) => {
+        if (b.status === "completed" || b.status === "upcoming") {
+          const cut = Number(b.price) * 0.85; // 85% cut calculation
+          totalEarned += cut;
+          const bDate = new Date(b.scheduled_at);
+          if (bDate.getMonth() === now.getMonth() && bDate.getFullYear() === now.getFullYear()) {
+            monthEarned += cut;
+          }
+        }
+      });
+      
+      let pendingWithdrawals = 0;
+      let totalWithdrawn = 0;
+      
+      (pData || []).forEach((p: any) => {
+        if (p.status === "pending" || p.status === "processing") pendingWithdrawals += Number(p.amount);
+        if (p.status === "completed") totalWithdrawn += Number(p.amount);
+      });
+      
+      const available = Math.max(0, totalEarned - totalWithdrawn - pendingWithdrawals);
+      
+      setEarnings({
+        available,
+        pending: pendingWithdrawals,
+        thisMonth: monthEarned,
+        totalEarned
+      });
+      
+      setPayouts(pData || []);
+      setLoadingFinancials(false);
+    }
+    
+    loadFinancials();
+  }, [user, activeTab]);
 
   async function handleAddCard() {
     setLoadingSetup(true);
@@ -184,6 +242,35 @@ export default function SettingsPage() {
     if (!user) return;
     removeSavedCard(user.id);
     setSavedCardState(null);
+  }
+
+  async function handleWithdraw() {
+    if (!user || earnings.available <= 0) return;
+    setIsWithdrawing(true);
+    const supabase = createClient();
+    const amountToWithdraw = earnings.available;
+    
+    await supabase.from("payouts").insert({
+      creator_id: user.id,
+      amount: amountToWithdraw,
+      status: "pending"
+    });
+    
+    // Optimistic UI update
+    setPayouts((prev) => [{
+      id: "opt-" + Date.now(),
+      amount: amountToWithdraw,
+      status: "pending",
+      created_at: new Date().toISOString()
+    }, ...prev]);
+    
+    setEarnings(prev => ({
+      ...prev,
+      available: 0,
+      pending: prev.pending + amountToWithdraw
+    }));
+    
+    setIsWithdrawing(false);
   }
 
   // Sync form when user loads from context
@@ -557,39 +644,89 @@ export default function SettingsPage() {
           {/* Creator earnings — only shown to creators */}
           {isCreator && (
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
-              <h2 className="text-base font-semibold text-slate-100 mb-4">Earnings Summary</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-slate-100">Earnings Summary</h2>
+                {loadingFinancials && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
                 {[
-                  { label: "Total Earned", value: user.id === "1" ? "$4,280" : "$0", accent: "text-gradient-gold" },
-                  { label: "This Month", value: user.id === "1" ? "$1,240" : "$0", accent: "text-brand-primary-light" },
-                  { label: "Pending Payout", value: user.id === "1" ? "$320" : "$0", accent: "text-brand-live" },
+                  { label: "Available to Withdraw", value: formatCurrency(earnings.available), accent: "text-gradient-gold" },
+                  { label: "Pending Payout", value: formatCurrency(earnings.pending), accent: "text-brand-live" },
+                  { label: "This Month", value: formatCurrency(earnings.thisMonth), accent: "text-slate-100" },
+                  { label: "Total Earned", value: formatCurrency(earnings.totalEarned), accent: "text-brand-primary-light" },
                 ].map((s) => (
                   <div key={s.label} className="p-4 rounded-xl bg-brand-elevated border border-brand-border">
                     <p className={cn("text-xl font-black", s.accent)}>{s.value}</p>
-                    <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+                    <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-wider font-semibold">{s.label}</p>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 p-3 rounded-xl bg-brand-primary/5 border border-brand-primary/10">
-                <p className="text-xs text-slate-500 flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-brand-live" />
-                  Payouts are processed via Stripe. Bank account payout setup coming soon.
-                </p>
+              
+              <div className="flex items-center justify-between mt-4 p-4 rounded-xl bg-brand-primary/5 border border-brand-primary/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-brand-primary/10 flex items-center justify-center">
+                    <DollarSign className="w-4 h-4 text-brand-primary-light" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-200">Withdraw Funds</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Transfer your available balance to your connected account</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="gold" 
+                  size="sm"
+                  onClick={handleWithdraw}
+                  disabled={earnings.available <= 0 || isWithdrawing || loadingFinancials}
+                >
+                  {isWithdrawing ? "Processing..." : "Withdraw"}
+                </Button>
               </div>
             </div>
           )}
 
-          {/* Billing history stub */}
-          <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
-            <h2 className="text-base font-semibold text-slate-100 mb-4">Billing History</h2>
-            <div className="text-center py-8">
-              <CreditCard className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-500 text-sm">No transactions yet.</p>
-              <p className="text-slate-600 text-xs mt-1">
-                Billing history will appear here once Stripe is connected.
-              </p>
+          {/* Payout history */}
+          {isCreator && (
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
+              <h2 className="text-base font-semibold text-slate-100 mb-4">Payout History</h2>
+              
+              {loadingFinancials ? (
+                <div className="text-center py-6">
+                  <Loader2 className="w-6 h-6 animate-spin text-slate-500 mx-auto" />
+                </div>
+              ) : payouts.length > 0 ? (
+                <div className="space-y-3">
+                  {payouts.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-brand-elevated border border-brand-border">
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="w-4 h-4 text-slate-400" />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-200">Withdrawal to Stripe</p>
+                          <p className="text-[10px] text-slate-500">
+                            {new Date(p.created_at).toLocaleDateString()} at {new Date(p.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-slate-100">{formatCurrency(p.amount)}</p>
+                        <Badge variant={p.status === "completed" ? "live" : p.status === "failed" ? "danger" : "default"} className="text-[10px] mt-1 capitalize">
+                          {p.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <DollarSign className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-500 text-sm">No payouts yet.</p>
+                  <p className="text-slate-600 text-xs mt-1">
+                    When you withdraw your earnings, they will appear here.
+                  </p>
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

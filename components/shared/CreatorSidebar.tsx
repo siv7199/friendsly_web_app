@@ -63,9 +63,9 @@ export function CreatorSidebar() {
 
   const isLive = user && isCreatorProfile(user) ? user.is_live : false;
 
-  function handleLogout() {
-    logout();
-    router.push("/login");
+  async function handleLogout() {
+    await logout();
+    router.push("/");
   }
 
   return (

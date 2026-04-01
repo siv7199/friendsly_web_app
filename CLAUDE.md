@@ -1,45 +1,93 @@
 # Friendsly — CLAUDE.md
 
 ## Project Overview
-Friendsly is a monetization platform for micro-influencers. Fans book 1-on-1 video calls or join live queue sessions with creators they follow.
+Friendsly is a monetization platform for micro-influencers. Fans either book dedicated 1-on-1 video calls or join a creator's live queue and pay per minute.
 
 ## Tech Stack
 - **Framework**: Next.js 14 (App Router)
 - **Styling**: Tailwind CSS with a custom brand palette
 - **Icons**: Lucide React
 - **UI Components**: Custom shadcn-style components in `components/ui/`
+- **Auth + DB**: Supabase (Auth + PostgreSQL)
 - **Payments**: Stripe (real PaymentIntents + Elements — test mode active)
-- **Backend (future)**: Supabase (Auth + PostgreSQL) + Daily.co (video)
+- **Video**: Daily.co (planned)
 - **Language**: TypeScript (strict mode)
+
+## Core Business Model
+
+### Live Queue (pay-per-minute)
+- Creator goes public live → fans can join the queue for free, no booking needed
+- Billing is **per second** — 30 seconds of talk = 30 seconds of charges
+- Rate set by creator in `/management` as `live_rate_per_minute`
+- Fan pre-authorizes a card hold (10 min × rate) when joining the queue
+- Call ends when creator skips them (admits next person); actual charge captured at that point
+- **Live badge** shown publicly on Discover and profile page
+- Creator shows as live only for their **public** live queue — NOT during dedicated bookings
+
+### Booking (fixed rate, pre-paid)
+- Fan picks a package (e.g. 15 min / $25), selects a date/time from creator's calendar
+- Full payment collected upfront via Stripe before the call
+- Private dedicated session — no queue, fan joins directly at the scheduled time
+- Creator does NOT show a public LIVE badge during a dedicated booking
 
 ## Folder Structure
 ```
 app/
-  (fan)/          — Fan route group (invisible in URL)
-    layout.tsx    — Wraps all fan pages with FanSidebar + BottomNav
-    discover/     — Grid of creator cards
-    profile/[id]/ — Individual creator profile
-    waiting-room/[id]/ — Live queue + chat
-  (creator)/      — Creator route group
-    layout.tsx    — Wraps all creator pages with CreatorSidebar + BottomNav
-    dashboard/    — Stats overview + recent bookings
-    management/   — Create/edit call packages
-    calendar/     — Upcoming and completed bookings
-    live/         — Go Live console with queue management
+  (fan)/
+    discover/         — Grid of creator cards
+    profile/[id]/     — Creator profile with calendar, live rate, packages, reviews
+    waiting-room/[id]/— Live queue + chat
+  (creator)/
+    dashboard/        — Stats + recent bookings
+    management/       — Packages CRUD + live rate setting
+    calendar/         — Upcoming/completed bookings
+    live/             — Go Live console with queue management
+  api/
+    create-payment-intent/   — Stripe PaymentIntent (bookings)
+    create-live-preauth/     — Stripe manual-capture PaymentIntent (live queue)
 
 components/
-  ui/             — Reusable primitives (Button, Badge, Card, Avatar, Dialog, Input)
-  fan/            — Fan-specific components (InfluencerCard, BookingModal, WaitingRoom)
-  creator/        — Creator-specific components (StatsCard, BookingList, LiveConsole)
-  shared/         — Layout components used in both views (FanSidebar, CreatorSidebar, BottomNav)
+  ui/         — Button, Badge, Card, Avatar, Dialog, Input
+  fan/        — InfluencerCard, BookingModal, LiveJoinModal, WaitingRoom
+  creator/    — StatsCard, BookingList, LiveConsole
+  shared/     — FanSidebar, CreatorSidebar, BottomNav
 
 lib/
-  utils.ts        — cn(), formatCurrency(), formatDate(), statusColor(), timeAgo()
-  mock-data.ts    — All fake data (replace with Supabase queries later)
+  supabase/
+    client.ts   — createClient() for browser components
+    server.ts   — createClient() + createServiceClient() for server/API routes
+  hooks/
+    useAuth.ts  — Supabase Auth hook (login, signup, logout, updateProfile, setRole)
+  context/
+    AuthContext.tsx  — React Context distributing useAuth
+  utils.ts          — cn(), formatCurrency(), formatDate(), statusColor(), timeAgo()
+  mock-auth.ts      — Legacy helpers (deriveInitials, pickAvatarColor, etc.) — kept for compat
 
 types/
-  index.ts        — TypeScript interfaces for Creator, Booking, QueueEntry, ChatMessage, etc.
+  index.ts    — Creator, Booking, CallPackage, MockProfile, CreatorProfile, etc.
+
+supabase/
+  migrations/
+    001_initial.sql  — Full schema (run once against the Supabase project)
 ```
+
+## Supabase Project
+- **URL**: `https://satowoyltkxkgwlfhdhd.supabase.co`
+- **Keys**: stored in `.env.local` — never commit
+- **Migration**: `supabase/migrations/001_initial.sql` — run via CLI or dashboard
+
+## Database Schema (key tables)
+
+| Table | Purpose |
+|---|---|
+| `profiles` | Public user data; one row per auth.users entry (auto-created by trigger) |
+| `creator_profiles` | Creator-specific fields (bio, category, live_rate_per_minute, is_live) |
+| `call_packages` | Creator's booking offerings (name, duration, price, is_active) |
+| `creator_availability` | Weekly recurring availability slots (day_of_week, start_time, end_time) |
+| `bookings` | Pre-paid dedicated sessions (fan + creator + package + scheduled_at) |
+| `live_sessions` | Public live queue events (rate_per_minute, is_active) |
+| `live_queue_entries` | Fan queue entries with pre-auth + actual charge fields |
+| `reviews` | Post-call ratings from fans |
 
 ## Color Palette (brand.*)
 ```
@@ -61,94 +109,91 @@ info            #38BDF8  — Sky blue (info states)
 
 ## Key Conventions
 1. **`cn()` for all classNames** — Import from `@/lib/utils`, never concatenate strings manually.
-2. **Mock data in `lib/mock-data.ts`** — All fake data lives here, never inline in components.
-3. **Types in `types/index.ts`** — All shared interfaces defined centrally.
-4. **"use client" directive** — Add to the top of any file that uses `useState`, `useEffect`, `usePathname`, or browser events.
-5. **Route Groups `(fan)` / `(creator)`** — Parentheses in folder names are invisible in the URL. Used purely for layout organization.
-6. **Absolute imports via `@/`** — `import { Button } from "@/components/ui/button"` — never relative `../../`.
+2. **Types in `types/index.ts`** — All shared interfaces defined centrally.
+3. **`"use client"` directive** — Required on any file using `useState`, `useEffect`, `usePathname`, or browser events.
+4. **Route Groups `(fan)` / `(creator)`** — Invisible in URL, used for layout organization.
+5. **Absolute imports via `@/`** — `import { Button } from "@/components/ui/button"` — never relative.
+6. **Supabase client** — Use `createClient()` from `@/lib/supabase/client` in browser components; from `@/lib/supabase/server` in API routes and Server Components.
 
-## Auth System (Mock — localStorage + Cookies)
-
-**Backend status: Mocked via localStorage + document.cookie**
+## Auth System (Supabase)
 
 ### Entry Point
-`/` (root) is both the Login and Create Account page — a single page with two tabs.
-- `/login` and `/signup` redirect to `/` (legacy routes kept to avoid broken links)
-- Authenticated users who visit `/` are auto-redirected to their role home
+`/` — Login + Create Account (two tabs). Authenticated users auto-redirect to their home.
 
 ### Auth Routes
 ```
-/                         — Login + Create Account (tabbed, single page)
-/onboarding/role          — Pick Fan or Creator (after signup only)
-/onboarding/creator-setup — 3-step creator profile form (no pricing — set in /management)
-/onboarding/fan-setup     — Simple username form
-/settings                 — Account + Billing tabs
+/                          — Login + Create Account
+/onboarding/role           — Pick Fan or Creator (post-signup)
+/onboarding/creator-setup  — 3-step creator profile form
+/onboarding/fan-setup      — Username form
+/settings                  — Account + Billing tabs
 ```
 
-### Simulated Schema (stored in localStorage key: `mock_profiles`)
+### Profile Shape
 ```typescript
-// Stored as { [userId]: MockProfile } — supports multiple accounts simultaneously
-
-// Common (all users)
+// profiles table (all users)
 {
-  id: string              // crypto.randomUUID()
+  id: uuid               // = auth.users.id
   email: string
   full_name: string
-  username: string        // derived from email, editable
-  role: "fan" | "creator" | null   // null = pending onboarding
-  avatar_initials: string // "Jordan Kim" → "JK"
-  avatar_color: string    // Tailwind bg class
-  avatar_url?: string     // base64 data URL from profile photo upload (optional)
-  created_at: string      // ISO timestamp
+  username: string       // unique, derived from email
+  role: "fan" | "creator" | null
+  avatar_url?: string
+  avatar_initials: string
+  avatar_color: string   // Tailwind bg class
+  created_at: timestamptz
 }
 
-// Creator-only extra fields
+// creator_profiles (creators only)
 {
+  id: uuid               // FK → profiles.id
   bio: string
-  hourly_rate: number     // Reflects cheapest active package price (synced by saveCreatorPackages)
   category: string
+  tags: string[]
+  live_rate_per_minute?: decimal  // $/min for public live sessions
   is_live: boolean
+  followers_count: integer
+  total_calls: integer
+  avg_rating: decimal
+  review_count: integer
 }
 ```
 
-### localStorage Keys (full map)
+### Role in JWT
+Role is stored in `auth.users.user_metadata.role` so middleware can read it from the JWT without a DB call.
+Set via `supabase.auth.updateUser({ data: { role } })` when the user picks their role in onboarding.
 
-| Key | Format | Written by | Read by |
-|-----|--------|-----------|---------|
-| `mock_profiles` | `{ [userId]: profile }` | signup, updateProfile | login, hydration |
-| `registered_creators` | `CreatorProfile[]` | saveRegisteredCreator, saveCreatorPackages | getRegisteredCreators, /discover |
-| `creator_packages` | `{ [creatorId]: CallPackage[] }` | saveCreatorPackages | getCreatorPackages, /profile/[id] |
-| `mock_session_role` (cookie) | `"fan\|uuid"` | setCookieSession | middleware.ts, readCookieSession |
+### Middleware
+`middleware.ts` uses `@supabase/ssr` to refresh session cookies and reads `session.user.user_metadata.role` for redirect logic. No DB call.
 
-### Creator Registry (stored in localStorage key: `registered_creators`)
-When a creator completes onboarding, their `CreatorProfile` is also saved here.
-The fan's `/discover` page reads this key and shows real creators in a "New Creators" section.
-- `saveRegisteredCreator(profile)` — called at end of creator onboarding
-- `getRegisteredCreators()` — called by discover page, returns `Creator[]` display cards
-- `saveCreatorPackages(creatorId, packages)` — called by /management on every change; also syncs `hourly_rate` in registered_creators so the Discover price badge stays current
-- `getCreatorPackages(creatorId)` — called by /profile/[id] to show the creator's real packages
-- New creators show "Packages TBD" + disabled "Coming Soon" button until they add packages in `/management`
+### Critical Auth Rules (learned the hard way)
 
-### Session Cookie (key: `mock_session_role`)
-Format: `"fan|<uuid>"` | `"creator|<uuid>"` | `"pending|<uuid>"`
-- Read by `middleware.ts` at the Edge for route protection
-- Written/cleared by `lib/mock-auth.ts` setCookieSession / clearCookieSession
+1. **`lib/supabase/client.ts` MUST use `createBrowserClient` from `@supabase/ssr` as a singleton.**
+   - Singleton prevents multiple GoTrue instances that cause hanging requests
+   - `@supabase/ssr` (not plain `@supabase/supabase-js`) is required — it stores sessions in cookies so the middleware can read them. Plain supabase-js uses localStorage and breaks middleware entirely.
+
+2. **Never block auth/navigation on DB calls (`/rest/v1/` queries).**
+   - Supabase DB REST calls can hang indefinitely in this project while auth calls work fine
+   - `useAuth.ts` sets state from JWT immediately; `fetchProfile()` runs in background
+   - `login`/`signup` do NOT call `fetchProfile` — they rely on `onAuthStateChange`
+
+3. **`setRole()` must be `await`ed before `router.push()` in `role/page.tsx`.**
+   - `setRole` calls `supabase.auth.updateUser({ data: { role } })` to update the JWT
+   - Navigating before this completes means middleware sees no role → redirect loop
+
+4. **DB trigger username uniqueness:** The `handle_new_user()` trigger derives username from email prefix. The `profiles.username` column is UNIQUE. If two emails share a prefix, the trigger fails with "Database error saving new user". The trigger was updated to append an incrementing counter when a username conflict exists.
+
+5. **Email confirmation:** Disabled in Supabase (Authentication → Providers → Email → Confirm email OFF) for dev/testing. Re-enable for production.
+
+6. **Sign out:** `logout()` must be `await`ed in sidebars, then `router.push("/")` — NOT `/login`.
 
 ### Key Files
 ```
-middleware.ts                    ← Route protection (Edge, reads cookie)
-lib/mock-auth.ts                 ← Storage helpers (localStorage + cookie + creator registry)
-lib/hooks/useAuth.ts             ← Auth state + methods
-lib/context/AuthContext.tsx      ← React Context distribution layer
-```
-
-### Onboarding Flow
-```
-/ (create account tab) → /onboarding/role → /onboarding/fan-setup    → /discover
-                                          → /onboarding/creator-setup → /dashboard
-                                                    ↓
-                                          saveRegisteredCreator() called
-                                          → creator appears on fan's /discover
+middleware.ts                  ← Session refresh + route protection
+lib/supabase/client.ts         ← Browser Supabase client (singleton createBrowserClient)
+lib/supabase/server.ts         ← Server Supabase client + service client
+lib/hooks/useAuth.ts           ← Auth state (login/signup/logout/updateProfile/setRole)
+lib/context/AuthContext.tsx    ← React Context distribution layer
 ```
 
 ## Running the Project
@@ -160,21 +205,17 @@ npm run dev
 
 ## Stripe Payments
 
-**Status: Live (test mode) — real PaymentIntents, real Stripe Elements card form**
+### Booking Flow (pre-pay)
+1. Fan picks package + date/time → `POST /api/create-payment-intent`
+2. Server creates PaymentIntent, returns `client_secret`
+3. Fan pays → booking is confirmed
 
-### Flow
-1. Fan clicks "Review & Pay" in BookingModal
-2. Browser calls `POST /api/create-payment-intent` with amount in cents
-3. Server creates a Stripe `PaymentIntent` using `STRIPE_SECRET_KEY` (server-only)
-4. Browser receives `client_secret`, mounts `<Elements>` with it
-5. Fan enters card details (Stripe handles this — we never see raw card data)
-6. `stripe.confirmPayment()` sends card to Stripe, returns success/failure
-
-### Keys (in `.env.local` — never commit to git)
-```
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...   ← safe in browser code
-STRIPE_SECRET_KEY=sk_test_...                    ← server only, never expose
-```
+### Live Queue Flow (pre-auth)
+1. Fan clicks "Join Queue" → `POST /api/create-live-preauth`
+2. Server creates PaymentIntent with `capture_method: "manual"` — card is held, not charged
+3. Pre-auth amount = 10 min × rate (e.g. $1.50/min → $15 hold)
+4. When creator skips fan, server captures actual amount (seconds used × rate/60)
+5. Remainder of hold is released automatically
 
 ### Test cards
 - `4242 4242 4242 4242` — succeeds
@@ -182,49 +223,33 @@ STRIPE_SECRET_KEY=sk_test_...                    ← server only, never expose
 - Any future expiry + any 3-digit CVC
 
 ### Key files
-- `app/api/create-payment-intent/route.ts` — server-side PaymentIntent creation
-- `components/fan/BookingModal.tsx` — `<Elements>`, `<PaymentElement>`, `confirmPayment()`
+- `app/api/create-payment-intent/route.ts` — booking payments
+- `app/api/create-live-preauth/route.ts` — live queue pre-authorization
+- `components/fan/BookingModal.tsx` — booking payment UI
+- `components/fan/LiveJoinModal.tsx` — live queue join + pre-auth UI
 
-### Auth pattern — logout vs. deleteAccount
-- `logout()` — clears cookie only; profile stays in localStorage so the user can sign back in
-- `deleteAccount()` — clears cookie AND deletes profile from localStorage (irreversible)
-- Both live in `lib/hooks/useAuth.ts` and are distributed via `AuthContext`
-
-### MockProfile discriminated union
-`MockProfile = FanProfile | CreatorProfile | PendingProfile`
-- `FanProfile` — `role: "fan"`
-- `CreatorProfile` — `role: "creator"`, has bio/hourly_rate/category/is_live
-- `PendingProfile` — `role: null`, user signed up but hasn't picked a role yet
-
-## Data Flow (MVP → Production)
-| Current (Mock)                            | Future (Real)                              |
-|-------------------------------------------|--------------------------------------------|
-| `MOCK_CREATORS` array in lib/             | Supabase `creators` table                  |
-| `MOCK_BOOKINGS` array                     | Supabase `bookings` table                  |
-| `creator_packages` in localStorage        | Supabase `packages` table                  |
-| `registered_creators` in localStorage     | Supabase `profiles` table with role filter |
-| base64 avatar in localStorage             | Supabase Storage (profile images)          |
-| Video placeholder divs                    | Daily.co `<DailyProvider>` + hooks         |
-| Client-side auth (localStorage + cookie)  | Supabase Auth + `useUser()` hook           |
-| Profile strength calculated client-side   | Supabase computed column or edge function  |
-| Stripe test mode (sk_test_ / pk_test_)    | Stripe live mode (sk_live_ / pk_live_)     |
-
-## Demo vs. Real Data — The Rule
-All pages check `user?.id === "1"` to distinguish the seeded demo creator (Luna Vasquez) from real signed-up creators:
-- Demo creator → sees mock bookings, mock stats, mock queue, mock packages (as seed)
-- Real creator → sees empty states until they add their own data
-- This check exists in: `dashboard/page.tsx`, `calendar/page.tsx`, `management/page.tsx`, `LiveConsole.tsx`, `waiting-room/[id]/page.tsx`, `CreatorSidebar.tsx`, `settings/page.tsx`
-
-## What Needs `"use client"`
-Files that use React hooks or browser APIs need `"use client"` at the top:
-- Any component using `useState`, `useEffect`, `useRef`
-- Any component using `usePathname()` or `useRouter()` from next/navigation
-- Components with event handlers (`onClick`, `onChange`, etc.)
-
-Server Components (no directive needed): layout files, static page files with no interactivity.
+## Live Indicator Logic
+- **Public live** (`is_live = true` in `creator_profiles`) → pulsing LIVE badge visible to everyone on Discover and profile page
+- **Dedicated booking in progress** → creator does NOT appear live publicly; only the booked fan can join at that time
+- Creator sets `is_live` when they click "Start Live Session" in `/live`
 
 ## Adding a New Creator Route
 1. Create `app/(creator)/your-page/page.tsx`
-2. It automatically gets the CreatorSidebar from `app/(creator)/layout.tsx`
-3. Add a nav entry in `components/shared/CreatorSidebar.tsx` (NAV_ITEMS array)
-4. Add a matching entry in `components/shared/BottomNav.tsx` (CREATOR_ITEMS array)
+2. Gets CreatorSidebar automatically from `app/(creator)/layout.tsx`
+3. Add nav entry in `components/shared/CreatorSidebar.tsx` (NAV_ITEMS array)
+4. Add matching entry in `components/shared/BottomNav.tsx` (CREATOR_ITEMS array)
+
+## What Needs `"use client"`
+- Any file using `useState`, `useEffect`, `useRef`
+- Any file using `usePathname()` or `useRouter()`
+- Components with event handlers (`onClick`, `onChange`, etc.)
+
+Server Components (no directive needed): layout files, static pages without interactivity.
+
+## Recent Features (Session Updates)
+- **Pricing Label Standardization**: All pricing across the platform is now standardized to "Starts at $X per session".
+- **Avatar Photo Uploads**: Added Camera UI image uploads to both Fan and Creator onboarding flows (Identity setup), replacing static color initials where a photo is chosen.
+- **Review System**: Built out the creator profile to include a live review feed (fetched from Supabase) and a functional fan review submission form.
+- **Calendar Navigation**: Redesigned the availability calendar and standard booking modal to feature full weekly pagination (Prev / Next buttons up to 3 weeks out) for better book-in-advance discoverability.
+- **Database Booking Persistence**: Integrated with Supabase `bookings` table to actually capture Stripe successful payments securely. Replaced standard 5% fee displaying on the UI with a fixed 2.5% fan platform fee.
+- **Creator Earnings & Payout Logic**: Integrated the creator Dashboard and Settings with Supabase `payouts`. Computes exactly an 85% creator cut of all bookings on stripe. Features a live "Withdraw" button that tracks withdrawal transactions dynamically.

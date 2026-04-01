@@ -52,14 +52,7 @@ export default function AuthPage() {
   async function handleSignIn(e: FormEvent) {
     e.preventDefault();
     await login(siEmail, siPassword);
-    const cookie = document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("mock_session_role="))
-      ?.split("=")[1] ?? "";
-    const role = cookie.split("|")[0];
-    if (role === "pending") router.push("/onboarding/role");
-    else if (role === "creator") router.push("/dashboard");
-    else if (role === "fan") router.push("/discover");
+    // Redirect is handled by the useEffect above that watches isAuthenticated + user.role
   }
 
   async function handleSignUp(e: FormEvent) {
@@ -161,9 +154,6 @@ export default function AuthPage() {
                 {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Signing in...</> : "Sign In"}
               </Button>
 
-              <p className="text-center text-xs text-slate-500">
-                <span className="text-brand-primary-light font-medium">Mock mode:</span> any email + password works
-              </p>
             </form>
           )}
 
