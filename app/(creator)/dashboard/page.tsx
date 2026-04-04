@@ -24,6 +24,7 @@ import { getCreatorPackages } from "@/lib/mock-auth";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { deriveBookingStatus, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
 
 interface DashReview {
   id: string;
@@ -51,7 +52,19 @@ export default function DashboardPage() {
 
   const [stats, setStats] = useState<CreatorStats>(EMPTY_STATS);
   const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
+  const [nextJoinableBooking, setNextJoinableBooking] = useState<any | null>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [isLiveStatus, setIsLiveStatus] = useState(false);
+  const [syncingStatus, setSyncingStatus] = useState(false);
+
+  async function resetLiveStatus() {
+    if (!user) return;
+    setSyncingStatus(true);
+    const supabase = createClient();
+    await supabase.from("creator_profiles").update({ is_live: false }).eq("id", user.id);
+    setIsLiveStatus(false);
+    setSyncingStatus(false);
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -84,41 +97,82 @@ export default function DashboardPage() {
 
     // ── Load Bookings & Compute Stats ──
     async function loadDashboard() {
-      // Load bookings
-      const { data: bookings } = await supabase
-        .from("bookings")
-        .select(`
-          id, scheduled_at, duration, price, status, topic,
-          fan:profiles!fan_id(full_name, username)
-        `)
-        .eq("creator_id", user?.id)
-        .order("scheduled_at", { ascending: true });
+      // 1. Fetch bookings, live queue joins, profile views, and raw reviews
+      const [bookingsRes, liveRes, profileViewsRes, reviewsRes, liveStatusRes] = await Promise.all([
+        supabase
+          .from("bookings")
+          .select(`
+            id, scheduled_at, duration, price, status, topic,
+            fan:profiles!fan_id(full_name, username)
+          `)
+          .eq("creator_id", user?.id)
+          .order("scheduled_at", { ascending: true }),
+        supabase
+          .from("live_sessions")
+          .select("id, live_queue_entries(id, status, amount_charged, ended_at)")
+          .eq("creator_id", user?.id),
+        supabase
+          .from("creator_profiles")
+          .select("profile_views")
+          .eq("id", user?.id)
+          .single(),
+        supabase
+          .from("reviews")
+          .select("rating")
+          .eq("creator_id", user?.id),
+        supabase
+          .from("creator_profiles")
+          .select("is_live")
+          .eq("id", user?.id)
+          .single()
+      ]);
 
-      if (!bookings) {
-        setLoadingDashboard(false);
-        return;
+      if (liveStatusRes.data) {
+        setIsLiveStatus(liveStatusRes.data.is_live);
       }
 
+      const bookings = bookingsRes.data || [];
+      const expiredBookingIds: string[] = [];
+      
       let totalEarnedGross = 0;
       let callsMonth = 0;
       let upcomingCount = 0;
+      let totalBookings = 0;
       const uniqueFans = new Set<string>();
       const now = new Date();
 
+      const nextSevenDays = new Date(now);
+      nextSevenDays.setDate(now.getDate() + 7);
+
       const mappedBookings = bookings.map((b: any) => {
         const fan = Array.isArray(b.fan) ? b.fan[0] : b.fan;
+        const normalizedStatus = deriveBookingStatus(b.status, b.scheduled_at, b.duration, now);
+
+        if (normalizedStatus === "completed" && b.status !== "completed" && hasBookingEnded(b.scheduled_at, b.duration, now)) {
+          expiredBookingIds.push(b.id);
+        }
         
-        // Always count successful/upcoming events for earnings (for MVP)
-        if (b.status === "completed" || b.status === "upcoming") {
+        if (normalizedStatus === "completed" || normalizedStatus === "upcoming" || normalizedStatus === "live") {
           totalEarnedGross += Number(b.price);
+          totalBookings++; // To be used in conversion rate
         }
 
         const bDate = new Date(b.scheduled_at);
-        if (bDate.getMonth() === now.getMonth() && bDate.getFullYear() === now.getFullYear()) {
+        if (
+          normalizedStatus === "completed" &&
+          bDate.getMonth() === now.getMonth() &&
+          bDate.getFullYear() === now.getFullYear()
+        ) {
           callsMonth++;
         }
 
-        if (b.status === "upcoming") upcomingCount++;
+        if (
+          (normalizedStatus === "upcoming" || normalizedStatus === "live") &&
+          bDate >= now &&
+          bDate <= nextSevenDays
+        ) {
+          upcomingCount++;
+        }
         if (fan) uniqueFans.add(fan.username);
 
         return {
@@ -127,27 +181,75 @@ export default function DashboardPage() {
           creatorName: user?.full_name || "Creator",
           fanName: fan?.full_name || "Fan",
           fanUsername: fan?.username ? `@${fan.username}` : "@fan",
+          scheduledAt: b.scheduled_at,
           date: bDate.toISOString().split("T")[0],
           time: bDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
           duration: b.duration,
           price: Number(b.price) * 0.85, // Show their 85% cut!
-          status: b.status,
+          status: normalizedStatus,
           topic: b.topic || ""
         };
       });
 
-      const upcoming = mappedBookings.filter((b: any) => b.status === "upcoming");
-      setUpcomingBookings(upcoming);
+      if (expiredBookingIds.length > 0) {
+        await supabase
+          .from("bookings")
+          .update({ status: "completed" })
+          .in("id", expiredBookingIds);
+      }
 
-      const creatorCut = totalEarnedGross * 0.85;
+      const upcoming = mappedBookings.filter((b: any) => b.status === "upcoming" || b.status === "live");
+      setUpcomingBookings(upcoming);
+      setNextJoinableBooking(
+        mappedBookings.find((b: any) => isBookingJoinable(b.status, b.scheduledAt, b.duration)) ?? null
+      );
+
+      let totalLiveJoins = 0;
+      let liveQueueEarned = 0;
+      if (liveRes.data) {
+        liveRes.data.forEach((session: any) => {
+          totalLiveJoins += (session.live_queue_entries?.length || 0);
+          
+          // Sum up amount_charged from each queue entry
+          if (Array.isArray(session.live_queue_entries)) {
+            session.live_queue_entries.forEach((entry: any) => {
+              if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {
+                liveQueueEarned += Number(entry.amount_charged);
+              }
+              if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {
+                const endedAt = entry.ended_at ? new Date(entry.ended_at) : null;
+                if (endedAt && endedAt.getMonth() === now.getMonth() && endedAt.getFullYear() === now.getFullYear()) {
+                  callsMonth++;
+                }
+              }
+            });
+          }
+        });
+      }
+      
+      const creatorCut = (totalEarnedGross + liveQueueEarned) * 0.85;
+      
+      const profileViews = profileViewsRes.data?.profile_views || 0;
+      const totalConversions = totalBookings + totalLiveJoins;
+      const rawConversionRate = profileViews > 0 ? (totalConversions / profileViews) * 100 : 0;
+      // Round to 1 decimal place max
+      const conversionRateDisplayed = Math.round(rawConversionRate * 10) / 10;
+
+      // Calculate Average Rating dynamically
+      const allReviews = reviewsRes.data || [];
+      let calculatedAvgRating = 0;
+      if (allReviews.length > 0) {
+        const sum = allReviews.reduce((acc: number, r: any) => acc + Number(r.rating), 0);
+        calculatedAvgRating = Math.round((sum / allReviews.length) * 10) / 10;
+      }
 
       setStats({
         totalEarnings: creatorCut,
         callsThisMonth: callsMonth,
-        avgRating: Number((user as any)?.avg_rating || 0),
+        avgRating: calculatedAvgRating,
         upcomingBookings: upcomingCount,
         totalFans: uniqueFans.size,
-        conversionRate: 0 // Mocked stat
+        conversionRate: conversionRateDisplayed
       });
 
       setLoadingDashboard(false);
@@ -180,6 +282,25 @@ export default function DashboardPage() {
 
   return (
     <div className="px-4 md:px-8 py-6 max-w-6xl mx-auto space-y-8">
+      {/* ── Status Banner ── */}
+      {isLiveStatus && (
+        <div className="bg-brand-live/10 border border-brand-live/20 rounded-2xl p-4 flex items-center justify-between animate-pulse-subtle">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />
+            <p className="text-sm font-semibold text-brand-live">Your profile is currently visible as LIVE</p>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={resetLiveStatus}
+            disabled={syncingStatus}
+            className="border-brand-live/40 text-brand-live hover:bg-brand-live/10"
+          >
+            {syncingStatus ? "Syncing..." : "End Session"}
+          </Button>
+        </div>
+      )}
+
       {/* ── Header ── */}
       <div className="flex items-start justify-between">
         <div>
@@ -238,6 +359,26 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Upcoming bookings */}
         <div className="lg:col-span-2">
+          {nextJoinableBooking && (
+            <div className="mb-4 rounded-2xl border border-brand-live/30 bg-brand-live/10 p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-live">Ready To Start</p>
+                <p className="mt-1 text-sm text-slate-100">
+                  {nextJoinableBooking.status === "live" ? "Your booking room is live now." : `You can join ${nextJoinableBooking.fanName}'s booking now.`}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {nextJoinableBooking.time} · {nextJoinableBooking.duration} min
+                </p>
+              </div>
+              <Link href={`/room/${nextJoinableBooking.id}`}>
+                <Button variant="live" className="gap-2 shadow-glow-live">
+                  <Video className="w-4 h-4" />
+                  Quick Join
+                </Button>
+              </Link>
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold text-slate-100">Upcoming Bookings</h2>
             <Link href="/calendar" className="text-sm text-brand-primary-light hover:underline flex items-center gap-1">

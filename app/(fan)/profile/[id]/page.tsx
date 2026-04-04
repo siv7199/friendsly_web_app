@@ -17,6 +17,13 @@ import { useAuthContext } from "@/lib/context/AuthContext";
 import type { Creator, CallPackage } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
 import { notFound } from "next/navigation";
+import {
+  formatTimeZoneLabel,
+  getAvailabilityWindowsForViewer,
+  getBrowserTimeZone,
+  getTimeZoneAbbreviation,
+  localDateKey,
+} from "@/lib/timezones";
 
 // ── Availability Calendar helpers ─────────────────────────────────────────────
 
@@ -38,9 +45,11 @@ function isSameDay(a: Date, b: Date) {
 }
 
 interface AvailabilitySlot {
+  id?: string;
   day_of_week: number;
   start_time: string;
   end_time: string;
+  package_id?: string | null;
 }
 
 // ── Creator data fetcher ──────────────────────────────────────────────────────
@@ -55,7 +64,7 @@ async function fetchCreatorData(id: string): Promise<{
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*, creator_profiles(*)")
+    .select("*, creator_profiles(*), live_sessions(*)")
     .eq("id", id)
     .eq("role", "creator")
     .single();
@@ -69,7 +78,7 @@ async function fetchCreatorData(id: string): Promise<{
 
   const { data: avail } = await supabase
     .from("creator_availability")
-    .select("day_of_week, start_time, end_time")
+    .select("id, day_of_week, start_time, end_time, package_id")
     .eq("creator_id", id)
     .eq("is_active", true)
     .order("day_of_week");
@@ -84,6 +93,23 @@ async function fetchCreatorData(id: string): Promise<{
   const cp = Array.isArray(profile.creator_profiles)
     ? profile.creator_profiles[0]
     : profile.creator_profiles;
+
+  const sessions = Array.isArray(profile.live_sessions) ? profile.live_sessions : [];
+  // Only show as "Live" if the is_live flag is explicitly true (Creator clicked Start)
+  const isActuallyLive = Boolean(cp?.is_live);
+
+  // Get queue count for active session
+  let queueCount = 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeSession = sessions.find((s: any) => s?.is_active === true);
+  if (activeSession) {
+    const { count } = await supabase
+      .from("live_queue_entries")
+      .select("*", { count: "exact", head: true })
+      .eq("session_id", activeSession.id)
+      .eq("status", "waiting");
+    queueCount = count ?? 0;
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const packages: CallPackage[] = (pkgs ?? []).map((p: any) => ({
@@ -113,14 +139,15 @@ async function fetchCreatorData(id: string): Promise<{
     avatarInitials: profile.avatar_initials,
     avatarColor: profile.avatar_color,
     avatarUrl: profile.avatar_url ?? undefined,
-    isLive: cp?.is_live ?? false,
-    queueCount: 0,
+    isLive: isActuallyLive,
+    queueCount,
     callPrice: minPrice,
     callDuration: packages[0]?.duration ?? 15,
     nextAvailable: minPrice > 0 ? "Available this week" : "No packages yet",
     totalCalls: cp?.total_calls ?? 0,
     responseTime: cp?.response_time ?? "~5 min",
     liveRatePerMinute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
+    timeZone: cp?.timezone ?? "America/New_York",
   };
 
   return {
@@ -156,6 +183,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const [showBooking, setShowBooking] = useState(false);
   const [showLiveJoin, setShowLiveJoin] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [availabilityPackageId, setAvailabilityPackageId] = useState<string>("all");
 
   // Review form state
   const [reviewRating, setReviewRating] = useState(0);
@@ -171,6 +199,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       setActivePackages(packages);
       setAvailability(availability);
       setLoading(false);
+
+      // Increment profile views
+      const supabase = createClient();
+      supabase.rpc("increment_profile_views", { creator_uuid: creator.id }).then();
     });
 
     // Load reviews from Supabase
@@ -252,10 +284,17 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const hasLiveRate   = Boolean(creator.liveRatePerMinute && creator.liveRatePerMinute > 0);
   const weekDates     = getWeekDates(weekOffset);
   const today         = new Date();
+  const viewerTimeZone = getBrowserTimeZone();
 
   // Map availability slots: { [dayOfWeek]: string[] of formatted time ranges }
-  const availMap: Record<number, string[]> = {};
-  availability.forEach(({ day_of_week, start_time, end_time }) => {
+  const filteredAvailability = availability.filter((slot) =>
+    availabilityPackageId === "all"
+      ? true
+      : slot.package_id == null || slot.package_id === availabilityPackageId
+  );
+
+  const availMap: Record<string, string[]> = {};
+  filteredAvailability.forEach(({ day_of_week, start_time, end_time }) => {
     if (!availMap[day_of_week]) availMap[day_of_week] = [];
     const fmt = (t: string) => {
       const [h, m] = t.split(":").map(Number);
@@ -264,6 +303,13 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     };
     availMap[day_of_week].push(`${fmt(start_time)} – ${fmt(end_time)}`);
   });
+
+  Object.assign(availMap, getAvailabilityWindowsForViewer({
+    weekDates,
+    availability,
+    creatorTimeZone: creator.timeZone ?? "America/New_York",
+    packageId: availabilityPackageId === "all" ? undefined : availabilityPackageId,
+  }));
 
   return (
     <>
@@ -383,7 +429,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     <div
                       key={pkg.id}
                       className="p-4 rounded-xl border border-brand-primary/30 bg-brand-primary/10 cursor-pointer hover:border-brand-primary/60 transition-colors"
-                      onClick={() => setShowBooking(true)}
+                      onClick={() => {
+                        setAvailabilityPackageId(pkg.id);
+                        setShowBooking(true);
+                      }}
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -437,15 +486,49 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </div>
               </div>
 
-              {availability.length === 0 ? (
+              {activePackages.length > 1 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <button
+                    onClick={() => setAvailabilityPackageId("all")}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
+                      availabilityPackageId === "all"
+                        ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light"
+                        : "border-brand-border bg-brand-elevated text-slate-400 hover:text-slate-200"
+                    )}
+                  >
+                    All offerings
+                  </button>
+                  {activePackages.map((pkg) => (
+                    <button
+                      key={pkg.id}
+                      onClick={() => setAvailabilityPackageId(pkg.id)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
+                        availabilityPackageId === pkg.id
+                          ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light"
+                          : "border-brand-border bg-brand-elevated text-slate-400 hover:text-slate-200"
+                      )}
+                    >
+                      {pkg.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-xs text-slate-500 mb-4">
+                Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}). Creator schedules in {formatTimeZoneLabel(creator.timeZone ?? "America/New_York")}.
+              </p>
+
+              {filteredAvailability.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-6">
-                  No availability set yet. Book a call to find a time.
+                  No availability set for this offering yet.
                 </p>
               ) : (
                 <div className="grid grid-cols-7 gap-1.5">
                   {weekDates.map((date) => {
                     const dow        = date.getDay();
-                    const slots      = availMap[dow] ?? [];
+                    const slots      = availMap[localDateKey(date)] ?? [];
                     const isToday    = isSameDay(date, today);
                     const isPast     = date < today && !isToday;
                     const hasSlots   = slots.length > 0 && !isPast;
@@ -546,26 +629,32 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               </div>
 
               {/* Action buttons */}
-              {creator.isLive && hasLiveRate ? (
-                <Button variant="live" size="lg" className="w-full gap-2" onClick={() => setShowLiveJoin(true)}>
-                  <Zap className="w-4 h-4" />
-                  Join Queue — {creator.queueCount} ahead
-                </Button>
-              ) : hasPackages ? (
-                <Button variant="gold" size="lg" className="w-full" onClick={() => setShowBooking(true)}>
-                  Book a Call
-                </Button>
-              ) : (
-                <Button variant="ghost" size="lg" className="w-full opacity-50 cursor-not-allowed" disabled>
-                  Coming Soon
-                </Button>
-              )}
+              <div className="space-y-3">
+                {/* 1. Book a Call Button (Always visible) */}
+                {hasPackages ? (
+                  <Button variant="gold" size="lg" className="w-full" onClick={() => setShowBooking(true)}>
+                    <Video className="w-4 h-4 mr-2" />
+                    Book a Call
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="lg" className="w-full opacity-50 cursor-not-allowed" disabled>
+                    Bookings Coming Soon
+                  </Button>
+                )}
 
-              {creator.isLive && hasPackages && (
-                <Button variant="outline" size="sm" className="w-full" onClick={() => setShowBooking(true)}>
-                  Or book a dedicated session
-                </Button>
-              )}
+                {/* 2. Join Queue Button (Always visible, disabled if not live) */}
+                {creator.isLive && hasLiveRate ? (
+                  <Button variant="live" size="lg" className="w-full gap-2" onClick={() => setShowLiveJoin(true)}>
+                    <Zap className="w-4 h-4" />
+                    Join Queue — {creator.queueCount} ahead
+                  </Button>
+                ) : hasLiveRate ? (
+                  <Button variant="outline" size="lg" disabled className="w-full gap-2 opacity-50 cursor-not-allowed">
+                    <Zap className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm truncate">Queue Offline</span>
+                  </Button>
+                ) : null}
+              </div>
 
               <p className="text-[11px] text-center text-slate-600">
                 Next available: {creator.nextAvailable}
@@ -724,12 +813,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         </section>
       </div>
 
-      <BookingModal
-        creator={creator}
-        open={showBooking}
-        onClose={() => setShowBooking(false)}
-        packages={activePackages}
-      />
+        <BookingModal
+          creator={creator}
+          open={showBooking}
+          onClose={() => setShowBooking(false)}
+          packages={activePackages}
+          availability={availability}
+          initialPackageId={availabilityPackageId === "all" ? undefined : availabilityPackageId}
+        />
 
       {creator.liveRatePerMinute && (
         <LiveJoinModal

@@ -31,6 +31,7 @@ import { isCreatorProfile } from "@/types";
 import { AVATAR_COLORS, CREATOR_CATEGORIES } from "@/lib/mock-auth";
 import { cn, formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { deriveBookingStatus, hasBookingEnded } from "@/lib/bookings";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -177,28 +178,69 @@ export default function SettingsPage() {
       setLoadingFinancials(true);
       const supabase = createClient();
       
-      const { data: bData } = await supabase.from("bookings").select("price, scheduled_at, status").eq("creator_id", user!.id);
-      const { data: pData } = await supabase.from("payouts").select("*").eq("creator_id", user!.id).order('created_at', { ascending: false });
+      const [bookingsRes, payoutsRes, liveRes] = await Promise.all([
+        supabase.from("bookings").select("id, price, scheduled_at, duration, status").eq("creator_id", user!.id),
+        supabase.from("payouts").select("*").eq("creator_id", user!.id).order('created_at', { ascending: false }),
+        supabase
+          .from("live_sessions")
+          .select("id, live_queue_entries(id, status, amount_charged, ended_at)")
+          .eq("creator_id", user!.id)
+      ]);
       
       let totalEarned = 0;
       let monthEarned = 0;
       const now = new Date();
+      const expiredIds: string[] = [];
       
-      (bData || []).forEach((b: any) => {
-        if (b.status === "completed" || b.status === "upcoming") {
+      (bookingsRes.data || []).forEach((b: any) => {
+        const normalizedStatus = deriveBookingStatus(b.status, b.scheduled_at, b.duration, now);
+        if (
+          normalizedStatus === "completed" &&
+          b.status !== "completed" &&
+          hasBookingEnded(b.scheduled_at, b.duration, now)
+        ) {
+          expiredIds.push(b.id);
+        }
+
+        if (normalizedStatus === "completed" || normalizedStatus === "upcoming" || normalizedStatus === "live") {
           const cut = Number(b.price) * 0.85; // 85% cut calculation
           totalEarned += cut;
           const bDate = new Date(b.scheduled_at);
-          if (bDate.getMonth() === now.getMonth() && bDate.getFullYear() === now.getFullYear()) {
+          if (
+            normalizedStatus === "completed" &&
+            bDate.getMonth() === now.getMonth() &&
+            bDate.getFullYear() === now.getFullYear()
+          ) {
             monthEarned += cut;
           }
         }
+      });
+
+      if (expiredIds.length > 0) {
+        await supabase
+          .from("bookings")
+          .update({ status: "completed" })
+          .in("id", expiredIds);
+      }
+
+      (liveRes.data || []).forEach((session: any) => {
+        (session.live_queue_entries || []).forEach((entry: any) => {
+          if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {
+            const cut = Number(entry.amount_charged) * 0.85;
+            totalEarned += cut;
+
+            const endedAt = entry.ended_at ? new Date(entry.ended_at) : null;
+            if (endedAt && endedAt.getMonth() === now.getMonth() && endedAt.getFullYear() === now.getFullYear()) {
+              monthEarned += cut;
+            }
+          }
+        });
       });
       
       let pendingWithdrawals = 0;
       let totalWithdrawn = 0;
       
-      (pData || []).forEach((p: any) => {
+      (payoutsRes.data || []).forEach((p: any) => {
         if (p.status === "pending" || p.status === "processing") pendingWithdrawals += Number(p.amount);
         if (p.status === "completed") totalWithdrawn += Number(p.amount);
       });
@@ -212,7 +254,7 @@ export default function SettingsPage() {
         totalEarned
       });
       
-      setPayouts(pData || []);
+      setPayouts(payoutsRes.data || []);
       setLoadingFinancials(false);
     }
     

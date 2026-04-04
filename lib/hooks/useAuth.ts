@@ -112,7 +112,7 @@ export function useAuth() {
 
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (!mounted) return;
       if (!session) {
         setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
@@ -181,8 +181,16 @@ export function useAuth() {
   // ── logout ────────────────────────────────────────────────────────────────
   const logout = useCallback(async (): Promise<void> => {
     const supabase = createClient();
+    if (state.user?.role === "creator") {
+      // End any active live session — the DB trigger sets is_live = false automatically.
+      await supabase
+        .from("live_sessions")
+        .update({ is_active: false, ended_at: new Date().toISOString() })
+        .eq("creator_id", state.user.id)
+        .eq("is_active", true);
+    }
     await supabase.auth.signOut();
-  }, []);
+  }, [state.user]);
 
   // ── deleteAccount ─────────────────────────────────────────────────────────
   const deleteAccount = useCallback(async (): Promise<void> => {

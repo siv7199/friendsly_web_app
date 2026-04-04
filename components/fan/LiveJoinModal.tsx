@@ -9,12 +9,12 @@
  * 1. Explain the per-minute pricing model
  * 2. Show pre-auth amount (10 min × rate) — this is the hold on their card
  * 3. Fan enters card via Stripe Elements (PaymentIntent in manual-capture mode)
- * 4. On success → redirect to /waiting-room/[id]
+ * 4. On success → INSERT live_queue_entries row → redirect to /waiting-room/[id]
  *
  * The actual charge is calculated server-side when the creator skips them.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -29,6 +29,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import type { Creator } from "@/types";
 import { formatCurrency } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthContext } from "@/lib/context/AuthContext";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -42,6 +44,10 @@ const STRIPE_APPEARANCE = {
     fontFamily: "inherit",
     borderRadius: "12px",
   },
+};
+
+const STRIPE_OPTIONS = {
+  appearance: STRIPE_APPEARANCE,
 };
 
 const PREAUTH_MINUTES = 10; // card hold = 10 min × rate
@@ -58,14 +64,18 @@ interface PaymentFormProps {
 function PaymentForm({ onSuccess, isSubmitting, setIsSubmitting, setPayError }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
+  const [isReady, setIsReady] = useState(false);
 
   async function handleAuthorize() {
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !isReady) return;
     setIsSubmitting(true);
     setPayError("");
 
     const { error } = await stripe.confirmPayment({
       elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/waiting-room/${window.location.pathname.split("/").pop()}`,
+      },
       redirect: "if_required",
     });
 
@@ -79,16 +89,21 @@ function PaymentForm({ onSuccess, isSubmitting, setIsSubmitting, setPayError }: 
 
   return (
     <div className="space-y-4">
-      <PaymentElement options={{ layout: "tabs" }} />
+      <PaymentElement 
+        options={{ layout: "tabs" }} 
+        onReady={() => setIsReady(true)}
+      />
       <Button
         variant="live"
         size="lg"
         className="w-full gap-2"
         onClick={handleAuthorize}
-        disabled={isSubmitting || !stripe}
+        disabled={isSubmitting || !stripe || !isReady}
       >
         {isSubmitting ? (
           <><Loader2 className="w-4 h-4 animate-spin" /> Authorizing...</>
+        ) : !isReady ? (
+          <><Loader2 className="w-4 h-4 animate-spin" /> Initialising...</>
         ) : (
           <><Zap className="w-4 h-4" /> Join Queue</>
         )}
@@ -109,8 +124,10 @@ type Step = "info" | "payment" | "success";
 
 export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
   const router = useRouter();
+  const { user } = useAuthContext();
   const [step, setStep] = useState<Step>("info");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [fetchingIntent, setFetchingIntent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [payError, setPayError] = useState("");
@@ -118,15 +135,34 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
   const rate = creator.liveRatePerMinute ?? 0;
   const preAuthAmount = rate * PREAUTH_MINUTES;
 
-  // Reset on open
+  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(creator.currentLiveSessionId);
+
+  // Re-fetch fresh creator data on open to ensure we aren't using stale discovery-page data
   useEffect(() => {
     if (open) {
       setStep("info");
       setClientSecret(null);
+      setPaymentIntentId(null);
       setPayError("");
       setIsSubmitting(false);
+
+      const fetchFreshStatus = async () => {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("creator_profiles")
+          .select("current_live_session_id, is_live")
+          .eq("id", creator.id)
+          .single();
+        
+        if (data?.current_live_session_id) {
+          console.log("Refreshed session ID from server:", data.current_live_session_id);
+          setCurrentSessionId(data.current_live_session_id);
+        }
+      };
+      
+      fetchFreshStatus();
     }
-  }, [open]);
+  }, [open, creator.id]);
 
   // Fetch PaymentIntent when moving to payment step
   useEffect(() => {
@@ -144,14 +180,55 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.clientSecret) setClientSecret(data.clientSecret);
-        else setPayError(data.error ?? "Could not initialise payment.");
+        if (data.clientSecret) {
+          setClientSecret(data.clientSecret);
+          setPaymentIntentId(data.paymentIntentId ?? null);
+        } else {
+          setPayError(data.error ?? "Could not initialise payment.");
+        }
       })
       .catch(() => setPayError("Network error. Please try again."))
       .finally(() => setFetchingIntent(false));
   }, [step, clientSecret, rate, creator.name]);
 
-  function handleSuccess() {
+  // ── Insert the queue entry into Supabase after payment ──
+  async function handleSuccess() {
+    if (!user) { setStep("success"); return; }
+    const supabase = createClient();
+
+    try {
+      // 1. USE THE EXACT SESSION ID FROM THE FRESH FETCH (Source of Truth)
+      const targetSessionId = currentSessionId;
+
+      if (targetSessionId) {
+        // 2. Insert this fan into the queue (position is calculated on the fly now)
+        const { error } = await supabase.from("live_queue_entries").insert({
+          session_id: targetSessionId,
+          fan_id: user.id,
+          status: "waiting",
+          position: 0, // Satisfies DB constraint; ordering uses joined_at
+          amount_pre_authorized: preAuthAmount,
+          stripe_pre_auth_id: paymentIntentId,
+          joined_at: new Date().toISOString(),
+        });
+
+        if (error) throw error;
+        console.log("Joined session:", targetSessionId);
+      } else {
+        console.error("No active session found on creator profile");
+        setPayError("Creator is currently offline or setting up. Please try again in a moment.");
+        setIsSubmitting(false);
+        setStep("info");
+        return;
+      }
+    } catch (err) {
+      console.error("Failed to insert queue entry:", err);
+      setPayError("Payment succeeded but queue join failed. Please contact support.");
+      setIsSubmitting(false);
+      setStep("info");
+      return;
+    }
+
     setStep("success");
     // Give the user a moment to see the success state, then redirect
     setTimeout(() => {
@@ -303,7 +380,7 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
                 )}
                 <Elements
                   stripe={stripePromise}
-                  options={{ clientSecret, appearance: STRIPE_APPEARANCE }}
+                  options={{ ...STRIPE_OPTIONS, clientSecret }}
                 >
                   <PaymentForm
                     onSuccess={handleSuccess}

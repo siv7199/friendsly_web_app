@@ -17,6 +17,14 @@ import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { getAvailableStartTimesForViewerDate, getBrowserTimeZone, getTimeZoneAbbreviation } from "@/lib/timezones";
+
+interface AvailabilitySlot {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  package_id?: string | null;
+}
 
 // Initialise Stripe once (outside component so it's not recreated on render)
 const stripePromise = loadStripe(
@@ -36,12 +44,9 @@ const STRIPE_APPEARANCE = {
   },
 };
 
-// Mock available time slots
-const TIME_SLOTS = [
-  "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM",
-  "11:00 AM", "2:00 PM", "2:30 PM", "3:00 PM",
-  "3:30 PM", "4:00 PM", "5:00 PM", "5:30 PM",
-];
+const STRIPE_OPTIONS = {
+  appearance: STRIPE_APPEARANCE,
+};
 
 function getAvailableDates(weekOffset: number) {
   const dates = [];
@@ -58,6 +63,19 @@ function formatShortDate(d: Date) {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+function getPackageAvailability(
+  availability: AvailabilitySlot[],
+  packageId?: string
+) {
+  return availability.filter((slot) => {
+    if (!packageId) {
+      return slot.package_id == null;
+    }
+
+    return slot.package_id == null || slot.package_id === packageId;
+  });
+}
+
 // ── Inner payment form (needs to live inside <Elements>) ───────────────
 
 interface PaymentFormProps {
@@ -71,9 +89,10 @@ interface PaymentFormProps {
 function PaymentForm({ onSuccess, onBack, isSubmitting, setIsSubmitting, setPayError }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
+  const [isReady, setIsReady] = useState(false);
 
   async function handlePay() {
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !isReady) return;
     setIsSubmitting(true);
     setPayError("");
 
@@ -101,22 +120,24 @@ function PaymentForm({ onSuccess, onBack, isSubmitting, setIsSubmitting, setPayE
         <Button variant="outline" className="flex-1" onClick={onBack} disabled={isSubmitting}>
           ← Back
         </Button>
-        <Button
-          variant="gold"
-          className="flex-1 gap-2"
-          onClick={handlePay}
-          disabled={isSubmitting || !stripe}
-        >
-          {isSubmitting ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-          ) : (
-            "Pay Now"
-          )}
-        </Button>
+          <Button
+            variant="gold"
+            className="flex-1 gap-2"
+            onClick={handlePay}
+            disabled={isSubmitting || !stripe || !isReady}
+          >
+            {isSubmitting ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+            ) : !isReady ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Initialising...</>
+            ) : (
+              "Pay Now"
+            )}
+          </Button>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
 // ── Main modal ─────────────────────────────────────────────────────────
 
@@ -127,9 +148,18 @@ interface BookingModalProps {
   open: boolean;
   onClose: () => void;
   packages?: CallPackage[];
+  availability?: AvailabilitySlot[];
+  initialPackageId?: string;
 }
 
-export function BookingModal({ creator, open, onClose, packages = [] }: BookingModalProps) {
+export function BookingModal({
+  creator,
+  open,
+  onClose,
+  packages = [],
+  availability = [],
+  initialPackageId,
+}: BookingModalProps) {
   const { user } = useAuthContext();
   const [step, setStep] = useState<Step>("select");
   const [selectedPackage, setSelectedPackage] = useState<CallPackage | null>(null);
@@ -147,6 +177,26 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
   const availableDates = getAvailableDates(weekOffset);
   const sessionPrice = selectedPackage?.price ?? creator.callPrice;
   const sessionDuration = selectedPackage?.duration ?? creator.callDuration;
+  const packageAvailability = getPackageAvailability(availability, selectedPackage?.id ?? initialPackageId);
+  const viewerTimeZone = getBrowserTimeZone();
+  const availableDateKeys = new Set(
+    availableDates
+      .filter((date) => getAvailableStartTimesForViewerDate({
+        date,
+        availability: packageAvailability,
+        creatorTimeZone: creator.timeZone ?? "America/New_York",
+        durationMinutes: sessionDuration,
+      }).length > 0)
+      .map((date) => date.toDateString())
+  );
+  const availableTimeSlots = selectedDate
+    ? getAvailableStartTimesForViewerDate({
+        date: selectedDate,
+        availability: packageAvailability,
+        creatorTimeZone: creator.timeZone ?? "America/New_York",
+        durationMinutes: sessionDuration,
+      })
+    : [];
   // Fan pays a 2.5% platform fee
   const sessionGrossPrice = sessionPrice * 1.025;
   const totalCents = Math.round(sessionGrossPrice * 100);
@@ -185,8 +235,13 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
   // Reset state whenever the modal opens
   useEffect(() => {
     if (open) {
-      setStep(packages.length > 1 ? "package" : "select");
-      setSelectedPackage(packages.length === 1 ? packages[0] : null);
+      const initialPackage = initialPackageId
+        ? packages.find((pkg) => pkg.id === initialPackageId) ?? null
+        : packages.length === 1
+        ? packages[0]
+        : null;
+      setStep(initialPackage ? "select" : packages.length > 1 ? "package" : "select");
+      setSelectedPackage(initialPackage);
       setSelectedDate(null);
       setSelectedTime(null);
       setTopic("");
@@ -195,7 +250,12 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
       setPayError("");
       setIsSubmitting(false);
     }
-  }, [open, packages]);
+  }, [open, packages, initialPackageId]);
+
+  useEffect(() => {
+    setSelectedDate(null);
+    setSelectedTime(null);
+  }, [selectedPackage?.id]);
 
   // Create a PaymentIntent when the user reaches the confirm step
   useEffect(() => {
@@ -308,6 +368,9 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
             </div>
 
             <div>
+              <p className="text-xs text-slate-500 mb-3">
+                Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}).
+              </p>
               <div className="flex items-center justify-between mb-3">
                 <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-brand-primary-light" />
@@ -336,15 +399,22 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
               <div className="grid grid-cols-4 gap-2">
                 {availableDates.map((date) => {
                   const isSelected = selectedDate?.toDateString() === date.toDateString();
+                  const hasTimes = availableDateKeys.has(date.toDateString());
                   return (
                     <button
                       key={date.toISOString()}
-                      onClick={() => setSelectedDate(date)}
+                      onClick={() => {
+                        if (!hasTimes) return;
+                        setSelectedDate(date);
+                      }}
+                      disabled={!hasTimes}
                       className={cn(
                         "flex flex-col items-center p-2 rounded-xl border text-xs font-medium transition-all",
                         isSelected
                           ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
-                          : "border-brand-border bg-brand-elevated text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
+                          : hasTimes
+                          ? "border-brand-border bg-brand-elevated text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
+                          : "border-brand-border bg-brand-elevated text-slate-600 opacity-50 cursor-not-allowed"
                       )}
                     >
                       <span className="text-[10px] uppercase opacity-70">
@@ -363,22 +433,28 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
                   <Clock className="w-4 h-4 text-brand-primary-light" />
                   Select Time
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {TIME_SLOTS.map((slot) => (
-                    <button
-                      key={slot}
-                      onClick={() => setSelectedTime(slot)}
-                      className={cn(
-                        "py-2 px-3 rounded-xl border text-xs font-medium transition-all",
-                        selectedTime === slot
-                          ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
-                          : "border-brand-border bg-brand-elevated text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
-                      )}
-                    >
-                      {slot}
-                    </button>
-                  ))}
-                </div>
+                {availableTimeSlots.length === 0 ? (
+                  <p className="text-sm text-slate-500 rounded-xl border border-brand-border bg-brand-elevated px-4 py-3">
+                    No times available for this offering on that date.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {availableTimeSlots.map((slot) => (
+                      <button
+                        key={slot}
+                        onClick={() => setSelectedTime(slot)}
+                        className={cn(
+                          "py-2 px-3 rounded-xl border text-xs font-medium transition-all",
+                          selectedTime === slot
+                            ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
+                            : "border-brand-border bg-brand-elevated text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
+                        )}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -497,7 +573,7 @@ export function BookingModal({ creator, open, onClose, packages = [] }: BookingM
                 )}
                 <Elements
                   stripe={stripePromise}
-                  options={{ clientSecret, appearance: STRIPE_APPEARANCE }}
+                  options={{ ...STRIPE_OPTIONS, clientSecret }}
                 >
                   <PaymentForm
                     onSuccess={handlePaymentSuccess}

@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
+import { deriveBookingStatus, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
 
 type Tab = "upcoming" | "completed" | "cancelled";
 
@@ -59,13 +60,22 @@ export default function BookingsPage() {
       .eq("fan_id", user.id)
       .order("scheduled_at", { ascending: false })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(({ data }: { data: any[] | null }) => {
+      .then(async ({ data }: { data: any[] | null }) => {
         if (data) {
+          const now = new Date();
+          const expiredIds: string[] = [];
+
           setBookings(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data.map((b: any) => {
               const creator = Array.isArray(b.creator) ? b.creator[0] : b.creator;
               const pkg = Array.isArray(b.package) ? b.package[0] : b.package;
+              const nextStatus = deriveBookingStatus(b.status, b.scheduled_at, b.duration, now);
+
+              if (nextStatus === "completed" && b.status !== "completed" && hasBookingEnded(b.scheduled_at, b.duration, now)) {
+                expiredIds.push(b.id);
+              }
+
               return {
                 id: b.id,
                 creatorId: (creator as { id: string })?.id ?? "",
@@ -77,12 +87,19 @@ export default function BookingsPage() {
                 scheduledAt: b.scheduled_at,
                 duration: b.duration,
                 price: Number(b.price),
-                status: b.status,
+                status: nextStatus,
                 topic: b.topic ?? undefined,
                 packageName: (pkg as { name: string })?.name ?? undefined,
               };
             })
           );
+
+          if (expiredIds.length > 0) {
+            await supabase
+              .from("bookings")
+              .update({ status: "completed" })
+              .in("id", expiredIds);
+          }
         }
         setLoading(false);
       });
@@ -102,12 +119,18 @@ export default function BookingsPage() {
   }
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: "upcoming", label: "Upcoming", count: bookings.filter((b) => b.status === "upcoming").length },
+    { key: "upcoming", label: "Upcoming", count: bookings.filter((b) => b.status === "upcoming" || b.status === "live").length },
     { key: "completed", label: "Completed", count: bookings.filter((b) => b.status === "completed").length },
     { key: "cancelled", label: "Cancelled", count: bookings.filter((b) => b.status === "cancelled").length },
   ];
 
-  const filtered = bookings.filter((b) => b.status === activeTab);
+  const filtered = bookings.filter((b) => {
+    if (activeTab === "upcoming") {
+      return b.status === "upcoming" || b.status === "live";
+    }
+
+    return b.status === activeTab;
+  });
 
   if (loading) {
     return (
@@ -187,16 +210,18 @@ export default function BookingsPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((booking) => {
-            const date = new Date(booking.scheduledAt);
-            const dateStr = date.toLocaleDateString("en-US", {
+            const bookingDate = new Date(booking.scheduledAt);
+            const dateStr = bookingDate.toLocaleDateString("en-US", {
               weekday: "short",
               month: "short",
               day: "numeric",
             });
-            const timeStr = date.toLocaleTimeString("en-US", {
+            const timeStr = bookingDate.toLocaleTimeString("en-US", {
               hour: "numeric",
               minute: "2-digit",
             });
+
+            const isJoinable = isBookingJoinable(booking.status, booking.scheduledAt, booking.duration);
 
             return (
               <div
@@ -227,7 +252,7 @@ export default function BookingsPage() {
                       </div>
                       <Badge
                         variant={
-                          booking.status === "upcoming"
+                          booking.status === "upcoming" || booking.status === "live"
                             ? "primary"
                             : booking.status === "completed"
                             ? "default"
@@ -239,6 +264,7 @@ export default function BookingsPage() {
                         )}
                       >
                         {booking.status === "upcoming" && "Upcoming"}
+                        {booking.status === "live" && "Live Now"}
                         {booking.status === "completed" && "✓ Completed"}
                         {booking.status === "cancelled" && "Cancelled"}
                       </Badge>
@@ -273,18 +299,32 @@ export default function BookingsPage() {
                     )}
 
                     {/* Actions */}
-                    {booking.status === "upcoming" && (
+                    {(booking.status === "upcoming" || booking.status === "live") && (
                       <div className="flex gap-2 mt-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleCancel(booking.id)}
-                          disabled={cancellingId === booking.id}
-                          className="gap-1.5 text-red-400 border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          {cancellingId === booking.id ? "Cancelling..." : "Cancel"}
-                        </Button>
+                        {booking.status === "upcoming" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCancel(booking.id)}
+                            disabled={cancellingId === booking.id}
+                            className="gap-1.5 text-red-400 border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            {cancellingId === booking.id ? "Cancelling..." : "Cancel"}
+                          </Button>
+                        )}
+                        {isJoinable && (
+                          <Link href={`/room/${booking.id}`}>
+                            <Button
+                              variant="live"
+                              size="sm"
+                              className="gap-1.5 shadow-glow-live"
+                            >
+                              <Video className="w-3.5 h-3.5" />
+                              {booking.status === "live" ? "JOIN LIVE ROOM" : "JOIN CALL"}
+                            </Button>
+                          </Link>
+                        )}
                       </div>
                     )}
                   </div>

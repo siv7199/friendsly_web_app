@@ -32,13 +32,19 @@ export function FanSidebar() {
   // Fetch live creator count from Supabase
   useEffect(() => {
     const supabase = createClient();
-    supabase
-      .from("creator_profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("is_live", true)
-      .then(({ count }: { count: number | null }) => {
-        setLiveCount(count ?? 0);
-      });
+    
+    async function getCount() {
+      const { count } = await supabase
+        .from("creator_profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("is_live", true);
+
+      setLiveCount(count ?? 0);
+    }
+
+    getCount();
+    const interval = setInterval(getCount, 30000); 
+    return () => clearInterval(interval);
   }, []);
 
   async function handleLogout() {
@@ -83,8 +89,8 @@ export function FanSidebar() {
         })}
       </nav>
 
-      {/* ── Featured Live Banner — only shown when creators are live ── */}
-      {liveCount > 0 && (
+      {/* ── Featured Live Banner — only shown when creators are live AND fan is not already on Discover ── */}
+      {liveCount > 0 && pathname !== "/discover" && (
         <div className="mx-3 mb-3 p-4 rounded-xl bg-gradient-to-br from-brand-live/10 to-brand-primary/10 border border-brand-live/20">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />

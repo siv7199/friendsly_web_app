@@ -17,7 +17,6 @@ import {
   CalendarDays,
   Radio,
   Sparkles,
-  ChevronRight,
   DollarSign,
   Settings,
   LogOut,
@@ -27,6 +26,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { isCreatorProfile } from "@/types";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { formatCurrency } from "@/lib/utils";
 
 const NAV_ITEMS = [
   {
@@ -60,8 +62,56 @@ export function CreatorSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthContext();
+  const [thisMonthEarnings, setThisMonthEarnings] = useState(0);
+  const [loadingEarnings, setLoadingEarnings] = useState(true);
 
   const isLive = user && isCreatorProfile(user) ? user.is_live : false;
+
+  useEffect(() => {
+    if (!user) return;
+    const currentUser = user;
+    const supabase = createClient();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    async function loadEarnings() {
+      const [bookingsRes, liveRes] = await Promise.all([
+        supabase
+          .from("bookings")
+          .select("price, scheduled_at, status")
+          .eq("creator_id", currentUser.id)
+          .gte("scheduled_at", startOfMonth),
+        supabase
+          .from("live_sessions")
+          .select("live_queue_entries(amount_charged, ended_at, status)")
+          .eq("creator_id", currentUser.id),
+      ]);
+
+      let monthlyGross = 0;
+
+      (bookingsRes.data || []).forEach((booking: any) => {
+        if ((booking.status === "completed" || booking.status === "upcoming") && booking.price) {
+          monthlyGross += Number(booking.price);
+        }
+      });
+
+      (liveRes.data || []).forEach((session: any) => {
+        if (!Array.isArray(session.live_queue_entries)) return;
+        session.live_queue_entries.forEach((entry: any) => {
+          if (!entry.amount_charged || !entry.ended_at) return;
+          const endedAt = new Date(entry.ended_at);
+          if (endedAt.getMonth() === now.getMonth() && endedAt.getFullYear() === now.getFullYear()) {
+            monthlyGross += Number(entry.amount_charged);
+          }
+        });
+      });
+
+      setThisMonthEarnings(monthlyGross * 0.85);
+      setLoadingEarnings(false);
+    }
+
+    loadEarnings();
+  }, [user]);
 
   async function handleLogout() {
     await logout();
@@ -132,13 +182,15 @@ export function CreatorSidebar() {
           <DollarSign className="w-4 h-4 text-brand-gold" />
           <span className="text-xs font-semibold text-slate-300">This Month</span>
         </div>
-        {user?.id === "1" ? (
+        {loadingEarnings ? (
           <>
-            <div className="text-2xl font-black text-gradient-gold">$1,240</div>
-            <div className="text-xs text-brand-live mt-1 flex items-center gap-1">
-              <ChevronRight className="w-3 h-3 rotate-90" />
-              <span>+18% vs last month</span>
-            </div>
+            <div className="text-2xl font-black text-gradient-gold">$0</div>
+            <div className="text-xs text-slate-500 mt-1">Loading...</div>
+          </>
+        ) : thisMonthEarnings > 0 ? (
+          <>
+            <div className="text-2xl font-black text-gradient-gold">{formatCurrency(thisMonthEarnings)}</div>
+            <div className="text-xs text-brand-live mt-1">Earnings this month</div>
           </>
         ) : (
           <>

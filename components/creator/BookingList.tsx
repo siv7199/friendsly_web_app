@@ -4,13 +4,18 @@ import { Badge } from "@/components/ui/badge";
 import type { Booking } from "@/types";
 import { formatCurrency, formatDate, statusColor } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Video } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { isBookingJoinable } from "@/lib/bookings";
 
 interface BookingListProps {
   bookings: Booking[];
   title?: string;
+  onClickJoin?: (booking: Booking) => void;
 }
 
-export function BookingList({ bookings, title }: BookingListProps) {
+export function BookingList({ bookings, title, onClickJoin }: BookingListProps) {
   return (
     <div className="rounded-2xl border border-brand-border bg-brand-surface overflow-hidden">
       {title && (
@@ -26,7 +31,7 @@ export function BookingList({ bookings, title }: BookingListProps) {
       ) : (
         <div className="divide-y divide-brand-border">
           {bookings.map((booking) => (
-            <BookingRow key={booking.id} booking={booking} />
+            <BookingRow key={booking.id} booking={booking} onClickJoin={onClickJoin ? () => onClickJoin(booking) : undefined} />
           ))}
         </div>
       )}
@@ -34,7 +39,7 @@ export function BookingList({ bookings, title }: BookingListProps) {
   );
 }
 
-function BookingRow({ booking }: { booking: Booking }) {
+function BookingRow({ booking, onClickJoin }: { booking: Booking; onClickJoin?: () => void }) {
   // Generate initials from fan name
   const initials = booking.fanName
     .split(" ")
@@ -48,6 +53,14 @@ function BookingRow({ booking }: { booking: Booking }) {
     "bg-emerald-500", "bg-amber-500", "bg-rose-500",
   ];
   const color = colors[booking.id.charCodeAt(1) % colors.length];
+  const router = useRouter();
+
+  const bookingStart = new Date(`${booking.date} ${booking.time}`);
+  const isJoinable = isBookingJoinable(booking.status, bookingStart, booking.duration);
+
+  function handleJoin() {
+    router.push(`/room/${booking.id}`);
+  }
 
   return (
     <div className="px-5 py-4 flex items-center gap-4 hover:bg-brand-elevated/50 transition-colors">
@@ -90,6 +103,17 @@ function BookingRow({ booking }: { booking: Booking }) {
         >
           {booking.status}
         </span>
+        {isJoinable && (
+          <Button
+            variant="live"
+            size="sm"
+            className="mt-1 h-7 text-[10px] gap-1 px-3 shadow-glow-live"
+            onClick={onClickJoin || handleJoin}
+          >
+            <Video className="w-3 h-3" />
+            START SESSION
+          </Button>
+        )}
       </div>
     </div>
   );

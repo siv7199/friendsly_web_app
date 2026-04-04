@@ -22,6 +22,7 @@ export interface Creator {
   avatarColor: string;          // Tailwind bg class for avatar
   avatarUrl?: string;           // Profile photo URL (base64 or remote)
   isLive: boolean;
+  currentLiveSessionId?: string; // ID of active studio session
   queueCount: number;           // People currently in queue
   callPrice: number;            // USD — cheapest active booking package
   callDuration: number;         // Minutes per session
@@ -29,6 +30,7 @@ export interface Creator {
   totalCalls: number;
   responseTime: string;         // e.g. "~2 min"
   liveRatePerMinute?: number;   // USD/min for public live queue sessions
+  timeZone?: string;
 }
 
 // ── Booking ───────────────────────────────────────────────────────────
@@ -58,8 +60,11 @@ export interface QueueEntry {
   avatarColor: string;
   position: number;
   waitTime: string;        // "~8 min"
+  waitSeconds?: number;    // Countdown estimate until admitted
+  admittedAt?: string;
   topic?: string;
   joinedAt: string;        // ISO timestamp
+  status?: string;         // 'waiting' | 'active' | 'completed' | 'skipped'
 }
 
 // ── Chat Message (Waiting Room) ───────────────────────────────────────
@@ -127,6 +132,7 @@ export interface CreatorProfile extends BaseProfile {
   category: string;                 // e.g. "Fitness & Wellness"
   is_live: boolean;
   live_rate_per_minute?: number;    // USD/min charged during public live queue sessions
+  timezone?: string;
 }
 
 /** PendingProfile — signed up but hasn't picked a role yet (mid-onboarding) */

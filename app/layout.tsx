@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/context/AuthContext";
+import { GlobalLiveStatusManager } from "@/components/shared/GlobalLiveStatusManager";
 
 export const metadata: Metadata = {
   title: "Friendsly — Connect with Your Favorite Creators",
@@ -34,6 +35,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="bg-brand-bg text-slate-100 antialiased min-h-screen">
         <AuthProvider>
+          <GlobalLiveStatusManager />
           {children}
         </AuthProvider>
       </body>

@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Star, Video, Clock, Users, Zap } from "lucide-react";
+import { Star, Video, Clock, Users, Zap, Heart } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookingModal } from "@/components/fan/BookingModal";
+import { LiveJoinModal } from "@/components/fan/LiveJoinModal";
 import type { Creator, CallPackage } from "@/types";
 import { createClient } from "@/lib/supabase/client";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
+import { useAuthContext } from "@/lib/context/AuthContext";
 import Link from "next/link";
 
 interface InfluencerCardProps {
@@ -16,20 +18,24 @@ interface InfluencerCardProps {
 }
 
 export function InfluencerCard({ creator }: InfluencerCardProps) {
+  const { user } = useAuthContext();
   const [showBooking, setShowBooking] = useState(false);
+  const [showLiveJoin, setShowLiveJoin] = useState(false);
   const [packages, setPackages] = useState<CallPackage[]>([]);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
+    
+    // 1. Load packages
     supabase
       .from("call_packages")
       .select("*")
       .eq("creator_id", creator.id)
       .eq("is_active", true)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(({ data }: { data: any[] | null }) => {
+      .then(({ data }: any) => {
         if (data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           setPackages(data.map((p: any) => ({
             id: p.id,
             name: p.name,
@@ -41,7 +47,44 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
           })));
         }
       });
-  }, [creator.id]);
+
+    // 2. Check if saved
+    if (user) {
+      supabase
+        .from("saved_creators")
+        .select("id")
+        .eq("fan_id", user.id)
+        .eq("creator_id", creator.id)
+        .maybeSingle()
+        .then(({ data }: any) => {
+          if (data) setIsSaved(true);
+        });
+    }
+  }, [creator.id, user]);
+
+  async function toggleSave(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) return; // Maybe show login modal?
+
+    setIsSaving(true);
+    const supabase = createClient();
+
+    if (isSaved) {
+      await supabase
+        .from("saved_creators")
+        .delete()
+        .eq("fan_id", user.id)
+        .eq("creator_id", creator.id);
+      setIsSaved(false);
+    } else {
+      await supabase
+        .from("saved_creators")
+        .insert({ fan_id: user.id, creator_id: creator.id });
+      setIsSaved(true);
+    }
+    setIsSaving(false);
+  }
 
   const hasLiveRate = Boolean(creator.liveRatePerMinute && creator.liveRatePerMinute > 0);
   const hasPackages  = creator.callPrice > 0 || packages.length > 0;
@@ -72,10 +115,34 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
                 <p className="text-sm text-slate-500">{creator.username}</p>
               </div>
               {creator.isLive && (
-                <Badge variant="live" className="shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
-                  LIVE
-                </Badge>
+                <div className="flex flex-col items-end gap-2">
+                  <Badge variant="live" className="shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
+                    LIVE
+                  </Badge>
+                  <button
+                    onClick={toggleSave}
+                    disabled={isSaving}
+                    className={cn(
+                      "p-2 rounded-full transition-all",
+                      isSaved ? "text-red-500 bg-red-500/10" : "text-slate-500 hover:text-slate-300 bg-slate-800/50"
+                    )}
+                  >
+                    <Heart className={cn("w-4 h-4", isSaved && "fill-current")} />
+                  </button>
+                </div>
+              )}
+              {!creator.isLive && (
+                <button
+                  onClick={toggleSave}
+                  disabled={isSaving}
+                  className={cn(
+                    "p-2 rounded-full transition-all",
+                    isSaved ? "text-red-500 bg-red-500/10" : "text-slate-500 hover:text-slate-300 bg-slate-800/50"
+                  )}
+                >
+                  <Heart className={cn("w-4 h-4", isSaved && "fill-current")} />
+                </button>
               )}
             </div>
 
@@ -96,12 +163,14 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
 
         {/* ── Category Tag ── */}
         <div className="px-5">
-          <Badge variant="primary" className="text-[11px]">{creator.category}</Badge>
+          <Badge variant="primary" className="text-[11px]">
+            {creator.category || "New Creator"}
+          </Badge>
         </div>
 
         {/* ── Bio ── */}
         <p className="px-5 pt-3 text-sm text-slate-400 leading-relaxed line-clamp-2 flex-1">
-          {creator.bio}
+          {creator.bio || "No bio set yet. This creator is just getting started!"}
         </p>
 
         {/* ── Tags ── */}
@@ -155,34 +224,51 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
             </div>
           </div>
 
-          {creator.isLive ? (
-            <Link href={`/waiting-room/${creator.id}`}>
-              <Button variant="live" size="sm" className="gap-1.5 shrink-0">
-                <Zap className="w-3.5 h-3.5" />
-                Join Queue ({creator.queueCount})
+          <div className="flex items-center gap-2">
+            {creator.isLive && hasPackages && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBooking(true)}
+                className="shrink-0 px-2.5"
+                title="Book Call"
+              >
+                <Video className="w-4 h-4" />
               </Button>
-            </Link>
-          ) : hasPackages ? (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setShowBooking(true)}
-              className="gap-1.5 shrink-0"
-            >
-              <Video className="w-3.5 h-3.5" />
-              Book Call
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled
-              className="gap-1.5 opacity-50 cursor-not-allowed shrink-0"
-            >
-              <Clock className="w-3.5 h-3.5" />
-              Coming Soon
-            </Button>
-          )}
+            )}
+
+            {creator.isLive && hasLiveRate ? (
+              <Button variant="live" size="sm" onClick={() => setShowLiveJoin(true)} className="gap-1.5 shrink-0">
+                <Zap className="w-3.5 h-3.5" />
+                Join Queue
+              </Button>
+            ) : creator.isLive && !hasLiveRate ? (
+              <Button variant="outline" size="sm" disabled className="gap-1.5 opacity-60 cursor-not-allowed">
+                <Zap className="w-3.5 h-3.5" />
+                <span className="text-xs truncate">No Rate Set</span>
+              </Button>
+            ) : hasPackages ? (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowBooking(true)}
+                className="gap-1.5 shrink-0"
+              >
+                <Video className="w-3.5 h-3.5" />
+                Book Call
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled
+                className="gap-1.5 opacity-50 cursor-not-allowed shrink-0"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                Coming Soon
+              </Button>
+            )}
+          </div>
         </div>
       </article>
 
@@ -192,6 +278,14 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
         onClose={() => setShowBooking(false)}
         packages={packages}
       />
+      
+      {creator.liveRatePerMinute && (
+        <LiveJoinModal
+          creator={creator}
+          open={showLiveJoin}
+          onClose={() => setShowLiveJoin(false)}
+        />
+      )}
     </>
   );
 }

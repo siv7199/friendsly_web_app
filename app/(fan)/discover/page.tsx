@@ -34,7 +34,7 @@ async function fetchCreators(): Promise<Creator[]> {
   // Get all creator profiles with their base profile data
   const { data: profiles, error } = await supabase
     .from("profiles")
-    .select("*, creator_profiles(*)")
+    .select("*, creator_profiles(*), live_sessions(*)")
     .eq("role", "creator")
     .order("created_at", { ascending: false });
 
@@ -57,11 +57,43 @@ async function fetchCreators(): Promise<Creator[]> {
     packagesByCreator[pkg.creator_id]!.push(pkg);
   });
 
+  // Get queue counts for all active sessions
+  const activeSessionIds: string[] = [];
+  const sessionToCreator: Record<string, string> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  profiles.forEach((profile: any) => {
+    const sessions = Array.isArray(profile.live_sessions) ? profile.live_sessions : [];
+    sessions.forEach((s: any) => {
+      if (s?.is_active) {
+        activeSessionIds.push(s.id);
+        sessionToCreator[s.id] = profile.id;
+      }
+    });
+  });
+
+  const queueCountByCreator: Record<string, number> = {};
+  if (activeSessionIds.length > 0) {
+    const { data: queueEntries } = await supabase
+      .from("live_queue_entries")
+      .select("session_id")
+      .in("session_id", activeSessionIds)
+      .eq("status", "waiting");
+
+    (queueEntries ?? []).forEach((entry: { session_id: string }) => {
+      const creatorId = sessionToCreator[entry.session_id];
+      if (creatorId) {
+        queueCountByCreator[creatorId] = (queueCountByCreator[creatorId] ?? 0) + 1;
+      }
+    });
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return profiles.map((profile: any) => {
-    const cp = Array.isArray(profile.creator_profiles)
-      ? profile.creator_profiles[0]
-      : profile.creator_profiles;
+    // Handling the creator_profiles join (it might be an array or object in Supabase response)
+    const cp = Array.isArray(profile.creator_profiles) ? profile.creator_profiles[0] : profile.creator_profiles;
+
+    // Only show as "Live" if the is_live flag is explicitly true (Creator clicked Start)
+    const isActuallyLive = Boolean(cp?.is_live);
 
     const packages = packagesByCreator[profile.id] ?? [];
     const minPrice = packages.length
@@ -85,8 +117,9 @@ async function fetchCreators(): Promise<Creator[]> {
       avatarInitials: profile.avatar_initials,
       avatarColor: profile.avatar_color,
       avatarUrl: profile.avatar_url ?? undefined,
-      isLive: cp?.is_live ?? false,
-      queueCount: 0, // Will be populated from live_sessions later
+      isLive: isActuallyLive,
+      currentLiveSessionId: cp?.current_live_session_id ?? undefined,
+      queueCount: queueCountByCreator[profile.id] ?? 0,
       callPrice: minPrice,
       callDuration: minDuration,
       nextAvailable: hasPackages ? (cp?.next_available ?? "Available this week") : "No packages yet",
@@ -110,10 +143,25 @@ export default function DiscoverPage() {
   const [activeCategory, setActiveCategory] = useState("All");
 
   useEffect(() => {
-    fetchCreators().then((data) => {
-      setCreators(data);
-      setLoading(false);
-    });
+    function load() {
+      fetchCreators().then((data) => {
+        setCreators(data);
+        setLoading(false);
+      });
+    }
+
+    load();
+
+    const supabase = createClient();
+    const channels = supabase
+      .channel("discover_realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, load)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channels);
+    };
   }, []);
 
   // ── Filtering ─────────────────────────────────────────────────────────────
