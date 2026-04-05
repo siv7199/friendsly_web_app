@@ -11,6 +11,7 @@
 
 import { FanSidebar } from "@/components/shared/FanSidebar";
 import { BottomNav } from "@/components/shared/BottomNav";
+import { FanBookingQuickJoinBanner } from "@/components/fan/FanBookingQuickJoinBanner";
 
 export default function FanLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,6 +21,7 @@ export default function FanLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main content area */}
       <main className="flex-1 overflow-x-hidden pb-16 md:pb-0">
+        <FanBookingQuickJoinBanner />
         {children}
       </main>
 

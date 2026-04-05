@@ -115,6 +115,7 @@ function PaymentForm({ onSuccess, onBack, isSubmitting, setIsSubmitting, setPayE
         options={{
           layout: "tabs",
         }}
+        onReady={() => setIsReady(true)}
       />
       <div className="flex gap-3">
         <Button variant="outline" className="flex-1" onClick={onBack} disabled={isSubmitting}>

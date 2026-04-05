@@ -13,6 +13,7 @@ import { InfluencerCard } from "@/components/fan/InfluencerCard";
 import { createClient } from "@/lib/supabase/client";
 import type { Creator } from "@/types";
 import { formatCurrency } from "@/lib/utils";
+import { isNewCreator } from "@/lib/creators";
 
 const CATEGORIES = [
   "All",
@@ -103,15 +104,17 @@ async function fetchCreators(): Promise<Creator[]> {
 
     const hasPackages = minPrice > 0;
     const liveRate = cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined;
+    const totalCalls = cp?.total_calls ?? 0;
 
     return {
       id: profile.id,
       name: profile.full_name,
       username: `@${profile.username}`,
+      createdAt: profile.created_at,
       bio: cp?.bio ?? "",
       category: cp?.category ?? "",
       tags: cp?.tags ?? [],
-      followers: cp?.followers_count > 0 ? formatFollowers(cp.followers_count) : "New",
+      followers: formatFollowers(cp?.followers_count ?? 0),
       rating: Number(cp?.avg_rating ?? 0),
       reviewCount: cp?.review_count ?? 0,
       avatarInitials: profile.avatar_initials,
@@ -123,9 +126,10 @@ async function fetchCreators(): Promise<Creator[]> {
       callPrice: minPrice,
       callDuration: minDuration,
       nextAvailable: hasPackages ? (cp?.next_available ?? "Available this week") : "No packages yet",
-      totalCalls: cp?.total_calls ?? 0,
+      totalCalls,
       responseTime: cp?.response_time ?? "~5 min",
       liveRatePerMinute: liveRate,
+      isNew: isNewCreator(profile.created_at),
     } satisfies Creator;
   });
 }

@@ -12,6 +12,7 @@ export interface Creator {
   id: string;
   name: string;
   username: string;
+  createdAt?: string;
   bio: string;
   category: string;
   tags: string[];
@@ -31,6 +32,7 @@ export interface Creator {
   responseTime: string;         // e.g. "~2 min"
   liveRatePerMinute?: number;   // USD/min for public live queue sessions
   timeZone?: string;
+  isNew?: boolean;
 }
 
 // ── Booking ───────────────────────────────────────────────────────────
@@ -42,6 +44,9 @@ export interface Booking {
   creatorName: string;
   fanName: string;
   fanUsername: string;
+  fanInitials?: string;
+  fanAvatarColor?: string;
+  fanAvatarUrl?: string;
   date: string;            // ISO date string
   time: string;            // "3:00 PM"
   duration: number;        // Minutes

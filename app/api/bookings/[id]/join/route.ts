@@ -91,15 +91,36 @@ export async function POST(
 
       const roomData = await roomRes.json();
       roomUrl = roomData.url;
-
-      // Update booking with the room URL and set status to live if it was upcoming
-      await supabase
+      // Attempt to claim the booking room only if another request has not already set it.
+      const { data: claimedBooking, error: claimError } = await supabase
         .from("bookings")
         .update({
           daily_room_url: roomUrl,
           status: booking.status === "upcoming" ? "live" : booking.status
         })
-        .eq("id", bookingId);
+        .eq("id", bookingId)
+        .is("daily_room_url", null)
+        .select("daily_room_url, status")
+        .maybeSingle();
+
+      if (claimError) {
+        console.error("Failed to claim booking Daily room:", claimError);
+      }
+
+      if (!claimedBooking?.daily_room_url) {
+        // Another participant won the race and stored the canonical room first.
+        const { data: latestBooking } = await supabase
+          .from("bookings")
+          .select("daily_room_url, status")
+          .eq("id", bookingId)
+          .single();
+
+        if (latestBooking?.daily_room_url) {
+          roomUrl = latestBooking.daily_room_url;
+        } else {
+          return NextResponse.json({ error: "Could not establish a shared booking room." }, { status: 500 });
+        }
+      }
     } else if (booking.status === "upcoming") {
       // If room already exists but status is still upcoming, move to live
       await supabase

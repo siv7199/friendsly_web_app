@@ -1,4 +1,4 @@
-import { Star, Clock, Calendar } from "lucide-react";
+import { Star, Clock, Calendar, XCircle } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import type { Booking } from "@/types";
@@ -13,9 +13,11 @@ interface BookingListProps {
   bookings: Booking[];
   title?: string;
   onClickJoin?: (booking: Booking) => void;
+  onClickCancel?: (booking: Booking) => void;
+  cancellingId?: string | null;
 }
 
-export function BookingList({ bookings, title, onClickJoin }: BookingListProps) {
+export function BookingList({ bookings, title, onClickJoin, onClickCancel, cancellingId }: BookingListProps) {
   return (
     <div className="rounded-2xl border border-brand-border bg-brand-surface overflow-hidden">
       {title && (
@@ -31,7 +33,13 @@ export function BookingList({ bookings, title, onClickJoin }: BookingListProps) 
       ) : (
         <div className="divide-y divide-brand-border">
           {bookings.map((booking) => (
-            <BookingRow key={booking.id} booking={booking} onClickJoin={onClickJoin ? () => onClickJoin(booking) : undefined} />
+            <BookingRow
+              key={booking.id}
+              booking={booking}
+              onClickJoin={onClickJoin ? () => onClickJoin(booking) : undefined}
+              onClickCancel={onClickCancel ? () => onClickCancel(booking) : undefined}
+              cancelling={cancellingId === booking.id}
+            />
           ))}
         </div>
       )}
@@ -39,24 +47,28 @@ export function BookingList({ bookings, title, onClickJoin }: BookingListProps) 
   );
 }
 
-function BookingRow({ booking, onClickJoin }: { booking: Booking; onClickJoin?: () => void }) {
-  // Generate initials from fan name
-  const initials = booking.fanName
+function BookingRow({
+  booking,
+  onClickJoin,
+  onClickCancel,
+  cancelling,
+}: {
+  booking: Booking;
+  onClickJoin?: () => void;
+  onClickCancel?: () => void;
+  cancelling?: boolean;
+}) {
+  const initials = booking.fanInitials || booking.fanName
     .split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase();
-
-  // Pick a deterministic color for the fan avatar
-  const colors = [
-    "bg-violet-500", "bg-sky-500", "bg-pink-500",
-    "bg-emerald-500", "bg-amber-500", "bg-rose-500",
-  ];
-  const color = colors[booking.id.charCodeAt(1) % colors.length];
+  const color = booking.fanAvatarColor || "bg-violet-500";
   const router = useRouter();
 
   const bookingStart = new Date(`${booking.date} ${booking.time}`);
   const isJoinable = isBookingJoinable(booking.status, bookingStart, booking.duration);
+  const canCancel = booking.status === "upcoming";
 
   function handleJoin() {
     router.push(`/room/${booking.id}`);
@@ -64,7 +76,7 @@ function BookingRow({ booking, onClickJoin }: { booking: Booking; onClickJoin?: 
 
   return (
     <div className="px-5 py-4 flex items-center gap-4 hover:bg-brand-elevated/50 transition-colors">
-      <Avatar initials={initials} color={color} size="sm" />
+      <Avatar initials={initials} color={color} imageUrl={booking.fanAvatarUrl} size="sm" />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -103,6 +115,18 @@ function BookingRow({ booking, onClickJoin }: { booking: Booking; onClickJoin?: 
         >
           {booking.status}
         </span>
+        {canCancel && onClickCancel && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-1 h-7 text-[10px] gap-1 px-3 text-red-400 border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40"
+            onClick={onClickCancel}
+            disabled={cancelling}
+          >
+            <XCircle className="w-3 h-3" />
+            {cancelling ? "CANCELLING..." : "CANCEL"}
+          </Button>
+        )}
         {isJoinable && (
           <Button
             variant="live"

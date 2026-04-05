@@ -24,6 +24,7 @@ import {
   getTimeZoneAbbreviation,
   localDateKey,
 } from "@/lib/timezones";
+import { isNewCreator } from "@/lib/creators";
 
 // ── Availability Calendar helpers ─────────────────────────────────────────────
 
@@ -76,17 +77,43 @@ async function fetchCreatorData(id: string): Promise<{
     .eq("is_active", true)
     .order("price");
 
-  const { data: avail } = await supabase
+  let avail: AvailabilitySlot[] | null = null;
+  const availRes = await supabase
     .from("creator_availability")
     .select("id, day_of_week, start_time, end_time, package_id")
     .eq("creator_id", id)
     .eq("is_active", true)
     .order("day_of_week");
 
+  if (availRes.error) {
+    const fallbackAvailRes = await supabase
+      .from("creator_availability")
+      .select("id, day_of_week, start_time, end_time")
+      .eq("creator_id", id)
+      .eq("is_active", true)
+      .order("day_of_week");
+    avail = fallbackAvailRes.data?.map((slot: any) => ({ ...slot, package_id: null })) ?? [];
+  } else {
+    avail = availRes.data ?? [];
+  }
+
   const { count: reviewCount } = await supabase
     .from("reviews")
     .select("*", { count: "exact", head: true })
     .eq("creator_id", id);
+
+  const [{ count: completedBookingsCount }, { count: completedLiveQueueCount }] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("creator_id", id)
+      .eq("status", "completed"),
+    supabase
+      .from("live_queue_entries")
+      .select("id, live_sessions!inner(creator_id)", { count: "exact", head: true })
+      .eq("live_sessions.creator_id", id)
+      .in("status", ["completed", "skipped"]),
+  ]);
 
   if (!profile) return { creator: null, packages: [], availability: [], reviewCount: 0 };
 
@@ -130,10 +157,11 @@ async function fetchCreatorData(id: string): Promise<{
     id: profile.id,
     name: profile.full_name,
     username: `@${profile.username}`,
+    createdAt: profile.created_at,
     bio: cp?.bio ?? "",
     category: cp?.category ?? "",
     tags: cp?.tags ?? [],
-    followers: "New",
+    followers: String(cp?.followers_count ?? 0),
     rating: Number(cp?.avg_rating ?? 0),
     reviewCount: reviewCount ?? 0,
     avatarInitials: profile.avatar_initials,
@@ -144,10 +172,11 @@ async function fetchCreatorData(id: string): Promise<{
     callPrice: minPrice,
     callDuration: packages[0]?.duration ?? 15,
     nextAvailable: minPrice > 0 ? "Available this week" : "No packages yet",
-    totalCalls: cp?.total_calls ?? 0,
+    totalCalls: (completedBookingsCount ?? 0) + (completedLiveQueueCount ?? 0),
     responseTime: cp?.response_time ?? "~5 min",
     liveRatePerMinute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
     timeZone: cp?.timezone ?? "America/New_York",
+    isNew: isNewCreator(profile.created_at),
   };
 
   return {
@@ -331,6 +360,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               <Avatar
                 initials={creator.avatarInitials}
                 color={creator.avatarColor}
+                imageUrl={creator.avatarUrl}
                 size="xl"
                 isLive={creator.isLive}
                 className="border-4 border-brand-surface ring-2 ring-brand-border"
@@ -354,20 +384,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <span className="text-sm text-slate-500">({creator.reviewCount} reviews)</span>
                 </div>
               )}
-              <div className="flex items-center gap-1.5 text-sm text-slate-400">
-                <Users className="w-4 h-4" />
-                <span>{creator.followers} followers</span>
-              </div>
               {creator.totalCalls > 0 && (
                 <div className="flex items-center gap-1.5 text-sm text-slate-400">
                   <Video className="w-4 h-4" />
                   <span>{creator.totalCalls} calls completed</span>
                 </div>
               )}
-              <div className="flex items-center gap-1.5 text-sm text-slate-400">
-                <Clock className="w-4 h-4" />
-                <span>Responds {creator.responseTime}</span>
-              </div>
             </div>
 
             {creator.bio && (
@@ -665,8 +687,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 space-y-3">
               <h3 className="text-sm font-bold text-slate-300">Creator Stats</h3>
               {[
-                { icon: TrendingUp, label: "Total calls", value: creator.totalCalls > 0 ? creator.totalCalls.toLocaleString() : "New" },
-                { icon: Clock, label: "Avg response", value: creator.responseTime },
+                { icon: TrendingUp, label: "Total calls", value: creator.totalCalls.toLocaleString() },
                 { icon: Shield, label: "Verified creator", value: "✓" },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-center justify-between text-sm">

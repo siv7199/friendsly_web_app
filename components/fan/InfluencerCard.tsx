@@ -17,11 +17,19 @@ interface InfluencerCardProps {
   creator: Creator;
 }
 
+interface AvailabilitySlot {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  package_id?: string | null;
+}
+
 export function InfluencerCard({ creator }: InfluencerCardProps) {
   const { user } = useAuthContext();
   const [showBooking, setShowBooking] = useState(false);
   const [showLiveJoin, setShowLiveJoin] = useState(false);
   const [packages, setPackages] = useState<CallPackage[]>([]);
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -48,7 +56,31 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
         }
       });
 
-    // 2. Check if saved
+    // 2. Load availability for booking modal parity with profile page
+    supabase
+      .from("creator_availability")
+      .select("day_of_week, start_time, end_time, package_id")
+      .eq("creator_id", creator.id)
+      .eq("is_active", true)
+      .then(({ data, error }: any) => {
+        if (data && !error) {
+          setAvailability(data);
+          return;
+        }
+
+        supabase
+          .from("creator_availability")
+          .select("day_of_week, start_time, end_time")
+          .eq("creator_id", creator.id)
+          .eq("is_active", true)
+          .then(({ data: fallbackData }: any) => {
+            if (fallbackData) {
+              setAvailability(fallbackData.map((slot: any) => ({ ...slot, package_id: null })));
+            }
+          });
+      });
+
+    // 3. Check if saved
     if (user) {
       supabase
         .from("saved_creators")
@@ -98,6 +130,7 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
             <Avatar
               initials={creator.avatarInitials}
               color={creator.avatarColor}
+              imageUrl={creator.avatarUrl}
               size="lg"
               isLive={creator.isLive}
               className="cursor-pointer"
@@ -106,12 +139,19 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <Link
-                  href={`/profile/${creator.id}`}
-                  className="text-base font-bold text-slate-100 hover:text-brand-primary-light transition-colors"
-                >
-                  {creator.name}
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/profile/${creator.id}`}
+                    className="text-base font-bold text-slate-100 hover:text-brand-primary-light transition-colors"
+                  >
+                    {creator.name}
+                  </Link>
+                  {creator.isNew && (
+                    <Badge variant="gold" className="text-[10px] uppercase tracking-wide">
+                      New
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-sm text-slate-500">{creator.username}</p>
               </div>
               {creator.isLive && (
@@ -277,6 +317,7 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
         open={showBooking}
         onClose={() => setShowBooking(false)}
         packages={packages}
+        availability={availability}
       />
       
       {creator.liveRatePerMinute && (

@@ -35,6 +35,19 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [upcoming, setUpcoming] = useState<Booking[]>([]);
   const [completed, setCompleted] = useState<Booking[]>([]);
+  const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
+
+  async function handleCancelBooking(booking: Booking) {
+    setCancellingBookingId(booking.id);
+    const supabase = createClient();
+    await supabase
+      .from("bookings")
+      .update({ status: "cancelled" })
+      .eq("id", booking.id);
+
+    setUpcoming((prev) => prev.filter((item) => item.id !== booking.id));
+    setCancellingBookingId(null);
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -48,7 +61,7 @@ export default function CalendarPage() {
         .from("bookings")
         .select(`
           id, scheduled_at, duration, price, status, topic,
-          fan:profiles!fan_id(full_name, username)
+          fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
         `)
         .eq("creator_id", creatorId)
         .order("scheduled_at", { ascending: true });
@@ -75,6 +88,9 @@ export default function CalendarPage() {
           creatorName,
           fanName: fan?.full_name || "Fan",
           fanUsername: fan?.username ? `@${fan.username}` : "@fan",
+          fanInitials: fan?.avatar_initials ?? "F",
+          fanAvatarColor: fan?.avatar_color ?? "bg-violet-600",
+          fanAvatarUrl: fan?.avatar_url ?? undefined,
           date: bookingDate.toISOString().split("T")[0],
           time: bookingDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
           duration: booking.duration,
@@ -161,7 +177,11 @@ export default function CalendarPage() {
                     {formatCurrency(bookings.reduce((sum, booking) => sum + booking.price, 0))} expected
                   </span>
                 </div>
-                <BookingList bookings={bookings} />
+                <BookingList
+                  bookings={bookings}
+                  onClickCancel={handleCancelBooking}
+                  cancellingId={cancellingBookingId}
+                />
               </div>
             ))
         )}

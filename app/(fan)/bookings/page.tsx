@@ -131,6 +131,7 @@ export default function BookingsPage() {
 
     return b.status === activeTab;
   });
+  const nextJoinableBooking = bookings.find((b) => isBookingJoinable(b.status, b.scheduledAt, b.duration));
 
   if (loading) {
     return (
@@ -175,6 +176,26 @@ export default function BookingsPage() {
           </button>
         ))}
       </div>
+
+      {nextJoinableBooking && (
+        <div className="rounded-2xl border border-brand-live/30 bg-brand-live/10 p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-live">Ready To Join</p>
+            <p className="mt-1 text-sm text-slate-100">
+              Your booking with {nextJoinableBooking.creatorName} is ready now.
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              {new Date(nextJoinableBooking.scheduledAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} · {nextJoinableBooking.duration} min
+            </p>
+          </div>
+          <Link href={`/room/${nextJoinableBooking.id}`}>
+            <Button variant="live" className="gap-2 shadow-glow-live">
+              <Video className="w-4 h-4" />
+              Quick Join
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {/* Bookings List */}
       {filtered.length === 0 ? (

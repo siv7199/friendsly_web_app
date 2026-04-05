@@ -15,6 +15,7 @@ import { InfluencerCard } from "@/components/fan/InfluencerCard";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import type { Creator } from "@/types";
+import { isNewCreator } from "@/lib/creators";
 
 export default function SavedPage() {
   const { user } = useAuthContext();
@@ -34,8 +35,8 @@ export default function SavedPage() {
       .from("saved_creators")
       .select(
         `id, creator_id,
-         creator:profiles!creator_id(
-           id, full_name, username, avatar_initials, avatar_color, avatar_url,
+           creator:profiles!creator_id(
+           id, full_name, username, avatar_initials, avatar_color, avatar_url, created_at,
            creator_profiles(
              bio, category, tags, live_rate_per_minute, is_live,
              followers_count, avg_rating, review_count, total_calls,
@@ -79,6 +80,7 @@ export default function SavedPage() {
         id: string;
         full_name: string;
         username: string;
+        created_at: string;
         avatar_initials: string;
         avatar_color: string;
         avatar_url: string | null;
@@ -122,12 +124,11 @@ export default function SavedPage() {
         id: p.id,
         name: p.full_name,
         username: `@${p.username}`,
+        createdAt: p.created_at,
         bio: cp?.bio ?? "",
         category: cp?.category ?? "",
         tags: cp?.tags ?? [],
-        followers: (cp?.followers_count ?? 0) > 0
-          ? formatFollowers(cp!.followers_count)
-          : "New",
+        followers: formatFollowers(cp?.followers_count ?? 0),
         rating: Number(cp?.avg_rating ?? 0),
         reviewCount: cp?.review_count ?? 0,
         avatarInitials: p.avatar_initials,
@@ -141,6 +142,7 @@ export default function SavedPage() {
         totalCalls: cp?.total_calls ?? 0,
         responseTime: cp?.response_time ?? "~5 min",
         liveRatePerMinute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
+        isNew: isNewCreator(p.created_at),
       };
     });
 

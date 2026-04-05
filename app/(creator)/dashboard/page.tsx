@@ -31,6 +31,7 @@ interface DashReview {
   fanName: string;
   fanInitials: string;
   fanColor: string;
+  fanAvatarUrl?: string;
   rating: number;
   comment: string;
   date: string;
@@ -56,6 +57,7 @@ export default function DashboardPage() {
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [isLiveStatus, setIsLiveStatus] = useState(false);
   const [syncingStatus, setSyncingStatus] = useState(false);
+  const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
 
   async function resetLiveStatus() {
     if (!user) return;
@@ -66,12 +68,32 @@ export default function DashboardPage() {
     setSyncingStatus(false);
   }
 
+  async function handleCancelBooking(booking: any) {
+    const bookingId = booking.id;
+    setCancellingBookingId(bookingId);
+    const supabase = createClient();
+    await supabase
+      .from("bookings")
+      .update({ status: "cancelled" })
+      .eq("id", bookingId);
+
+    setUpcomingBookings((prev: any[]) => prev.filter((booking) => booking.id !== bookingId));
+    setStats((prev) => ({
+      ...prev,
+      upcomingBookings: Math.max(0, prev.upcomingBookings - 1),
+    }));
+    if (nextJoinableBooking?.id === bookingId) {
+      setNextJoinableBooking(null);
+    }
+    setCancellingBookingId(null);
+  }
+
   useEffect(() => {
     if (!user) return;
     const supabase = createClient();
     supabase
       .from("reviews")
-      .select("id, rating, comment, created_at, fan:profiles!fan_id(full_name, avatar_initials, avatar_color)")
+      .select("id, rating, comment, created_at, fan:profiles!fan_id(full_name, avatar_initials, avatar_color, avatar_url)")
       .eq("creator_id", user.id)
       .order("created_at", { ascending: false })
       .limit(5)
@@ -86,6 +108,7 @@ export default function DashboardPage() {
               fanName: fan?.full_name ?? "Fan",
               fanInitials: fan?.avatar_initials ?? "F",
               fanColor: fan?.avatar_color ?? "bg-violet-600",
+              fanAvatarUrl: fan?.avatar_url ?? undefined,
               rating: r.rating,
               comment: r.comment ?? "",
               date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
@@ -103,7 +126,7 @@ export default function DashboardPage() {
           .from("bookings")
           .select(`
             id, scheduled_at, duration, price, status, topic,
-            fan:profiles!fan_id(full_name, username)
+            fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
           `)
           .eq("creator_id", user?.id)
           .order("scheduled_at", { ascending: true }),
@@ -181,6 +204,9 @@ export default function DashboardPage() {
           creatorName: user?.full_name || "Creator",
           fanName: fan?.full_name || "Fan",
           fanUsername: fan?.username ? `@${fan.username}` : "@fan",
+          fanInitials: fan?.avatar_initials ?? "F",
+          fanAvatarColor: fan?.avatar_color ?? "bg-violet-600",
+          fanAvatarUrl: fan?.avatar_url ?? undefined,
           scheduledAt: b.scheduled_at,
           date: bDate.toISOString().split("T")[0],
           time: bDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
@@ -262,6 +288,7 @@ export default function DashboardPage() {
   const displayCategory = user && isCreatorProfile(user) ? user.category : "";
   const avatarInitials = user?.avatar_initials ?? "??";
   const avatarColor = user?.avatar_color ?? "bg-violet-600";
+  const avatarUrl = user?.avatar_url ?? undefined;
 
   // Calculate profile completeness score
   const profileStrength = (() => {
@@ -390,7 +417,11 @@ export default function DashboardPage() {
               <Loader2 className="w-5 h-5 animate-spin" />
             </div>
           ) : (
-            <BookingList bookings={upcomingBookings} />
+            <BookingList
+              bookings={upcomingBookings}
+              onClickCancel={handleCancelBooking}
+              cancellingId={cancellingBookingId}
+            />
           )}
         </div>
 
@@ -399,7 +430,7 @@ export default function DashboardPage() {
           {/* Profile card */}
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
             <div className="flex items-center gap-3 mb-4">
-              <Avatar initials={avatarInitials} color={avatarColor} size="md" />
+              <Avatar initials={avatarInitials} color={avatarColor} imageUrl={avatarUrl} size="md" />
               <div>
                 <p className="font-bold text-slate-100">{displayName}</p>
                 <p className="text-xs text-slate-500">
@@ -470,7 +501,7 @@ export default function DashboardPage() {
             {dashReviews.map((review) => (
               <div key={review.id} className="rounded-2xl border border-brand-border bg-brand-surface p-5">
                 <div className="flex items-start gap-3">
-                  <Avatar initials={review.fanInitials} color={review.fanColor} size="sm" />
+                  <Avatar initials={review.fanInitials} color={review.fanColor} imageUrl={review.fanAvatarUrl} size="sm" />
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold text-slate-100">{review.fanName}</p>

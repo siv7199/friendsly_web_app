@@ -37,6 +37,15 @@ function profileFromSession(session: { user: { id: string; email?: string; user_
   } as MockProfile;
 }
 
+function deriveInitials(fullName: string): string {
+  return fullName
+    .split(" ")
+    .map((w: string) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "?";
+}
+
 // ── Fetch full profile from DB (used for enriching state after nav) ───────────
 async function fetchProfile(userId: string): Promise<MockProfile | null> {
   const supabase = createClient();
@@ -207,12 +216,32 @@ export function useAuth() {
 
     const profileUpdates: Record<string, unknown> = {};
     const creatorUpdates: Record<string, unknown> = {};
+    const authMetadataUpdates: Record<string, unknown> = {};
+    const nextFullName = "full_name" in updates ? (updates.full_name ?? state.user.full_name) : state.user.full_name;
+    const nextInitials = deriveInitials(nextFullName);
 
-    if ("full_name" in updates)   profileUpdates.full_name = updates.full_name;
-    if ("username" in updates)    profileUpdates.username = updates.username;
-    if ("avatar_url" in updates)  profileUpdates.avatar_url = updates.avatar_url;
-    if ("avatar_color" in updates) profileUpdates.avatar_color = updates.avatar_color;
-    if ("role" in updates)        profileUpdates.role = updates.role;
+    if ("full_name" in updates) {
+      profileUpdates.full_name = updates.full_name;
+      profileUpdates.avatar_initials = nextInitials;
+      authMetadataUpdates.full_name = updates.full_name;
+      authMetadataUpdates.avatar_initials = nextInitials;
+    }
+    if ("username" in updates) {
+      profileUpdates.username = updates.username;
+      authMetadataUpdates.username = updates.username;
+    }
+    if ("avatar_url" in updates) {
+      profileUpdates.avatar_url = updates.avatar_url;
+      authMetadataUpdates.avatar_url = updates.avatar_url;
+    }
+    if ("avatar_color" in updates) {
+      profileUpdates.avatar_color = updates.avatar_color;
+      authMetadataUpdates.avatar_color = updates.avatar_color;
+    }
+    if ("role" in updates) {
+      profileUpdates.role = updates.role;
+      authMetadataUpdates.role = updates.role;
+    }
 
     if ("bio" in updates)      creatorUpdates.bio = (updates as { bio?: string }).bio;
     if ("category" in updates) creatorUpdates.category = (updates as { category?: string }).category;
@@ -234,14 +263,14 @@ export function useAuth() {
       }
     }
 
-    if (updates.role) {
-      await supabase.auth.updateUser({ data: { role: updates.role } });
+    if (Object.keys(authMetadataUpdates).length > 0) {
+      await supabase.auth.updateUser({ data: authMetadataUpdates });
     }
 
     // Update local state optimistically
     setState((s) => ({
       ...s,
-      user: s.user ? { ...s.user, ...updates } as MockProfile : null,
+      user: s.user ? { ...s.user, ...updates, avatar_initials: nextInitials } as MockProfile : null,
       isAuthenticated: Boolean(updates.role ?? s.user?.role),
     }));
   }, [state.user]);

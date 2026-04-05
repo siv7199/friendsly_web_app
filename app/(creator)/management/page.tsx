@@ -117,11 +117,23 @@ export default function ManagementPage() {
         })));
       }
 
-      const { data: cp } = await supabase
+      let cp: { live_rate_per_minute?: number | null; timezone?: string | null } | null = null;
+      const cpRes = await supabase
         .from("creator_profiles")
         .select("live_rate_per_minute, timezone")
         .eq("id", user!.id)
         .single();
+
+      if (cpRes.error) {
+        const fallbackCpRes = await supabase
+          .from("creator_profiles")
+          .select("live_rate_per_minute")
+          .eq("id", user!.id)
+          .single();
+        cp = fallbackCpRes.data;
+      } else {
+        cp = cpRes.data;
+      }
 
       if (cp?.live_rate_per_minute != null) {
         setLiveRate(String(cp.live_rate_per_minute));
@@ -130,12 +142,25 @@ export default function ManagementPage() {
         setCreatorTimeZone(cp.timezone);
       }
 
-      const { data: availability } = await supabase
+      let availability: any[] | null = null;
+      const availabilityRes = await supabase
         .from("creator_availability")
         .select("id, day_of_week, start_time, end_time, is_active, package_id")
         .eq("creator_id", user!.id)
         .order("day_of_week")
         .order("start_time");
+
+      if (availabilityRes.error) {
+        const fallbackAvailabilityRes = await supabase
+          .from("creator_availability")
+          .select("id, day_of_week, start_time, end_time, is_active")
+          .eq("creator_id", user!.id)
+          .order("day_of_week")
+          .order("start_time");
+        availability = fallbackAvailabilityRes.data?.map((slot: any) => ({ ...slot, package_id: null })) ?? null;
+      } else {
+        availability = availabilityRes.data;
+      }
 
       if (availability) {
         setAvailabilitySlots(
@@ -186,8 +211,7 @@ export default function ManagementPage() {
     const rate = parseFloat(liveRate) || null;
     await supabase
       .from("creator_profiles")
-      .update({ live_rate_per_minute: rate })
-      .eq("id", user.id);
+      .upsert({ id: user.id, live_rate_per_minute: rate }, { onConflict: "id" });
     setLiveRateSaving(false);
     setLiveRateSaved(true);
     setTimeout(() => setLiveRateSaved(false), 2000);
@@ -226,22 +250,39 @@ export default function ManagementPage() {
     );
 
     if (validSlots.length > 0) {
-      await supabase.from("creator_availability").insert(
-        validSlots.map((slot) => ({
-          creator_id: user.id,
-          day_of_week: slot.day_of_week,
-          start_time: slot.start_time,
-          end_time: slot.end_time,
-          is_active: true,
-          package_id: slot.package_id,
-        }))
-      );
+      const insertPayload = validSlots.map((slot) => ({
+        creator_id: user.id,
+        day_of_week: slot.day_of_week,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        is_active: true,
+        package_id: slot.package_id,
+      }));
+
+      const insertRes = await supabase.from("creator_availability").insert(insertPayload);
+
+      if (insertRes.error) {
+        await supabase.from("creator_availability").insert(
+          validSlots.map((slot) => ({
+            creator_id: user.id,
+            day_of_week: slot.day_of_week,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            is_active: true,
+          }))
+        );
+      }
     }
 
-    await supabase
+    const profileUpdateRes = await supabase
       .from("creator_profiles")
-      .update({ next_available: nextAvailableLabel(validSlots), timezone: creatorTimeZone })
-      .eq("id", user.id);
+      .upsert({ id: user.id, next_available: nextAvailableLabel(validSlots), timezone: creatorTimeZone }, { onConflict: "id" });
+
+    if (profileUpdateRes.error) {
+      await supabase
+        .from("creator_profiles")
+        .upsert({ id: user.id, next_available: nextAvailableLabel(validSlots) }, { onConflict: "id" });
+    }
 
     setAvailabilitySaving(false);
     setAvailabilitySaved(true);
