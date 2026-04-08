@@ -7,7 +7,7 @@
  * All data comes from Supabase (profiles + creator_profiles + call_packages).
  */
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Search, SlidersHorizontal, Zap, Loader2 } from "lucide-react";
 import { InfluencerCard } from "@/components/fan/InfluencerCard";
 import { createClient } from "@/lib/supabase/client";
@@ -26,6 +26,8 @@ const CATEGORIES = [
   "Music & Arts",
   "Gaming & Esports",
 ];
+
+const LIVE_SESSION_STALE_MS = 45000;
 
 // ── Fetch all creators from Supabase ──────────────────────────────────────────
 
@@ -50,12 +52,48 @@ async function fetchCreators(): Promise<Creator[]> {
     .eq("is_active", true)
     .order("price");
 
+  const [reviewsRes, completedBookingsRes, completedLiveQueueRes] = await Promise.all([
+    supabase
+      .from("reviews")
+      .select("creator_id")
+      .in("creator_id", creatorIds),
+    supabase
+      .from("bookings")
+      .select("creator_id")
+      .in("creator_id", creatorIds)
+      .eq("status", "completed"),
+    supabase
+      .from("live_queue_entries")
+      .select("id, live_sessions!inner(creator_id)")
+      .in("status", ["completed", "skipped"])
+      .not("amount_charged", "is", null)
+      .in("live_sessions.creator_id", creatorIds),
+  ]);
+
   // Group packages by creator_id
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const packagesByCreator: Record<string, any[]> = {};
   (allPackages ?? []).forEach((pkg: { creator_id: string; price: number; duration: number }) => {
     if (!packagesByCreator[pkg.creator_id]) packagesByCreator[pkg.creator_id] = [];
     packagesByCreator[pkg.creator_id]!.push(pkg);
+  });
+
+  const reviewCountByCreator: Record<string, number> = {};
+  (reviewsRes.data ?? []).forEach((review: { creator_id: string }) => {
+    reviewCountByCreator[review.creator_id] = (reviewCountByCreator[review.creator_id] ?? 0) + 1;
+  });
+
+  const totalCallsByCreator: Record<string, number> = {};
+  (completedBookingsRes.data ?? []).forEach((booking: { creator_id: string }) => {
+    totalCallsByCreator[booking.creator_id] = (totalCallsByCreator[booking.creator_id] ?? 0) + 1;
+  });
+  (completedLiveQueueRes.data ?? []).forEach((entry: any) => {
+    const creatorId = Array.isArray(entry.live_sessions)
+      ? entry.live_sessions[0]?.creator_id
+      : entry.live_sessions?.creator_id;
+    if (creatorId) {
+      totalCallsByCreator[creatorId] = (totalCallsByCreator[creatorId] ?? 0) + 1;
+    }
   });
 
   // Get queue counts for all active sessions
@@ -65,7 +103,12 @@ async function fetchCreators(): Promise<Creator[]> {
   profiles.forEach((profile: any) => {
     const sessions = Array.isArray(profile.live_sessions) ? profile.live_sessions : [];
     sessions.forEach((s: any) => {
-      if (s?.is_active) {
+      if (
+        s?.is_active &&
+        !!s?.daily_room_url &&
+        !!s?.last_heartbeat_at &&
+        Date.now() - new Date(s.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+      ) {
         activeSessionIds.push(s.id);
         sessionToCreator[s.id] = profile.id;
       }
@@ -92,9 +135,15 @@ async function fetchCreators(): Promise<Creator[]> {
   return profiles.map((profile: any) => {
     // Handling the creator_profiles join (it might be an array or object in Supabase response)
     const cp = Array.isArray(profile.creator_profiles) ? profile.creator_profiles[0] : profile.creator_profiles;
-
-    // Only show as "Live" if the is_live flag is explicitly true (Creator clicked Start)
-    const isActuallyLive = Boolean(cp?.is_live);
+    const sessions = Array.isArray(profile.live_sessions) ? profile.live_sessions : [];
+    const activeSession = sessions.find(
+      (s: any) =>
+        s?.is_active === true &&
+        !!s?.daily_room_url &&
+        !!s?.last_heartbeat_at &&
+        Date.now() - new Date(s.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+    ) ?? null;
+    const isActuallyLive = Boolean(activeSession);
 
     const packages = packagesByCreator[profile.id] ?? [];
     const minPrice = packages.length
@@ -104,7 +153,7 @@ async function fetchCreators(): Promise<Creator[]> {
 
     const hasPackages = minPrice > 0;
     const liveRate = cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined;
-    const totalCalls = cp?.total_calls ?? 0;
+    const totalCalls = totalCallsByCreator[profile.id] ?? 0;
 
     return {
       id: profile.id,
@@ -114,23 +163,26 @@ async function fetchCreators(): Promise<Creator[]> {
       bio: cp?.bio ?? "",
       category: cp?.category ?? "",
       tags: cp?.tags ?? [],
-      followers: formatFollowers(cp?.followers_count ?? 0),
+      followers: "",
       rating: Number(cp?.avg_rating ?? 0),
-      reviewCount: cp?.review_count ?? 0,
+      reviewCount: reviewCountByCreator[profile.id] ?? 0,
       avatarInitials: profile.avatar_initials,
       avatarColor: profile.avatar_color,
       avatarUrl: profile.avatar_url ?? undefined,
       isLive: isActuallyLive,
-      currentLiveSessionId: cp?.current_live_session_id ?? undefined,
+      currentLiveSessionId: activeSession?.id ?? cp?.current_live_session_id ?? undefined,
       queueCount: queueCountByCreator[profile.id] ?? 0,
       callPrice: minPrice,
       callDuration: minDuration,
       nextAvailable: hasPackages ? (cp?.next_available ?? "Available this week") : "No packages yet",
       totalCalls,
-      responseTime: cp?.response_time ?? "~5 min",
-      liveRatePerMinute: liveRate,
-      isNew: isNewCreator(profile.created_at),
-    } satisfies Creator;
+        responseTime: "",
+        liveRatePerMinute: liveRate,
+        scheduledLiveAt: cp?.scheduled_live_at ?? undefined,
+        scheduledLiveTimeZone: cp?.scheduled_live_timezone ?? cp?.timezone ?? undefined,
+        bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
+        isNew: isNewCreator(profile.created_at),
+      } satisfies Creator;
   });
 }
 
@@ -145,6 +197,7 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const refreshTimeoutsRef = useRef<number[]>([]);
 
   useEffect(() => {
     function load() {
@@ -154,16 +207,46 @@ export default function DiscoverPage() {
       });
     }
 
+    function scheduleRefreshes() {
+      refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      refreshTimeoutsRef.current = [
+        window.setTimeout(load, 500),
+        window.setTimeout(load, 1800),
+      ];
+    }
+
     load();
 
     const supabase = createClient();
     const channels = supabase
       .channel("discover_realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles" }, (payload: any) => {
+        if (payload.new?.id) {
+          setCreators((prev) =>
+            prev.map((creator) =>
+              creator.id === payload.new.id
+                ? {
+                      ...creator,
+                      currentLiveSessionId: payload.new.current_live_session_id ?? undefined,
+                      scheduledLiveAt: payload.new.scheduled_live_at ?? undefined,
+                      scheduledLiveTimeZone: payload.new.scheduled_live_timezone ?? creator.scheduledLiveTimeZone,
+                      liveRatePerMinute: payload.new.live_rate_per_minute != null
+                        ? Number(payload.new.live_rate_per_minute)
+                        : creator.liveRatePerMinute,
+                  }
+                : creator
+            )
+          );
+        }
+        scheduleRefreshes();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, scheduleRefreshes)
       .subscribe();
+    const fallbackInterval = window.setInterval(load, 10000);
 
     return () => {
+      refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      window.clearInterval(fallbackInterval);
       supabase.removeChannel(channels);
     };
   }, []);

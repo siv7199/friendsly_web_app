@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
-import { deriveBookingStatus, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
+import { deriveBookingStatus, getBookingWindow, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
 
 type Tab = "upcoming" | "completed" | "cancelled";
 
@@ -48,61 +48,92 @@ export default function BookingsPage() {
 
   useEffect(() => {
     if (!user) return;
+    const userId = user.id;
     const supabase = createClient();
+    let refreshTimer: number | null = null;
 
-    supabase
-      .from("bookings")
-      .select(
-        `id, scheduled_at, duration, price, status, topic,
-         creator:profiles!creator_id(id, full_name, username, avatar_initials, avatar_color, avatar_url),
-         package:call_packages!package_id(name)`
-      )
-      .eq("fan_id", user.id)
-      .order("scheduled_at", { ascending: false })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(async ({ data }: { data: any[] | null }) => {
-        if (data) {
-          const now = new Date();
-          const expiredIds: string[] = [];
+    async function loadBookings() {
+      const { data } = await supabase
+        .from("bookings")
+        .select(
+          `id, scheduled_at, duration, price, status, topic,
+           creator:profiles!creator_id(id, full_name, username, avatar_initials, avatar_color, avatar_url),
+           package:call_packages!package_id(name)`
+        )
+        .eq("fan_id", userId)
+        .order("scheduled_at", { ascending: false });
 
-          setBookings(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            data.map((b: any) => {
-              const creator = Array.isArray(b.creator) ? b.creator[0] : b.creator;
-              const pkg = Array.isArray(b.package) ? b.package[0] : b.package;
-              const nextStatus = deriveBookingStatus(b.status, b.scheduled_at, b.duration, now);
+      if (data) {
+        const now = new Date();
+        const expiredIds: string[] = [];
 
-              if (nextStatus === "completed" && b.status !== "completed" && hasBookingEnded(b.scheduled_at, b.duration, now)) {
-                expiredIds.push(b.id);
-              }
+        setBookings(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data.map((b: any) => {
+            const creator = Array.isArray(b.creator) ? b.creator[0] : b.creator;
+            const pkg = Array.isArray(b.package) ? b.package[0] : b.package;
+            const nextStatus = deriveBookingStatus(b.status, b.scheduled_at, b.duration, now);
 
-              return {
-                id: b.id,
-                creatorId: (creator as { id: string })?.id ?? "",
-                creatorName: (creator as { full_name: string })?.full_name ?? "Creator",
-                creatorUsername: (creator as { username: string })?.username ?? "",
-                creatorInitials: (creator as { avatar_initials: string })?.avatar_initials ?? "?",
-                creatorColor: (creator as { avatar_color: string })?.avatar_color ?? "bg-violet-600",
-                creatorAvatarUrl: (creator as { avatar_url: string })?.avatar_url ?? undefined,
-                scheduledAt: b.scheduled_at,
-                duration: b.duration,
-                price: Number(b.price),
-                status: nextStatus,
-                topic: b.topic ?? undefined,
-                packageName: (pkg as { name: string })?.name ?? undefined,
-              };
-            })
-          );
+            if (nextStatus === "completed" && b.status !== "completed" && hasBookingEnded(b.scheduled_at, b.duration, now)) {
+              expiredIds.push(b.id);
+            }
 
-          if (expiredIds.length > 0) {
-            await supabase
-              .from("bookings")
-              .update({ status: "completed" })
-              .in("id", expiredIds);
+            return {
+              id: b.id,
+              creatorId: (creator as { id: string })?.id ?? "",
+              creatorName: (creator as { full_name: string })?.full_name ?? "Creator",
+              creatorUsername: (creator as { username: string })?.username ?? "",
+              creatorInitials: (creator as { avatar_initials: string })?.avatar_initials ?? "?",
+              creatorColor: (creator as { avatar_color: string })?.avatar_color ?? "bg-violet-600",
+              creatorAvatarUrl: (creator as { avatar_url: string })?.avatar_url ?? undefined,
+              scheduledAt: b.scheduled_at,
+              duration: b.duration,
+              price: Number(b.price),
+              status: nextStatus,
+              topic: b.topic ?? undefined,
+              packageName: (pkg as { name: string })?.name ?? undefined,
+            };
+          })
+        );
+
+        if (expiredIds.length > 0) {
+          await supabase
+            .from("bookings")
+            .update({ status: "completed" })
+            .in("id", expiredIds);
+        }
+
+        const nextUpcoming = data.find((booking: any) => booking.status === "upcoming");
+        if (nextUpcoming) {
+          const { joinOpensAt } = getBookingWindow(nextUpcoming.scheduled_at, nextUpcoming.duration);
+          const delay = joinOpensAt.getTime() - Date.now();
+          if (delay > 0) {
+            refreshTimer = window.setTimeout(loadBookings, delay + 1000);
           }
         }
-        setLoading(false);
-      });
+      }
+
+      setLoading(false);
+    }
+
+    loadBookings();
+
+    const channel = supabase
+      .channel(`fan-bookings-${userId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "bookings",
+        filter: `fan_id=eq.${userId}`,
+      }, () => {
+        loadBookings();
+      })
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   async function handleCancel(bookingId: string) {

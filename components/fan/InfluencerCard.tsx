@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Star, Video, Clock, Users, Zap, Heart } from "lucide-react";
+import { Star, Video, Clock, Zap, Heart } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import type { Creator, CallPackage } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { getTimeZoneAbbreviation } from "@/lib/timezones";
 import Link from "next/link";
 
 interface InfluencerCardProps {
@@ -32,6 +33,8 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [countdownText, setCountdownText] = useState<string | null>(null);
+  const [scheduledLabel, setScheduledLabel] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -93,6 +96,41 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
         });
     }
   }, [creator.id, user]);
+
+  useEffect(() => {
+    function updateCountdown() {
+      if (!creator.scheduledLiveAt || creator.isLive) {
+        setCountdownText(null);
+        setScheduledLabel(null);
+        return;
+      }
+      const scheduledDate = new Date(creator.scheduledLiveAt);
+      const diff = scheduledDate.getTime() - Date.now();
+      if (diff <= 0) {
+        setCountdownText("Going live soon");
+      } else {
+        const totalMinutes = Math.floor(diff / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        setCountdownText(hours > 0 ? `Going live in ${hours}h ${minutes}m` : `Going live in ${minutes}m`);
+      }
+
+      const timeZone = creator.scheduledLiveTimeZone || creator.timeZone;
+      const abbreviation = timeZone ? getTimeZoneAbbreviation(scheduledDate, timeZone) : null;
+      setScheduledLabel(
+        `${scheduledDate.toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })}${abbreviation ? ` ${abbreviation}` : ""}`
+      );
+    }
+
+    updateCountdown();
+    const interval = window.setInterval(updateCountdown, 60000);
+    return () => window.clearInterval(interval);
+  }, [creator.scheduledLiveAt, creator.scheduledLiveTimeZone, creator.timeZone, creator.isLive]);
 
   async function toggleSave(e: React.MouseEvent) {
     e.preventDefault();
@@ -193,10 +231,6 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
                 <span className="text-xs font-semibold text-brand-gold">{creator.rating}</span>
                 <span className="text-xs text-slate-500">({creator.reviewCount})</span>
               </div>
-              <div className="flex items-center gap-1 text-slate-500">
-                <Users className="w-3 h-3" />
-                <span className="text-xs">{creator.followers}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -254,13 +288,21 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
                     Live: {formatCurrency(creator.liveRatePerMinute!)}/min
                   </p>
                 )}
+                {!creator.isLive && countdownText && (
+                  <>
+                    <p className="text-[11px] text-brand-primary-light mt-0.5">{countdownText}</p>
+                    {scheduledLabel ? (
+                      <p className="text-[11px] text-slate-500 mt-0.5">{scheduledLabel}</p>
+                    ) : null}
+                  </>
+                )}
               </>
             ) : (
               <span className="text-sm font-semibold text-slate-400">Packages TBD</span>
             )}
             <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
               <Clock className="w-3 h-3" />
-              <span>{creator.nextAvailable}</span>
+              <span>Next available: {creator.nextAvailable}</span>
             </div>
           </div>
 

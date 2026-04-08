@@ -19,7 +19,7 @@ Written for someone who knows HTML/CSS but is new to Next.js, TypeScript, and Ta
 11. [How Mock Data flows through the app](#11-mock-data-flow)
 12. [The Booking Modal — step-by-step state machine](#12-booking-modal-state-machine)
 13. [How Supabase will replace mock data](#13-supabase-future-integration)
-14. [How Daily.co video will be added](#14-dailyco-integration)
+14. [How Daily.co video works here](#14-dailyco-integration)
 15. [Glossary](#15-glossary)
 21. [Stripe Payments](#21-stripe-payments)
 
@@ -786,6 +786,7 @@ On success → booking confirmed, show success screen
 - [ ] Set up a Stripe webhook to mark bookings as "paid" after payment confirmation
 - [ ] Store the PaymentIntent ID alongside the booking in Supabase for reconciliation
 - [ ] Enable Stripe Radar for fraud protection
+- [ ] Wire Stripe Connect onboarding + real creator payouts (current app only tracks payout rows/balances in Supabase)
 
 ---
 
@@ -839,3 +840,22 @@ The app no longer relies on mock-data for its booking scheduling flow! Upon a su
 The Creator Dashboard and Settings -> Billing tabs were upgraded from static mock arrays to dynamically polling via Supabase!
 - **Dynamic Dashboard Calculations**: The lifetime total earnings stat automatically calculates exactly 85% of their total `bookings` price, representing their net gross cut from the scheduled calls.
 - **Available Balances**: The `settings/page.tsx` compares total earnings against the historical data living natively inside the new `public.payouts` relational table to securely resolve current "Available to Withdraw" amounts. Clicking the robust gold "Withdraw" button inserts a pending transaction request that automatically refreshes their payout history list in real time.
+
+Important limitation:
+- this is app-side accounting, not full Stripe Connect payout execution yet
+- bookings and live queue both contribute to creator earnings math
+- real creator bank payouts still need proper Connect onboarding + transfer orchestration before production launch
+
+### Live Queue Settlement Notes
+- live queue uses manual-capture PaymentIntents, not normal one-shot booking charges
+- fans are pre-authorized for a max hold amount first
+- when the queue entry completes, the server captures only the actual used amount
+- the unused remainder of the authorization is released/refunded
+- Stripe list views may still visually emphasize the original authorization amount, so PaymentIntent details are the true source of the final captured amount
+
+### Availability / Scheduling Notes
+- creator availability is now stored in Supabase, not only mock state
+- availability can be package-specific
+- creator timezone is saved and fan-side booking times are converted into the fan's local timezone
+- creators can choose booking start increments of `15`, `30`, or `60` minutes
+- creators can announce a future live time with timezone so fans see a countdown on Discover/profile

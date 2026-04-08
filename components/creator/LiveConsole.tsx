@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  Users, SkipForward, StopCircle,
+  Users, SkipForward, StopCircle, CalendarClock,
   Mic, MicOff, Video, VideoOff, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,17 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { CallContainer } from "@/components/video/CallContainer";
 import { useLocalSessionId, useParticipantIds, DailyVideo, useDaily } from "@daily-co/daily-react";
+import {
+  COMMON_TIME_ZONES,
+  formatDateTimeLocalInTimeZone,
+  formatTimeZoneLabel,
+  getBrowserTimeZone,
+  zonedTimeToUtc,
+} from "@/lib/timezones";
 
 const MAX_LIVE_CALL_SECONDS = 3 * 60;
+const LIVE_SESSION_HEARTBEAT_MS = 15000;
+const LIVE_SESSION_STALE_MS = 45000;
 
 function formatCountdown(totalSeconds: number) {
   const safeSeconds = Math.max(0, totalSeconds);
@@ -155,10 +164,15 @@ export function LiveConsole() {
   const [startError, setStartError] = useState("");
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [creatorJoined, setCreatorJoined] = useState(false);
+  const [scheduledLiveAt, setScheduledLiveAt] = useState("");
+  const [scheduledLiveTimeZone, setScheduledLiveTimeZone] = useState(getBrowserTimeZone());
+  const [savingScheduledLive, setSavingScheduledLive] = useState(false);
   const finishingFanRef = useRef(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const previewStreamRef = useRef<MediaStream | null>(null);
   const initStartedRef = useRef(false);
+  const endingSessionRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
 
   const creatorName = user?.full_name ?? "You";
   const creatorInitials = user?.avatar_initials ?? "??";
@@ -166,6 +180,48 @@ export function LiveConsole() {
   const activeFanRemainingSeconds = currentFan?.admittedAt
     ? Math.max(0, MAX_LIVE_CALL_SECONDS - Math.floor((currentTime - new Date(currentFan.admittedAt).getTime()) / 1000))
     : MAX_LIVE_CALL_SECONDS;
+
+  function isRecentHeartbeat(value?: string | null) {
+    if (!value) return false;
+    return Date.now() - new Date(value).getTime() <= LIVE_SESSION_STALE_MS;
+  }
+
+  function hasConfiguredLiveRate(value: number | null | undefined) {
+    return typeof value === "number" && !Number.isNaN(value) && value > 0;
+  }
+
+  function applySessionId(nextSessionId: string | null) {
+    sessionIdRef.current = nextSessionId;
+    setSessionId(nextSessionId);
+  }
+
+  async function fetchLatestLiveSettings(userId: string) {
+    const supabase = createClient();
+    const { data: profile } = await supabase
+      .from("creator_profiles")
+      .select("live_rate_per_minute, scheduled_live_at, scheduled_live_timezone, timezone")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const parsedRate = profile?.live_rate_per_minute != null
+      ? Number(profile.live_rate_per_minute)
+      : null;
+    const nextScheduledTimeZone = profile?.scheduled_live_timezone || profile?.timezone || getBrowserTimeZone();
+
+    setLiveRate(parsedRate);
+    setScheduledLiveTimeZone(nextScheduledTimeZone);
+    setScheduledLiveAt(
+      profile?.scheduled_live_at
+        ? formatDateTimeLocalInTimeZone(profile.scheduled_live_at, nextScheduledTimeZone)
+        : ""
+    );
+
+    return {
+      liveRate: parsedRate,
+      scheduledLiveAt: profile?.scheduled_live_at ?? null,
+      scheduledLiveTimeZone: nextScheduledTimeZone,
+    };
+  }
 
   useEffect(() => {
     if (sessionState !== "idle") return;
@@ -198,8 +254,7 @@ export function LiveConsole() {
 
     async function init() {
       try {
-        const { data: profile } = await supabase.from("creator_profiles").select("live_rate_per_minute").eq("id", currentUser.id).single();
-        if (profile) setLiveRate(profile.live_rate_per_minute);
+        await fetchLatestLiveSettings(currentUser.id);
         setLoadingRate(false);
 
         const { data: activeSessions } = await supabase
@@ -210,9 +265,8 @@ export function LiveConsole() {
           .order("started_at", { ascending: false });
 
         const existingSession = activeSessions?.find((s: any) => !!s.daily_room_url) ?? null;
-        if (existingSession) {
-          setSessionId(existingSession.id);
-          await supabase.from("creator_profiles").update({ current_live_session_id: existingSession.id, is_live: true }).eq("id", currentUser.id);
+        if (existingSession && isRecentHeartbeat(existingSession.last_heartbeat_at)) {
+          applySessionId(existingSession.id);
           setRoomUrl(existingSession.daily_room_url);
           try {
             const tokenRes = await fetch("/api/daily/token", {
@@ -224,6 +278,15 @@ export function LiveConsole() {
             if (tokenData.token) setToken(tokenData.token);
           } catch {}
           setSessionState("live");
+        } else if (existingSession) {
+          await supabase
+            .from("live_sessions")
+            .update({ is_active: false, ended_at: new Date().toISOString(), last_heartbeat_at: null })
+            .eq("id", existingSession.id);
+          await supabase
+            .from("creator_profiles")
+            .update({ is_live: false, current_live_session_id: null })
+            .eq("id", currentUser.id);
         }
       } catch {
       } finally {
@@ -235,21 +298,13 @@ export function LiveConsole() {
 
   async function finalizeQueueEntry(entry: any, status: "completed" | "skipped") {
     if (!entry) return;
-    const supabase = createClient();
-    const endedAt = new Date().toISOString();
-    const duration = entry.admittedAt
-      ? Math.max(0, (Date.now() - new Date(entry.admittedAt).getTime()) / 1000)
-      : 0;
-
-    await supabase
-      .from("live_queue_entries")
-      .update({
-        status,
-        ended_at: endedAt,
-        duration_seconds: Math.floor(duration),
-        amount_charged: Number(((duration / 60) * (liveRate || 0)).toFixed(2)),
-      })
-      .eq("id", entry.id);
+    try {
+      await fetch("/api/live/finalize-charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queueEntryId: entry.id, status }),
+      });
+    } catch {}
   }
 
   useEffect(() => {
@@ -323,6 +378,24 @@ export function LiveConsole() {
   }, [user, sessionId, sessionState]);
 
   useEffect(() => {
+    if (!creatorJoined || !user || !sessionId) return;
+
+    const supabase = createClient();
+    const heartbeat = async () => {
+      await supabase
+        .from("live_sessions")
+        .update({ last_heartbeat_at: new Date().toISOString() })
+        .eq("id", sessionId)
+        .eq("creator_id", user.id)
+        .eq("is_active", true);
+    };
+
+    heartbeat();
+    const interval = window.setInterval(heartbeat, LIVE_SESSION_HEARTBEAT_MS);
+    return () => window.clearInterval(interval);
+  }, [creatorJoined, user, sessionId]);
+
+  useEffect(() => {
     if (!currentFan?.admittedAt || finishingFanRef.current) return;
     if (activeFanRemainingSeconds > 0) return;
 
@@ -337,6 +410,11 @@ export function LiveConsole() {
     if (!user) return;
     setStartError("");
     setCreatorJoined(false);
+    const latestSettings = await fetchLatestLiveSettings(user.id);
+    if (!hasConfiguredLiveRate(latestSettings.liveRate)) {
+      setStartError("You must set a live rate in Management first.");
+      return;
+    }
     if (previewStreamRef.current) {
       previewStreamRef.current.getTracks().forEach((t) => t.stop());
       previewStreamRef.current = null;
@@ -350,19 +428,30 @@ export function LiveConsole() {
 
         await supabase.from("live_sessions").update({ is_active: false }).eq("creator_id", user.id).eq("is_active", true);
         if (sid) {
-          await supabase.from("live_sessions").update({ daily_room_url: data.url, is_active: true }).eq("id", sid);
+          await supabase
+            .from("live_sessions")
+            .update({ daily_room_url: data.url, is_active: false, ended_at: null, last_heartbeat_at: null })
+            .eq("id", sid);
         } else {
-          const { data: newSession } = await supabase.from("live_sessions").insert({ creator_id: user.id, rate_per_minute: liveRate ?? 0, is_active: true, daily_room_url: data.url }).select("id").single();
+          const { data: newSession } = await supabase
+            .from("live_sessions")
+            .insert({ creator_id: user.id, rate_per_minute: latestSettings.liveRate ?? 0, is_active: false, daily_room_url: data.url, last_heartbeat_at: null })
+            .select("id")
+            .single();
           if (newSession) {
             sid = newSession.id;
-            setSessionId(newSession.id);
+            applySessionId(newSession.id);
           }
         }
 
         if (sid) {
           setRoomUrl(data.url);
           setToken(data.token);
-          await supabase.from("creator_profiles").update({ is_live: true, current_live_session_id: sid }).eq("id", user.id);
+          await supabase
+            .from("creator_profiles")
+            .update({ is_live: false, current_live_session_id: sid, scheduled_live_at: null, scheduled_live_timezone: null })
+            .eq("id", user.id);
+          setScheduledLiveAt("");
           setSessionState("live");
         }
       }
@@ -385,19 +474,83 @@ export function LiveConsole() {
 
   async function endSession() {
     if (!user || !sessionId) return;
-    const supabase = createClient();
+    endingSessionRef.current = true;
     if (currentFan) {
       await finalizeQueueEntry(currentFan, "completed");
     }
+    try {
+      await fetch("/api/live/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatorId: user.id, sessionId }),
+      });
+    } catch {}
     setSessionState("idle");
     setCreatorJoined(false);
     setRoomUrl("");
     setToken("");
-    setSessionId(null);
+    applySessionId(null);
     setQueue([]);
     setCurrentFan(null);
-    await supabase.from("live_sessions").update({ is_active: false, ended_at: new Date().toISOString() }).eq("id", sessionId);
-    await supabase.from("creator_profiles").update({ is_live: false, current_live_session_id: null }).eq("id", user.id);
+    window.setTimeout(() => {
+      endingSessionRef.current = false;
+    }, 1000);
+  }
+
+  async function handleCreatorJoined() {
+    setCreatorJoined(true);
+    const activeSessionId = sessionIdRef.current;
+    if (!user || !activeSessionId) return;
+
+    const supabase = createClient();
+    await supabase
+      .from("live_sessions")
+      .update({ is_active: true, ended_at: null, last_heartbeat_at: new Date().toISOString() })
+      .eq("id", activeSessionId);
+    await supabase.from("creator_profiles").update({ is_live: true, current_live_session_id: activeSessionId }).eq("id", user.id);
+  }
+
+  async function handleCreatorLeft() {
+    setCreatorJoined(false);
+    const activeSessionId = sessionIdRef.current;
+    if (endingSessionRef.current || !user || !activeSessionId) return;
+
+    try {
+      await fetch("/api/live/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatorId: user.id, sessionId: activeSessionId }),
+      });
+    } catch {}
+  }
+
+  async function saveScheduledLive(nextValue?: string) {
+    if (!user) return;
+    setSavingScheduledLive(true);
+    const supabase = createClient();
+    let scheduledLiveIso: string | null = null;
+
+    if (nextValue) {
+      const [datePart, timePart] = nextValue.split("T");
+      if (datePart && timePart) {
+        const [year, month, day] = datePart.split("-").map(Number);
+        const [hour, minute] = timePart.split(":").map(Number);
+        scheduledLiveIso = zonedTimeToUtc(
+          { year, month, day, hour, minute },
+          scheduledLiveTimeZone
+        ).toISOString();
+      }
+    }
+
+    await supabase
+      .from("creator_profiles")
+      .update({
+        scheduled_live_at: scheduledLiveIso,
+        scheduled_live_timezone: nextValue ? scheduledLiveTimeZone : null,
+      })
+      .eq("id", user.id);
+    setScheduledLiveAt(nextValue ?? "");
+    setSavingScheduledLive(false);
   }
 
   if (initializing) return (
@@ -410,12 +563,6 @@ export function LiveConsole() {
 
   if (loadingRate) return <div className="h-full flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-brand-primary border-t-transparent animate-spin" /></div>;
 
-  if (!liveRate && liveRate !== 0) return (
-    <div className="h-full flex flex-col items-center justify-center rounded-2xl border border-brand-border bg-brand-surface p-8 text-center text-slate-100 font-bold">
-      Live Rate Required in Management first.
-    </div>
-  );
-
   return (
     <div className="h-full flex flex-col gap-4">
       {sessionState === "idle" ? (
@@ -427,6 +574,42 @@ export function LiveConsole() {
             <button onClick={() => setMicOn(!micOn)} className={cn("w-12 h-12 rounded-full border flex items-center justify-center", micOn ? "bg-brand-surface border-brand-border text-slate-300" : "bg-red-500/20 border-red-500/40 text-red-400")}>{micOn ? <Mic /> : <MicOff />}</button>
             <button onClick={() => setCamOn(!camOn)} className={cn("w-12 h-12 rounded-full border flex items-center justify-center", camOn ? "bg-brand-surface border-brand-border text-slate-300" : "bg-red-500/20 border-red-500/40 text-red-400")}>{camOn ? <Video /> : <VideoOff />}</button>
           </div>
+          <div className="w-full max-w-sm rounded-2xl border border-brand-border bg-brand-elevated p-4 mb-6 text-left">
+            <div className="flex items-center gap-2 text-slate-200 mb-3">
+              <CalendarClock className="w-4 h-4 text-brand-primary-light" />
+              <p className="text-sm font-semibold">Announce when you’re going live</p>
+            </div>
+            <input
+              type="datetime-local"
+              value={scheduledLiveAt}
+              onChange={(e) => setScheduledLiveAt(e.target.value)}
+              className="w-full h-11 px-3 rounded-xl border border-brand-border bg-brand-surface text-slate-100 text-sm focus:outline-none focus:border-brand-primary"
+            />
+            <select
+              value={scheduledLiveTimeZone}
+              onChange={(e) => setScheduledLiveTimeZone(e.target.value)}
+              className="w-full h-11 mt-3 px-3 rounded-xl border border-brand-border bg-brand-surface text-slate-100 text-sm focus:outline-none focus:border-brand-primary"
+            >
+              {COMMON_TIME_ZONES.map((timeZone) => (
+                <option key={timeZone} value={timeZone}>
+                  {formatTimeZoneLabel(timeZone)}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2 mt-3">
+              <Button variant="outline" className="flex-1" onClick={() => saveScheduledLive("")}>
+                Clear
+              </Button>
+              <Button variant="primary" className="flex-1" onClick={() => saveScheduledLive(scheduledLiveAt)} disabled={savingScheduledLive}>
+                {savingScheduledLive ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+          {!hasConfiguredLiveRate(liveRate) ? (
+            <p className="text-sm text-amber-300 mb-4">
+              Set a live rate in Management before going live.
+            </p>
+          ) : null}
           <Button variant="live" size="xl" onClick={startSession} className="shadow-glow-live">Start Live Session</Button>
           {startError && <p className="text-red-400 text-sm mt-4">{startError}</p>}
         </div>
@@ -436,8 +619,8 @@ export function LiveConsole() {
           token={token}
           startVideo={camOn}
           startAudio={micOn}
-          onJoin={() => setCreatorJoined(true)}
-          onLeave={() => setCreatorJoined(false)}
+          onJoin={handleCreatorJoined}
+          onLeave={handleCreatorLeft}
         >
           <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
             <LiveVideoStage

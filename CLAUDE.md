@@ -10,7 +10,7 @@ Friendsly is a monetization platform for micro-influencers. Fans either book ded
 - **UI Components**: Custom shadcn-style components in `components/ui/`
 - **Auth + DB**: Supabase (Auth + PostgreSQL)
 - **Payments**: Stripe (real PaymentIntents + Elements — test mode active)
-- **Video**: Daily.co (planned)
+- **Video**: Daily.co (integrated for bookings + live queue)
 - **Language**: TypeScript (strict mode)
 
 ## Core Business Model
@@ -253,3 +253,13 @@ Server Components (no directive needed): layout files, static pages without inte
 - **Calendar Navigation**: Redesigned the availability calendar and standard booking modal to feature full weekly pagination (Prev / Next buttons up to 3 weeks out) for better book-in-advance discoverability.
 - **Database Booking Persistence**: Integrated with Supabase `bookings` table to actually capture Stripe successful payments securely. Replaced standard 5% fee displaying on the UI with a fixed 2.5% fan platform fee.
 - **Creator Earnings & Payout Logic**: Integrated the creator Dashboard and Settings with Supabase `payouts`. Computes exactly an 85% creator cut of all bookings on stripe. Features a live "Withdraw" button that tracks withdrawal transactions dynamically.
+
+## Current Platform Reality
+- Daily.co is already integrated for both booking rooms and public live queue rooms.
+- Live queue billing uses Stripe manual-capture PaymentIntents. Fans are pre-authorized for a max hold, then only the actual used amount is captured when the live queue entry completes.
+- Stripe list views can still visually emphasize the original authorization amount, so PaymentIntent details are the source of truth for the real captured amount.
+- Public live status should be treated as an active `live_sessions` row with a recent heartbeat, not just a `creator_profiles.is_live` boolean.
+- Booking joinability opens 5 minutes early.
+- Creator availability is Supabase-backed, can be package-specific, is timezone-aware, and supports `15`, `30`, or `60` minute booking start increments.
+- Creators can announce a future live time using `scheduled_live_at` and `scheduled_live_timezone`, and fans see that as a countdown.
+- The app currently tracks creator earnings, pending payouts, and withdrawal requests in Supabase, but full Stripe Connect onboarding and true production money movement to creator bank accounts are not fully wired yet.

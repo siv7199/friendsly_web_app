@@ -31,7 +31,10 @@ export interface Creator {
   totalCalls: number;
   responseTime: string;         // e.g. "~2 min"
   liveRatePerMinute?: number;   // USD/min for public live queue sessions
+  scheduledLiveAt?: string;
+  scheduledLiveTimeZone?: string;
   timeZone?: string;
+  bookingIntervalMinutes?: number;
   isNew?: boolean;
 }
 
@@ -88,6 +91,7 @@ export interface CreatorStats {
   totalEarnings: number;
   callsThisMonth: number;
   avgRating: number;
+  reviewCount?: number;
   upcomingBookings: number;
   totalFans: number;
   conversionRate: number;  // % of profile views that booked

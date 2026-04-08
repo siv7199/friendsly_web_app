@@ -13,7 +13,7 @@ function FanVideoStage({
   creatorInitials,
   creatorColor,
   fanName,
-  onLeave,
+  onLeaveClick,
 }: any) {
   const localSessionId = useLocalSessionId();
   const remoteParticipantIds = useParticipantIds({ filter: "remote" });
@@ -116,7 +116,7 @@ function FanVideoStage({
         </div>
 
         <button
-          onClick={onLeave}
+          onClick={onLeaveClick}
           className="w-12 h-12 rounded-full border border-red-500/40 bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
         >
           <PhoneOff className="w-5 h-5" />
@@ -133,7 +133,8 @@ export function FanLiveView({
   creatorInitials,
   creatorColor,
   fanName,
-  onLeave
+  onLeave,
+  onDisconnect,
 }: {
   roomUrl: string;
   token: string;
@@ -142,16 +143,17 @@ export function FanLiveView({
   creatorColor: string;
   fanName: string;
   onLeave: () => void;
+  onDisconnect?: () => void;
 }) {
   return (
-    <CallContainer url={roomUrl} token={token} onLeave={onLeave}>
+    <CallContainer url={roomUrl} token={token} onLeave={onDisconnect}>
       <div className="w-full max-w-4xl mx-auto">
         <FanVideoStage 
           creatorName={creatorName}
           creatorInitials={creatorInitials}
           creatorColor={creatorColor}
           fanName={fanName}
-          onLeave={onLeave}
+          onLeaveClick={onLeave}
         />
       </div>
     </CallContainer>

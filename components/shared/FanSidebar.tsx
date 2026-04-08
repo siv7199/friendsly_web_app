@@ -34,12 +34,17 @@ export function FanSidebar() {
     const supabase = createClient();
     
     async function getCount() {
-      const { count } = await supabase
-        .from("creator_profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("is_live", true);
+      const heartbeatCutoffIso = new Date(Date.now() - 45000).toISOString();
+      const { data } = await supabase
+        .from("live_sessions")
+        .select("id, creator_id")
+        .eq("is_active", true)
+        .not("daily_room_url", "is", null)
+        .gte("last_heartbeat_at", heartbeatCutoffIso);
 
-      setLiveCount(count ?? 0);
+      const uniqueLiveCreators = new Set((data ?? []).map((session: any) => session.creator_id));
+
+      setLiveCount(uniqueLiveCreators.size);
     }
 
     getCount();

@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   DollarSign, Video, Star, Calendar,
   Users, TrendingUp, Radio, ArrowRight, Loader2,
@@ -24,7 +25,8 @@ import { getCreatorPackages } from "@/lib/mock-auth";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { deriveBookingStatus, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
+import { deriveBookingStatus, getBookingWindow, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
+import { getCreatorAnalyticsSnapshot } from "@/lib/analytics";
 
 interface DashReview {
   id: string;
@@ -48,6 +50,7 @@ const EMPTY_STATS: CreatorStats = {
 
 export default function DashboardPage() {
   const { user } = useAuthContext();
+  const router = useRouter();
   const [dashReviews, setDashReviews] = useState<DashReview[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
 
@@ -55,18 +58,7 @@ export default function DashboardPage() {
   const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
   const [nextJoinableBooking, setNextJoinableBooking] = useState<any | null>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
-  const [isLiveStatus, setIsLiveStatus] = useState(false);
-  const [syncingStatus, setSyncingStatus] = useState(false);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
-
-  async function resetLiveStatus() {
-    if (!user) return;
-    setSyncingStatus(true);
-    const supabase = createClient();
-    await supabase.from("creator_profiles").update({ is_live: false }).eq("id", user.id);
-    setIsLiveStatus(false);
-    setSyncingStatus(false);
-  }
 
   async function handleCancelBooking(booking: any) {
     const bookingId = booking.id;
@@ -90,11 +82,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!user) return;
+    const userId = user.id;
+    const creatorName = user.full_name || "Creator";
     const supabase = createClient();
+    let refreshTimer: number | null = null;
     supabase
       .from("reviews")
       .select("id, rating, comment, created_at, fan:profiles!fan_id(full_name, avatar_initials, avatar_color, avatar_url)")
-      .eq("creator_id", user.id)
+      .eq("creator_id", userId)
       .order("created_at", { ascending: false })
       .limit(5)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,38 +116,25 @@ export default function DashboardPage() {
     // ── Load Bookings & Compute Stats ──
     async function loadDashboard() {
       // 1. Fetch bookings, live queue joins, profile views, and raw reviews
-      const [bookingsRes, liveRes, profileViewsRes, reviewsRes, liveStatusRes] = await Promise.all([
+      const [bookingsRes, liveRes, reviewsRes, analyticsSnapshot] = await Promise.all([
         supabase
           .from("bookings")
           .select(`
             id, scheduled_at, duration, price, status, topic,
             fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
           `)
-          .eq("creator_id", user?.id)
+          .eq("creator_id", userId)
           .order("scheduled_at", { ascending: true }),
         supabase
           .from("live_sessions")
           .select("id, live_queue_entries(id, status, amount_charged, ended_at)")
-          .eq("creator_id", user?.id),
-        supabase
-          .from("creator_profiles")
-          .select("profile_views")
-          .eq("id", user?.id)
-          .single(),
+          .eq("creator_id", userId),
         supabase
           .from("reviews")
           .select("rating")
-          .eq("creator_id", user?.id),
-        supabase
-          .from("creator_profiles")
-          .select("is_live")
-          .eq("id", user?.id)
-          .single()
+          .eq("creator_id", userId),
+        getCreatorAnalyticsSnapshot(userId, "month"),
       ]);
-
-      if (liveStatusRes.data) {
-        setIsLiveStatus(liveStatusRes.data.is_live);
-      }
 
       const bookings = bookingsRes.data || [];
       const expiredBookingIds: string[] = [];
@@ -200,8 +182,8 @@ export default function DashboardPage() {
 
         return {
           id: b.id,
-          creatorId: user?.id,
-          creatorName: user?.full_name || "Creator",
+          creatorId: userId,
+          creatorName,
           fanName: fan?.full_name || "Fan",
           fanUsername: fan?.username ? `@${fan.username}` : "@fan",
           fanInitials: fan?.avatar_initials ?? "F",
@@ -229,6 +211,14 @@ export default function DashboardPage() {
       setNextJoinableBooking(
         mappedBookings.find((b: any) => isBookingJoinable(b.status, b.scheduledAt, b.duration)) ?? null
       );
+      const nextUpcomingBooking = mappedBookings.find((b: any) => b.status === "upcoming");
+      if (nextUpcomingBooking) {
+        const { joinOpensAt } = getBookingWindow(nextUpcomingBooking.scheduledAt, nextUpcomingBooking.duration);
+        const delay = joinOpensAt.getTime() - Date.now();
+        if (delay > 0) {
+          refreshTimer = window.setTimeout(loadDashboard, delay + 1000);
+        }
+      }
 
       let totalLiveJoins = 0;
       let liveQueueEarned = 0;
@@ -255,12 +245,6 @@ export default function DashboardPage() {
       
       const creatorCut = (totalEarnedGross + liveQueueEarned) * 0.85;
       
-      const profileViews = profileViewsRes.data?.profile_views || 0;
-      const totalConversions = totalBookings + totalLiveJoins;
-      const rawConversionRate = profileViews > 0 ? (totalConversions / profileViews) * 100 : 0;
-      // Round to 1 decimal place max
-      const conversionRateDisplayed = Math.round(rawConversionRate * 10) / 10;
-
       // Calculate Average Rating dynamically
       const allReviews = reviewsRes.data || [];
       let calculatedAvgRating = 0;
@@ -273,14 +257,32 @@ export default function DashboardPage() {
         totalEarnings: creatorCut,
         callsThisMonth: callsMonth,
         avgRating: calculatedAvgRating,
+        reviewCount: allReviews.length,
         upcomingBookings: upcomingCount,
         totalFans: uniqueFans.size,
-        conversionRate: conversionRateDisplayed
+        conversionRate: analyticsSnapshot.conversionRate
       });
 
       setLoadingDashboard(false);
     }
     loadDashboard();
+
+    const channel = supabase
+      .channel(`creator-dashboard-${userId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "bookings",
+        filter: `creator_id=eq.${userId}`,
+      }, () => {
+        loadDashboard();
+      })
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const displayName = user?.full_name ?? "Creator";
@@ -310,24 +312,6 @@ export default function DashboardPage() {
   return (
     <div className="px-4 md:px-8 py-6 max-w-6xl mx-auto space-y-8">
       {/* ── Status Banner ── */}
-      {isLiveStatus && (
-        <div className="bg-brand-live/10 border border-brand-live/20 rounded-2xl p-4 flex items-center justify-between animate-pulse-subtle">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />
-            <p className="text-sm font-semibold text-brand-live">Your profile is currently visible as LIVE</p>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={resetLiveStatus}
-            disabled={syncingStatus}
-            className="border-brand-live/40 text-brand-live hover:bg-brand-live/10"
-          >
-            {syncingStatus ? "Syncing..." : "End Session"}
-          </Button>
-        </div>
-      )}
-
       {/* ── Header ── */}
       <div className="flex items-start justify-between">
         <div>
@@ -362,7 +346,7 @@ export default function DashboardPage() {
         <StatsCard
           title="Avg. Rating"
           value={stats.avgRating > 0 ? String(stats.avgRating) : "—"}
-          subtext={stats.totalFans > 0 ? `From ${stats.totalFans} fans` : "No calls yet"}
+          subtext={stats.reviewCount ? `From ${stats.reviewCount} review${stats.reviewCount === 1 ? "" : "s"}` : "No reviews yet"}
           icon={<Star className="w-5 h-5" />}
           accent="gold"
         />
@@ -379,6 +363,7 @@ export default function DashboardPage() {
           subtext="View → book rate"
           icon={<TrendingUp className="w-5 h-5" />}
           accent="live"
+          onClick={() => router.push("/analytics")}
         />
       </div>
 

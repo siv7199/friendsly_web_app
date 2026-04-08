@@ -47,33 +47,17 @@ const STRIPE_APPEARANCE = {
   },
 };
 
-// Saved card shape stored in localStorage
-interface SavedCard {
-  brand: string;       // "visa", "mastercard", etc.
+interface SavedPaymentMethod {
+  id: string;
+  brand: string;
   last4: string;
   expMonth: number;
   expYear: number;
-  paymentMethodId: string;
 }
 
-function getSavedCard(userId: string): SavedCard | null {
-  try {
-    const raw = localStorage.getItem(`saved_card_${userId}`);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-function setSavedCard(userId: string, card: SavedCard) {
-  localStorage.setItem(`saved_card_${userId}`, JSON.stringify(card));
-}
-
-function removeSavedCard(userId: string) {
-  localStorage.removeItem(`saved_card_${userId}`);
-}
-
-// ── Inner form (must live inside <Elements>) ───────────────────────────
+// Billing form lives inside <Elements>
 interface AddCardFormProps {
-  onSuccess: (card: SavedCard) => void;
+  onSuccess: () => void;
   onCancel: () => void;
 }
 
@@ -99,18 +83,14 @@ function AddCardForm({ onSuccess, onCancel }: AddCardFormProps) {
       return;
     }
 
-    // Retrieve the PaymentMethod details to display brand/last4
-    const pmId = typeof setupIntent?.payment_method === "string"
-      ? setupIntent.payment_method
-      : setupIntent?.payment_method?.id;
+    if (!setupIntent) {
+      setError("Could not save card.");
+      setSaving(false);
+      return;
+    }
 
-    onSuccess({
-      brand: "card",
-      last4: "••••",
-      expMonth: 0,
-      expYear: 0,
-      paymentMethodId: pmId ?? "pm_saved",
-    });
+    onSuccess();
+    setSaving(false);
   }
 
   return (
@@ -143,10 +123,12 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   // Billing / card state
-  const [savedCard, setSavedCardState] = useState<SavedCard | null>(null);
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<SavedPaymentMethod[]>([]);
   const [showAddCard, setShowAddCard] = useState(false);
   const [setupClientSecret, setSetupClientSecret] = useState<string | null>(null);
   const [loadingSetup, setLoadingSetup] = useState(false);
+  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false);
+  const [removingPaymentMethodId, setRemovingPaymentMethodId] = useState<string | null>(null);
 
   // Financial state
   const [earnings, setEarnings] = useState({ available: 0, pending: 0, thisMonth: 0, totalEarned: 0 });
@@ -164,10 +146,22 @@ export default function SettingsPage() {
     avatar_url: "",
   });
 
-  // Load saved card on mount
+  async function loadPaymentMethods() {
+    if (!user) return;
+    setLoadingPaymentMethods(true);
+    try {
+      const res = await fetch("/api/payment-methods");
+      const data = await res.json();
+      setSavedPaymentMethods(data.paymentMethods ?? []);
+    } finally {
+      setLoadingPaymentMethods(false);
+    }
+  }
+
   useEffect(() => {
-    if (user) setSavedCardState(getSavedCard(user.id));
-  }, [user]);
+    if (!user || activeTab !== "billing") return;
+    loadPaymentMethods();
+  }, [user, activeTab]);
 
   // Load backend stats
   useEffect(() => {
@@ -272,18 +266,17 @@ export default function SettingsPage() {
     setLoadingSetup(false);
   }
 
-  function handleCardSaved(card: SavedCard) {
-    if (!user) return;
-    setSavedCard(user.id, card);
-    setSavedCardState(card);
+  async function handleCardSaved() {
     setShowAddCard(false);
     setSetupClientSecret(null);
+    await loadPaymentMethods();
   }
 
-  function handleRemoveCard() {
-    if (!user) return;
-    removeSavedCard(user.id);
-    setSavedCardState(null);
+  async function handleRemoveCard(paymentMethodId: string) {
+    setRemovingPaymentMethodId(paymentMethodId);
+    await fetch('/api/payment-methods/' + paymentMethodId, { method: "DELETE" });
+    await loadPaymentMethods();
+    setRemovingPaymentMethodId(null);
   }
 
   async function handleWithdraw() {
@@ -619,35 +612,49 @@ export default function SettingsPage() {
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
             <h2 className="text-base font-semibold text-slate-100 mb-4">Payment Method</h2>
 
-            {/* Saved card display */}
-            {savedCard && !showAddCard && (
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-brand-elevated border border-brand-primary/30 mb-4">
-                <CreditCard className="w-5 h-5 text-brand-primary-light shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-100 capitalize">
-                    {savedCard.brand === "card" ? "Card" : savedCard.brand} saved
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {savedCard.last4 === "••••" ? "Payment method on file" : `•••• •••• •••• ${savedCard.last4}`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Badge variant="live" className="text-[10px]">Active</Badge>
-                  <button
-                    onClick={handleRemoveCard}
-                    className="ml-2 text-slate-500 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-500/10"
-                    title="Remove card"
+            {/* Saved payment methods */}
+            {savedPaymentMethods.length > 0 && !showAddCard && (
+              <div className="space-y-3 mb-4">
+                {savedPaymentMethods.map((paymentMethod, index) => (
+                  <div
+                    key={paymentMethod.id}
+                    className="flex items-center gap-3 p-4 rounded-xl bg-brand-elevated border border-brand-primary/30"
                   >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                    <CreditCard className="w-5 h-5 text-brand-primary-light shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-slate-100 capitalize">
+                        {paymentMethod.brand} ending in {paymentMethod.last4}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Expires {String(paymentMethod.expMonth).padStart(2, "0")}/{paymentMethod.expYear}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {index === 0 && <Badge variant="live" className="text-[10px]">Saved</Badge>}
+                      <button
+                        onClick={() => handleRemoveCard(paymentMethod.id)}
+                        disabled={removingPaymentMethodId === paymentMethod.id}
+                        className="ml-2 text-slate-500 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-500/10 disabled:opacity-50"
+                        title="Remove card"
+                      >
+                        {removingPaymentMethodId === paymentMethod.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <X className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            {!savedCard && !showAddCard && (
+            {savedPaymentMethods.length === 0 && !showAddCard && (
               <div className="flex items-center gap-3 p-4 rounded-xl bg-brand-elevated border border-brand-border mb-4">
                 <CreditCard className="w-5 h-5 text-slate-400" />
-                <span className="text-sm text-slate-400 flex-1">No payment method on file</span>
+                <span className="text-sm text-slate-400 flex-1">
+                  {loadingPaymentMethods ? "Loading payment methods..." : "No payment method on file"}
+                </span>
               </div>
             )}
 
@@ -677,7 +684,7 @@ export default function SettingsPage() {
                 {loadingSetup ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</>
                 ) : (
-                  <><CreditCard className="w-4 h-4" />{savedCard ? "Replace Card" : "Add Payment Method"}</>
+                  <><CreditCard className="w-4 h-4" />{savedPaymentMethods.length > 0 ? "Add Another Card" : "Add Payment Method"}</>
                 )}
               </Button>
             )}

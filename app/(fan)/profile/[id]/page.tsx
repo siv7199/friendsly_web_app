@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Star, Users, Video, Clock, ArrowLeft,
-  CheckCircle2, Zap, MessageSquare, Calendar,
+  CheckCircle2, Zap, Calendar,
   TrendingUp, Shield, ChevronLeft, ChevronRight, Send, Loader2,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -29,6 +29,7 @@ import { isNewCreator } from "@/lib/creators";
 // ── Availability Calendar helpers ─────────────────────────────────────────────
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const LIVE_SESSION_STALE_MS = 45000;
 
 function getWeekDates(offset = 0): Date[] {
   const today = new Date();
@@ -112,7 +113,8 @@ async function fetchCreatorData(id: string): Promise<{
       .from("live_queue_entries")
       .select("id, live_sessions!inner(creator_id)", { count: "exact", head: true })
       .eq("live_sessions.creator_id", id)
-      .in("status", ["completed", "skipped"]),
+      .in("status", ["completed", "skipped"])
+      .not("amount_charged", "is", null),
   ]);
 
   if (!profile) return { creator: null, packages: [], availability: [], reviewCount: 0 };
@@ -122,13 +124,17 @@ async function fetchCreatorData(id: string): Promise<{
     : profile.creator_profiles;
 
   const sessions = Array.isArray(profile.live_sessions) ? profile.live_sessions : [];
-  // Only show as "Live" if the is_live flag is explicitly true (Creator clicked Start)
-  const isActuallyLive = Boolean(cp?.is_live);
+  const activeSession = sessions.find(
+    (s: any) =>
+      s?.is_active === true &&
+      !!s?.daily_room_url &&
+      !!s?.last_heartbeat_at &&
+      Date.now() - new Date(s.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+  ) ?? null;
+  const isActuallyLive = Boolean(activeSession);
 
   // Get queue count for active session
   let queueCount = 0;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const activeSession = sessions.find((s: any) => s?.is_active === true);
   if (activeSession) {
     const { count } = await supabase
       .from("live_queue_entries")
@@ -168,15 +174,19 @@ async function fetchCreatorData(id: string): Promise<{
     avatarColor: profile.avatar_color,
     avatarUrl: profile.avatar_url ?? undefined,
     isLive: isActuallyLive,
+    currentLiveSessionId: activeSession?.id ?? cp?.current_live_session_id ?? undefined,
     queueCount,
     callPrice: minPrice,
     callDuration: packages[0]?.duration ?? 15,
     nextAvailable: minPrice > 0 ? "Available this week" : "No packages yet",
     totalCalls: (completedBookingsCount ?? 0) + (completedLiveQueueCount ?? 0),
-    responseTime: cp?.response_time ?? "~5 min",
-    liveRatePerMinute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
-    timeZone: cp?.timezone ?? "America/New_York",
-    isNew: isNewCreator(profile.created_at),
+      responseTime: cp?.response_time ?? "~5 min",
+      liveRatePerMinute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
+      scheduledLiveAt: cp?.scheduled_live_at ?? undefined,
+      scheduledLiveTimeZone: cp?.scheduled_live_timezone ?? cp?.timezone ?? undefined,
+      timeZone: cp?.timezone ?? "America/New_York",
+      bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
+      isNew: isNewCreator(profile.created_at),
   };
 
   return {
@@ -220,22 +230,42 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const refreshTimeoutsRef = useRef<number[]>([]);
 
   useEffect(() => {
-    fetchCreatorData(params.id).then(({ creator, packages, availability }) => {
-      if (!creator) { setLoading(false); return; }
-      setCreator(creator);
-      setActivePackages(packages);
-      setAvailability(availability);
-      setLoading(false);
+    const supabase = createClient();
+    let incrementedProfileView = false;
 
-      // Increment profile views
-      const supabase = createClient();
-      supabase.rpc("increment_profile_views", { creator_uuid: creator.id }).then();
-    });
+    function loadCreatorData() {
+      fetchCreatorData(params.id).then(({ creator, packages, availability }) => {
+        if (!creator) {
+          setLoading(false);
+          return;
+        }
+
+        setCreator(creator);
+        setActivePackages(packages);
+        setAvailability(availability);
+        setLoading(false);
+
+        if (!incrementedProfileView) {
+          incrementedProfileView = true;
+          supabase.rpc("increment_profile_views", { creator_uuid: creator.id }).then();
+        }
+      });
+    }
+
+    function scheduleRefreshes() {
+      refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      refreshTimeoutsRef.current = [
+        window.setTimeout(loadCreatorData, 500),
+        window.setTimeout(loadCreatorData, 1800),
+      ];
+    }
+
+    loadCreatorData();
 
     // Load reviews from Supabase
-    const supabase = createClient();
     supabase
       .from("reviews")
       .select("id, rating, comment, created_at, fan:profiles!fan_id(full_name, avatar_initials, avatar_color)")
@@ -262,6 +292,42 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           }));
         }
       });
+
+    const realtimeChannel = supabase
+      .channel(`fan_profile_${params.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${params.id}` },
+        (payload: any) => {
+          setCreator((prev) =>
+                prev
+                  ? {
+                        ...prev,
+                        currentLiveSessionId: payload.new?.current_live_session_id ?? undefined,
+                        scheduledLiveAt: payload.new?.scheduled_live_at ?? undefined,
+                        scheduledLiveTimeZone: payload.new?.scheduled_live_timezone ?? prev.scheduledLiveTimeZone,
+                        liveRatePerMinute: payload.new?.live_rate_per_minute != null
+                          ? Number(payload.new.live_rate_per_minute)
+                    : prev.liveRatePerMinute,
+                }
+              : prev
+          );
+          scheduleRefreshes();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "live_sessions", filter: `creator_id=eq.${params.id}` },
+        scheduleRefreshes
+      )
+      .subscribe();
+    const fallbackInterval = window.setInterval(loadCreatorData, 10000);
+
+    return () => {
+      refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      window.clearInterval(fallbackInterval);
+      supabase.removeChannel(realtimeChannel);
+    };
   }, [params.id]);
 
   // ── Review submission ─────────────────────────────────────────────────────
@@ -314,6 +380,27 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const weekDates     = getWeekDates(weekOffset);
   const today         = new Date();
   const viewerTimeZone = getBrowserTimeZone();
+  const scheduledLiveCountdown = (() => {
+    if (!creator.scheduledLiveAt || creator.isLive) return null;
+    const diff = new Date(creator.scheduledLiveAt).getTime() - Date.now();
+    if (diff <= 0) return "Going live soon";
+    const totalMinutes = Math.floor(diff / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return hours > 0 ? `Going live in ${hours}h ${minutes}m` : `Going live in ${minutes}m`;
+  })();
+  const scheduledLiveLabel = (() => {
+    if (!creator.scheduledLiveAt || creator.isLive) return null;
+    const scheduledDate = new Date(creator.scheduledLiveAt);
+    const timeZone = creator.scheduledLiveTimeZone || creator.timeZone;
+    const abbreviation = timeZone ? getTimeZoneAbbreviation(scheduledDate, timeZone) : null;
+    return `${scheduledDate.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })}${abbreviation ? ` ${abbreviation}` : ""}`;
+  })();
 
   // Map availability slots: { [dayOfWeek]: string[] of formatted time ranges }
   const filteredAvailability = availability.filter((slot) =>
@@ -384,12 +471,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <span className="text-sm text-slate-500">({creator.reviewCount} reviews)</span>
                 </div>
               )}
-              {creator.totalCalls > 0 && (
-                <div className="flex items-center gap-1.5 text-sm text-slate-400">
-                  <Video className="w-4 h-4" />
-                  <span>{creator.totalCalls} calls completed</span>
-                </div>
-              )}
             </div>
 
             {creator.bio && (
@@ -409,6 +490,17 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
             {/* Pricing summary strip */}
             <div className="mt-5 flex flex-wrap gap-3">
+              {scheduledLiveCountdown && (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-info/10 border border-brand-info/30">
+                    <Calendar className="w-4 h-4 text-brand-info" />
+                    <span className="text-sm font-bold text-brand-info">
+                      {scheduledLiveCountdown}
+                      {scheduledLiveLabel ? (
+                        <span className="block text-xs font-medium text-slate-300 mt-0.5">{scheduledLiveLabel}</span>
+                      ) : null}
+                    </span>
+                  </div>
+                )}
               {hasLiveRate && (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-live/10 border border-brand-live/30">
                   <Zap className="w-4 h-4 text-brand-live" />
@@ -463,9 +555,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                           <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />{pkg.duration} min
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <MessageSquare className="w-3 h-3" />~{creator.responseTime}
                             </span>
                           </div>
                         </div>
@@ -683,11 +772,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               </p>
             </div>
 
-            {/* Creator Stats */}
+            {false && (
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 space-y-3">
               <h3 className="text-sm font-bold text-slate-300">Creator Stats</h3>
               {[
-                { icon: TrendingUp, label: "Total calls", value: creator.totalCalls.toLocaleString() },
+                { icon: TrendingUp, label: "Total calls", value: "0" },
                 { icon: Shield, label: "Verified creator", value: "✓" },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-center justify-between text-sm">
@@ -699,6 +788,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </div>
               ))}
             </div>
+            )}
           </div>
         </div>
 

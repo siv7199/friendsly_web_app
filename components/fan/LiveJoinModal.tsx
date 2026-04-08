@@ -1,20 +1,6 @@
 "use client";
 
-/**
- * LiveJoinModal
- *
- * Shown when a fan taps "Join Queue" on a creator who is live.
- *
- * FLOW:
- * 1. Explain the per-minute pricing model
- * 2. Show pre-auth amount (10 min × rate) — this is the hold on their card
- * 3. Fan enters card via Stripe Elements (PaymentIntent in manual-capture mode)
- * 4. On success → INSERT live_queue_entries row → redirect to /waiting-room/[id]
- *
- * The actual charge is calculated server-side when the creator skips them.
- */
-
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -50,15 +36,22 @@ const STRIPE_OPTIONS = {
   appearance: STRIPE_APPEARANCE,
 };
 
-const PREAUTH_MINUTES = 10; // card hold = 10 min × rate
+const PREAUTH_MINUTES = 10;
+const LIVE_SESSION_STALE_MS = 45000;
 
-// ── Inner payment form ────────────────────────────────────────────────────────
+interface SavedPaymentMethod {
+  id: string;
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+}
 
 interface PaymentFormProps {
   onSuccess: () => void;
   isSubmitting: boolean;
-  setIsSubmitting: (v: boolean) => void;
-  setPayError: (v: string) => void;
+  setIsSubmitting: (value: boolean) => void;
+  setPayError: (value: string) => void;
 }
 
 function PaymentForm({ onSuccess, isSubmitting, setIsSubmitting, setPayError }: PaymentFormProps) {
@@ -73,9 +66,6 @@ function PaymentForm({ onSuccess, isSubmitting, setIsSubmitting, setPayError }: 
 
     const { error } = await stripe.confirmPayment({
       elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/waiting-room/${window.location.pathname.split("/").pop()}`,
-      },
       redirect: "if_required",
     });
 
@@ -89,8 +79,8 @@ function PaymentForm({ onSuccess, isSubmitting, setIsSubmitting, setPayError }: 
 
   return (
     <div className="space-y-4">
-      <PaymentElement 
-        options={{ layout: "tabs" }} 
+      <PaymentElement
+        options={{ layout: "tabs" }}
         onReady={() => setIsReady(true)}
       />
       <Button
@@ -112,8 +102,6 @@ function PaymentForm({ onSuccess, isSubmitting, setIsSubmitting, setPayError }: 
   );
 }
 
-// ── Main modal ────────────────────────────────────────────────────────────────
-
 interface LiveJoinModalProps {
   creator: Creator;
   open: boolean;
@@ -131,42 +119,111 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
   const [fetchingIntent, setFetchingIntent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [payError, setPayError] = useState("");
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<SavedPaymentMethod[]>([]);
+  const [loadingSavedPaymentMethods, setLoadingSavedPaymentMethods] = useState(false);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
+  const [saveNewCard, setSaveNewCard] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(creator.currentLiveSessionId);
 
   const rate = creator.liveRatePerMinute ?? 0;
   const preAuthAmount = rate * PREAUTH_MINUTES;
 
-  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(creator.currentLiveSessionId);
-
-  // Re-fetch fresh creator data on open to ensure we aren't using stale discovery-page data
-  useEffect(() => {
-    if (open) {
-      setStep("info");
-      setClientSecret(null);
-      setPaymentIntentId(null);
-      setPayError("");
-      setIsSubmitting(false);
-
-      const fetchFreshStatus = async () => {
-        const supabase = createClient();
-        const { data } = await supabase
-          .from("creator_profiles")
-          .select("current_live_session_id, is_live")
-          .eq("id", creator.id)
-          .single();
-        
-        if (data?.current_live_session_id) {
-          console.log("Refreshed session ID from server:", data.current_live_session_id);
-          setCurrentSessionId(data.current_live_session_id);
-        }
-      };
-      
-      fetchFreshStatus();
+  async function fetchSavedPaymentMethods() {
+    if (!user) return;
+    setLoadingSavedPaymentMethods(true);
+    try {
+      const res = await fetch("/api/payment-methods");
+      const data = await res.json();
+      const methods = data.paymentMethods ?? [];
+      setSavedPaymentMethods(methods);
+      setSelectedPaymentMethodId(methods[0]?.id ?? null);
+    } catch {
+      setSavedPaymentMethods([]);
+      setSelectedPaymentMethodId(null);
+    } finally {
+      setLoadingSavedPaymentMethods(false);
     }
-  }, [open, creator.id]);
+  }
 
-  // Fetch PaymentIntent when moving to payment step
+  async function fetchFreshStatus() {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("creator_profiles")
+      .select("current_live_session_id, is_live")
+      .eq("id", creator.id)
+      .single();
+
+    if (!data?.is_live) {
+      setCurrentSessionId(undefined);
+      return;
+    }
+
+    if (data.current_live_session_id) {
+      const { data: currentSession } = await supabase
+        .from("live_sessions")
+        .select("id, last_heartbeat_at")
+        .eq("id", data.current_live_session_id)
+        .eq("creator_id", creator.id)
+        .eq("is_active", true)
+        .not("daily_room_url", "is", null)
+        .maybeSingle();
+
+      if (
+        currentSession?.id &&
+        currentSession.last_heartbeat_at &&
+        Date.now() - new Date(currentSession.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+      ) {
+        setCurrentSessionId(currentSession.id);
+        return;
+      }
+    }
+
+    const { data: liveSession } = await supabase
+      .from("live_sessions")
+      .select("id, last_heartbeat_at")
+      .eq("creator_id", creator.id)
+      .eq("is_active", true)
+      .not("daily_room_url", "is", null)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (
+      liveSession?.id &&
+      liveSession.last_heartbeat_at &&
+      Date.now() - new Date(liveSession.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+    ) {
+      setCurrentSessionId(liveSession.id);
+      return;
+    }
+
+    setCurrentSessionId(undefined);
+  }
+
   useEffect(() => {
-    if (step !== "payment" || clientSecret) return;
+    if (!open) return;
+
+    setStep("info");
+    setClientSecret(null);
+    setPaymentIntentId(null);
+    setPayError("");
+    setIsSubmitting(false);
+    setSelectedPaymentMethodId(null);
+    setSaveNewCard(false);
+
+    fetchFreshStatus();
+    if (user) {
+      fetchSavedPaymentMethods();
+    }
+  }, [open, creator.id, user]);
+
+  useEffect(() => {
+    setClientSecret(null);
+    setPayError("");
+  }, [selectedPaymentMethodId, saveNewCard]);
+
+  useEffect(() => {
+    if (step !== "payment" || clientSecret || selectedPaymentMethodId) return;
 
     setFetchingIntent(true);
     fetch("/api/create-live-preauth", {
@@ -176,6 +233,7 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
         ratePerMinute: rate,
         creatorName: creator.name,
         preAuthMinutes: PREAUTH_MINUTES,
+        saveForFuture: saveNewCard,
       }),
     })
       .then((r) => r.json())
@@ -189,72 +247,104 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
       })
       .catch(() => setPayError("Network error. Please try again."))
       .finally(() => setFetchingIntent(false));
-  }, [step, clientSecret, rate, creator.name]);
+  }, [step, clientSecret, rate, creator.name, saveNewCard, selectedPaymentMethodId]);
 
-  // ── Insert the queue entry into Supabase after payment ──
-  async function handleSuccess() {
-    if (!user) { setStep("success"); return; }
-    const supabase = createClient();
+  async function joinQueueWithPaymentIntent(intentId: string) {
+    if (!user) {
+      setStep("success");
+      return;
+    }
 
-    try {
-      // 1. USE THE EXACT SESSION ID FROM THE FRESH FETCH (Source of Truth)
-      const targetSessionId = currentSessionId;
-
-      if (targetSessionId) {
-        // 2. Insert this fan into the queue (position is calculated on the fly now)
-        const { error } = await supabase.from("live_queue_entries").insert({
-          session_id: targetSessionId,
-          fan_id: user.id,
-          status: "waiting",
-          position: 0, // Satisfies DB constraint; ordering uses joined_at
-          amount_pre_authorized: preAuthAmount,
-          stripe_pre_auth_id: paymentIntentId,
-          joined_at: new Date().toISOString(),
-        });
-
-        if (error) throw error;
-        console.log("Joined session:", targetSessionId);
-      } else {
-        console.error("No active session found on creator profile");
-        setPayError("Creator is currently offline or setting up. Please try again in a moment.");
-        setIsSubmitting(false);
-        setStep("info");
-        return;
-      }
-    } catch (err) {
-      console.error("Failed to insert queue entry:", err);
-      setPayError("Payment succeeded but queue join failed. Please contact support.");
+    const targetSessionId = currentSessionId;
+    if (!targetSessionId) {
+      setPayError("Creator is currently offline or setting up. Please try again in a moment.");
       setIsSubmitting(false);
       setStep("info");
       return;
     }
 
+    const supabase = createClient();
+    const { error } = await supabase.from("live_queue_entries").insert({
+      session_id: targetSessionId,
+      fan_id: user.id,
+      status: "waiting",
+      position: 0,
+      amount_pre_authorized: preAuthAmount,
+      stripe_pre_auth_id: intentId,
+      joined_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      throw error;
+    }
+
     setStep("success");
-    // Give the user a moment to see the success state, then redirect
     setTimeout(() => {
       onClose();
       router.push(`/waiting-room/${creator.id}`);
     }, 1800);
   }
 
+  async function handleSuccess() {
+    if (!paymentIntentId) {
+      setPayError("Missing payment authorization.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await joinQueueWithPaymentIntent(paymentIntentId);
+    } catch (error) {
+      console.error("Failed to insert queue entry:", error);
+      setPayError("Payment succeeded but queue join failed. Please contact support.");
+      setIsSubmitting(false);
+      setStep("info");
+    }
+  }
+
+  async function handleSavedPaymentSubmit() {
+    if (!selectedPaymentMethodId) return;
+    setIsSubmitting(true);
+    setPayError("");
+
+    try {
+      const res = await fetch("/api/create-live-preauth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ratePerMinute: rate,
+          creatorName: creator.name,
+          preAuthMinutes: PREAUTH_MINUTES,
+          paymentMethodId: selectedPaymentMethodId,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.paymentIntentId) {
+        throw new Error(data.error ?? "Could not authorize saved payment method.");
+      }
+
+      setPaymentIntentId(data.paymentIntentId);
+      await joinQueueWithPaymentIntent(data.paymentIntentId);
+    } catch (error) {
+      setPayError(error instanceof Error ? error.message : "Could not authorize saved payment method.");
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogContent
         className="w-full max-w-md"
-        title={
-          step === "success"
-            ? "You're in the queue!"
-            : `Join ${creator.name}'s Live`
-        }
+        title={step === "success" ? "You're in the queue!" : `Join ${creator.name}'s Live`}
         description={
           step === "info"
             ? "Here's how live queue billing works."
             : step === "payment"
-            ? "Your card will be held — you only pay for time on the call."
+            ? "Your card will be held - you only pay for time on the call."
             : undefined
         }
       >
-        {/* ── SUCCESS ── */}
         {step === "success" && (
           <div className="flex flex-col items-center text-center gap-4 py-4">
             <div className="w-16 h-16 rounded-full bg-brand-live/20 border border-brand-live/30 flex items-center justify-center">
@@ -262,21 +352,18 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
             </div>
             <div>
               <p className="text-slate-300 text-sm leading-relaxed">
-                You&apos;re in the queue for{" "}
-                <strong className="text-slate-100">{creator.name}</strong>.
-                Hang tight — you&apos;ll be admitted when it&apos;s your turn.
+                You're in the queue for <strong className="text-slate-100">{creator.name}</strong>.
+                Hang tight - you'll be admitted when it's your turn.
               </p>
               <p className="text-slate-500 text-xs mt-2">
-                Redirecting you to the waiting room…
+                Redirecting you to the waiting room...
               </p>
             </div>
           </div>
         )}
 
-        {/* ── STEP 1: How it works ── */}
         {step === "info" && (
           <div className="space-y-5">
-            {/* Creator strip */}
             <div className="flex items-center gap-3 p-3 rounded-xl bg-brand-surface border border-brand-border">
               <Avatar initials={creator.avatarInitials} color={creator.avatarColor} size="sm" />
               <div>
@@ -295,14 +382,13 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
               </div>
             </div>
 
-            {/* How billing works */}
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">How it works</p>
               {[
                 {
                   icon: Zap,
                   title: "Join the queue",
-                  desc: `Wait your turn — no charge while you wait.`,
+                  desc: "Wait your turn - no charge while you wait.",
                 },
                 {
                   icon: Clock,
@@ -337,10 +423,8 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
           </div>
         )}
 
-        {/* ── STEP 2: Stripe Payment ── */}
         {step === "payment" && (
           <div className="space-y-4">
-            {/* Pre-auth summary */}
             <div className="rounded-xl border border-brand-border bg-brand-surface p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">Rate</span>
@@ -355,7 +439,7 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
                 <span className="text-brand-live">{formatCurrency(preAuthAmount)}</span>
               </div>
               <p className="text-[11px] text-slate-500">
-                You&apos;ll only be charged for the seconds you actually spend on the call.
+                You'll only be charged for the seconds you actually spend on the call.
                 Any unused amount is released automatically.
               </p>
             </div>
@@ -366,10 +450,65 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
               </div>
             )}
 
-            {fetchingIntent ? (
+            {loadingSavedPaymentMethods ? (
+              <div className="flex items-center justify-center py-4 gap-2 text-slate-400 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading saved payments...
+              </div>
+            ) : savedPaymentMethods.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Saved Payments</p>
+                <div className="space-y-2">
+                  {savedPaymentMethods.map((paymentMethod) => (
+                    <label
+                      key={paymentMethod.id}
+                      className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
+                        selectedPaymentMethodId === paymentMethod.id
+                          ? "border-brand-live bg-brand-live/10"
+                          : "border-brand-border bg-brand-elevated"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="saved-live-payment"
+                        checked={selectedPaymentMethodId === paymentMethod.id}
+                        onChange={() => setSelectedPaymentMethodId(paymentMethod.id)}
+                      />
+                      <div className="text-sm text-slate-200 capitalize">
+                        {paymentMethod.brand} ending in {paymentMethod.last4}
+                      </div>
+                      <div className="ml-auto text-xs text-slate-500">
+                        {String(paymentMethod.expMonth).padStart(2, "0")}/{paymentMethod.expYear}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setSelectedPaymentMethodId(null)}
+                  className="text-xs text-brand-live hover:underline"
+                >
+                  Use a new card instead
+                </button>
+                <Button
+                  variant="live"
+                  size="lg"
+                  className="w-full gap-2"
+                  onClick={handleSavedPaymentSubmit}
+                  disabled={isSubmitting || !selectedPaymentMethodId}
+                >
+                  {isSubmitting ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Authorizing...</>
+                  ) : (
+                    <><Zap className="w-4 h-4" /> Join Queue</>
+                  )}
+                </Button>
+              </div>
+            ) : null}
+
+            {selectedPaymentMethodId ? null : fetchingIntent ? (
               <div className="flex items-center justify-center py-8 gap-3 text-slate-400">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm">Loading payment form…</span>
+                <span className="text-sm">Loading payment form...</span>
               </div>
             ) : clientSecret ? (
               <>
@@ -378,10 +517,16 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
                     {payError}
                   </div>
                 )}
-                <Elements
-                  stripe={stripePromise}
-                  options={{ ...STRIPE_OPTIONS, clientSecret }}
-                >
+                <Elements stripe={stripePromise} options={{ ...STRIPE_OPTIONS, clientSecret }}>
+                  <label className="flex items-center gap-2 text-xs text-slate-400 mb-3">
+                    <input
+                      type="checkbox"
+                      checked={saveNewCard}
+                      onChange={(e) => setSaveNewCard(e.target.checked)}
+                      className="rounded border-brand-border bg-brand-elevated"
+                    />
+                    Save this payment method for future payments
+                  </label>
                   <PaymentForm
                     onSuccess={handleSuccess}
                     isSubmitting={isSubmitting}

@@ -35,6 +35,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   const [liveSessionId, setLiveSessionId] = useState<string | undefined>(undefined);
   const [activeFanAdmittedAt, setActiveFanAdmittedAt] = useState<string | null>(null);
   const [callEndedState, setCallEndedState] = useState<{ type: "call" | "skipped" | "session"; creatorName: string } | null>(null);
+  const [receipt, setReceipt] = useState<{ durationSeconds: number; amountCharged: number } | null>(null);
   const inCallRef = useRef(false);
   const creatorStateRef = useRef<any>(null);
   const liveSessionIdRef = useRef<string | undefined>(undefined);
@@ -46,6 +47,49 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   useEffect(() => { creatorStateRef.current = creatorState; }, [creatorState]);
   useEffect(() => { liveSessionIdRef.current = liveSessionId; }, [liveSessionId]);
   useEffect(() => { userRef.current = user; }, [user]);
+
+  const applyReceipt = useCallback((nextReceipt: { durationSeconds: number; amountCharged: number } | null) => {
+    setReceipt((currentReceipt) => {
+      if (!nextReceipt) return currentReceipt;
+
+      const nextHasValue = nextReceipt.durationSeconds > 0 || nextReceipt.amountCharged > 0;
+      const currentHasValue = !!currentReceipt && (currentReceipt.durationSeconds > 0 || currentReceipt.amountCharged > 0);
+
+      if (!nextHasValue && currentHasValue) {
+        return currentReceipt;
+      }
+
+      return nextReceipt;
+    });
+  }, []);
+
+  const hydrateLatestReceipt = useCallback(async () => {
+    const currentUser = userRef.current;
+    if (!currentUser) return null;
+
+    const supabase = createClient();
+    const { data: latestEndedEntry } = await supabase
+      .from("live_queue_entries")
+      .select("duration_seconds, amount_charged, status, live_sessions!inner(creator_id)")
+      .eq("fan_id", currentUser.id)
+      .eq("live_sessions.creator_id", params.id)
+      .in("status", ["completed", "skipped"])
+      .order("ended_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!latestEndedEntry) return null;
+
+    const nextReceipt = {
+      durationSeconds: Number(latestEndedEntry.duration_seconds ?? 0),
+      amountCharged: Number(latestEndedEntry.amount_charged ?? 0),
+    };
+    applyReceipt(nextReceipt);
+    return {
+      receipt: nextReceipt,
+      status: latestEndedEntry.status as "completed" | "skipped",
+    };
+  }, [applyReceipt, params.id]);
 
   const handleStatusChange = useCallback(async (status: string, _sessionId: string, url: string) => {
     if (status === "active" && !inCallRef.current) {
@@ -70,6 +114,25 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       }
     } else if (status === "completed" || status === "skipped") {
       if (selfLeavingRef.current) return;
+      const currentUser = userRef.current;
+      if (currentUser) {
+        const supabase = createClient();
+        const { data: completedEntry } = await supabase
+          .from("live_queue_entries")
+          .select("duration_seconds, amount_charged")
+          .eq("session_id", _sessionId)
+          .eq("fan_id", currentUser.id)
+          .in("status", ["completed", "skipped"])
+          .order("ended_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (completedEntry) {
+          applyReceipt({
+            durationSeconds: Number(completedEntry.duration_seconds ?? 0),
+            amountCharged: Number(completedEntry.amount_charged ?? 0),
+          });
+        }
+      }
       setCallEndedState({
         type: status === "completed" ? "call" : "skipped",
         creatorName: creatorStateRef.current?.name || "The creator",
@@ -89,6 +152,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     const sid = liveSessionIdRef.current;
     const currentUser = userRef.current;
 
+    let finalReceipt: { durationSeconds: number; amountCharged: number } | null = null;
     if (sid && currentUser) {
       const supabase = createClient();
       const { data: activeEntry } = await supabase
@@ -98,31 +162,102 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
         .eq("fan_id", currentUser.id)
         .eq("status", "active")
         .maybeSingle();
-      const { data: liveSession } = await supabase
-        .from("live_sessions")
-        .select("rate_per_minute")
-        .eq("id", sid)
-        .maybeSingle();
-      const durationSeconds = activeEntry?.admitted_at
-        ? Math.max(0, Math.floor((Date.now() - new Date(activeEntry.admitted_at).getTime()) / 1000))
-        : 0;
-      const amountCharged = Number((((durationSeconds / 60) * Number(liveSession?.rate_per_minute ?? 0))).toFixed(2));
+      try {
+        const res = await fetch("/api/live/finalize-charge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ queueEntryId: activeEntry?.id, status: "completed" }),
+        });
+        const data = await res.json();
+        finalReceipt = data?.receipt
+          ? {
+              durationSeconds: Number(data.receipt.durationSeconds ?? 0),
+              amountCharged: Number(data.receipt.amountCharged ?? 0),
+            }
+          : null;
+      } catch {
+        finalReceipt = null;
+      }
 
-      await supabase
-        .from("live_queue_entries")
-        .update({
-          status: "completed",
-          ended_at: new Date().toISOString(),
-          duration_seconds: durationSeconds,
-          amount_charged: amountCharged,
-        })
-        .eq("session_id", sid)
-        .eq("fan_id", currentUser.id)
-        .eq("status", "active");
+      if (!finalReceipt) {
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const { data: completedEntry } = await supabase
+            .from("live_queue_entries")
+            .select("duration_seconds, amount_charged")
+            .eq("session_id", sid)
+            .eq("fan_id", currentUser.id)
+            .in("status", ["completed", "skipped"])
+            .order("ended_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (completedEntry) {
+            finalReceipt = {
+              durationSeconds: Number(completedEntry.duration_seconds ?? 0),
+              amountCharged: Number(completedEntry.amount_charged ?? 0),
+            };
+            break;
+          }
+
+          await new Promise((resolve) => window.setTimeout(resolve, 350));
+        }
+      }
+    }
+
+    if (finalReceipt) {
+      applyReceipt(finalReceipt);
+      setCallEndedState({
+        type: "call",
+        creatorName: creatorStateRef.current?.name || "The creator",
+      });
+      return;
     }
 
     router.replace("/discover");
   }, [router]);
+
+  const handleCreatorDisconnect = useCallback(async () => {
+    selfLeavingRef.current = false;
+    setInCall(false);
+    setRoomUrl(null);
+    setToken(null);
+
+    const sid = liveSessionIdRef.current;
+    const currentUser = userRef.current;
+    if (sid && currentUser) {
+      const supabase = createClient();
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const { data: completedEntry } = await supabase
+          .from("live_queue_entries")
+          .select("duration_seconds, amount_charged, status")
+          .eq("session_id", sid)
+          .eq("fan_id", currentUser.id)
+          .in("status", ["completed", "skipped"])
+          .order("ended_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (completedEntry) {
+          applyReceipt({
+            durationSeconds: Number(completedEntry.duration_seconds ?? 0),
+            amountCharged: Number(completedEntry.amount_charged ?? 0),
+          });
+          setCallEndedState({
+            type: completedEntry.status === "skipped" ? "skipped" : "call",
+            creatorName: creatorStateRef.current?.name || "The creator",
+          });
+          return;
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 350));
+      }
+    }
+
+    setCallEndedState({
+      type: "call",
+      creatorName: creatorStateRef.current?.name || "The creator",
+    });
+  }, [applyReceipt]);
 
   useEffect(() => {
     return () => {
@@ -169,12 +304,28 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             .from("live_sessions")
             .select("id, daily_room_url")
             .eq("id", creatorProfile.current_live_session_id)
+            .eq("is_active", true)
+            .not("daily_room_url", "is", null)
             .maybeSingle();
           if (fallbackSession) session = fallbackSession;
         }
       }
 
       if (!session) {
+        if (userRef.current) {
+          const latestEndedEntry = await hydrateLatestReceipt();
+          if (latestEndedEntry) {
+            setCallEndedState({
+              type: latestEndedEntry.status === "skipped" ? "skipped" : "call",
+              creatorName: creatorStateRef.current?.name || "The creator",
+            });
+            setInCall(false);
+            setLiveSessionId(undefined);
+            setActiveFanAdmittedAt(null);
+            return;
+          }
+        }
+
         missedSessionPollsRef.current += 1;
         if (liveSessionIdRef.current && missedSessionPollsRef.current >= 2) {
           if (userRef.current) {
@@ -200,7 +351,6 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       }
 
       missedSessionPollsRef.current = 0;
-      setCallEndedState(null);
       setLiveSessionId(session.id);
 
       const { data } = await supabase
@@ -244,6 +394,35 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       setQueue(mapped);
 
       const myEntry = mapped.find((e: any) => e.fan_id === userRef.current?.id);
+      if (!myEntry && userRef.current) {
+        const { data: latestEndedEntry } = await supabase
+          .from("live_queue_entries")
+          .select("duration_seconds, amount_charged, status")
+          .eq("session_id", session.id)
+          .eq("fan_id", userRef.current.id)
+          .in("status", ["completed", "skipped"])
+          .order("ended_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestEndedEntry) {
+          setReceipt({
+            durationSeconds: Number(latestEndedEntry.duration_seconds ?? 0),
+            amountCharged: Number(latestEndedEntry.amount_charged ?? 0),
+          });
+          setCallEndedState({
+            type: latestEndedEntry.status === "skipped" ? "skipped" : "call",
+            creatorName: creatorStateRef.current?.name || "The creator",
+          });
+          setInCall(false);
+          setRoomUrl(null);
+          setToken(null);
+          setActiveFanAdmittedAt(null);
+          return;
+        }
+      }
+
+      setCallEndedState(null);
       if (myEntry?.status === "active" && !inCallRef.current && session.daily_room_url) {
         handleStatusChange("active", session.id, session.daily_room_url);
       }
@@ -325,7 +504,28 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     return () => {
       supabase.removeChannel(statusChannel);
     };
-  }, [params.id, user, handleStatusChange]);
+  }, [params.id, user, handleStatusChange, hydrateLatestReceipt]);
+
+  useEffect(() => {
+    if (!callEndedState || !user) return;
+    if (receipt && (receipt.durationSeconds > 0 || receipt.amountCharged > 0)) return;
+
+    let cancelled = false;
+    (async () => {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const latest = await hydrateLatestReceipt();
+        if (cancelled) return;
+        if (latest && (latest.receipt.durationSeconds > 0 || latest.receipt.amountCharged > 0)) {
+          return;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 300));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [callEndedState, receipt, user, hydrateLatestReceipt]);
 
   if (loading) {
     return (
@@ -350,6 +550,19 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
           <p className="text-slate-400 max-w-sm mx-auto">
             Thanks for joining! We hope you had a great experience.
           </p>
+          {receipt && (
+            <div className="mt-4 rounded-2xl border border-brand-border bg-brand-surface px-5 py-4 text-left max-w-sm mx-auto">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Receipt</p>
+              <div className="mt-3 flex items-center justify-between text-sm text-slate-300">
+                <span>Time on call</span>
+                <span>{Math.floor(receipt.durationSeconds / 60)}m {receipt.durationSeconds % 60}s</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm text-slate-300">
+                <span>Amount charged</span>
+                <span>${receipt.amountCharged.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex flex-col w-full max-w-xs gap-3">
           <Link href={`/profile/${params.id}`}>
@@ -389,6 +602,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             creatorColor={creatorState.avatarColor}
             fanName={user?.full_name ?? "Fan"}
             onLeave={handleFanLeave}
+            onDisconnect={handleCreatorDisconnect}
           />
         ) : (
           <WaitingRoom

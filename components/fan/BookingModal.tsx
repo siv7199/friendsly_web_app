@@ -26,6 +26,14 @@ interface AvailabilitySlot {
   package_id?: string | null;
 }
 
+interface SavedPaymentMethod {
+  id: string;
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+}
+
 // Initialise Stripe once (outside component so it's not recreated on render)
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -174,12 +182,17 @@ export function BookingModal({
   const [fetchingIntent, setFetchingIntent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [payError, setPayError] = useState("");
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<SavedPaymentMethod[]>([]);
+  const [loadingSavedPaymentMethods, setLoadingSavedPaymentMethods] = useState(false);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
+  const [saveNewCard, setSaveNewCard] = useState(false);
 
   const availableDates = getAvailableDates(weekOffset);
   const sessionPrice = selectedPackage?.price ?? creator.callPrice;
   const sessionDuration = selectedPackage?.duration ?? creator.callDuration;
   const packageAvailability = getPackageAvailability(availability, selectedPackage?.id ?? initialPackageId);
   const viewerTimeZone = getBrowserTimeZone();
+  const bookingIntervalMinutes = creator.bookingIntervalMinutes ?? 30;
   const availableDateKeys = new Set(
     availableDates
       .filter((date) => getAvailableStartTimesForViewerDate({
@@ -187,6 +200,7 @@ export function BookingModal({
         availability: packageAvailability,
         creatorTimeZone: creator.timeZone ?? "America/New_York",
         durationMinutes: sessionDuration,
+        incrementMinutes: bookingIntervalMinutes,
       }).length > 0)
       .map((date) => date.toDateString())
   );
@@ -196,11 +210,13 @@ export function BookingModal({
         availability: packageAvailability,
         creatorTimeZone: creator.timeZone ?? "America/New_York",
         durationMinutes: sessionDuration,
+        incrementMinutes: bookingIntervalMinutes,
       })
     : [];
   // Fan pays a 2.5% platform fee
-  const sessionGrossPrice = sessionPrice * 1.025;
-  const totalCents = Math.round(sessionGrossPrice * 100);
+  const totalCents = Math.round(sessionPrice * 1.025 * 100);
+  const sessionGrossPrice = totalCents / 100;
+  const platformFeeAmount = sessionGrossPrice - sessionPrice;
 
   async function handlePaymentSuccess(paymentIntentId: string) {
     if (!user || !selectedDate || !selectedTime) return;
@@ -250,6 +266,8 @@ export function BookingModal({
       setClientSecret(null);
       setPayError("");
       setIsSubmitting(false);
+      setSelectedPaymentMethodId(null);
+      setSaveNewCard(false);
     }
   }, [open, packages, initialPackageId]);
 
@@ -258,9 +276,32 @@ export function BookingModal({
     setSelectedTime(null);
   }, [selectedPackage?.id]);
 
+  useEffect(() => {
+    if (!open || !user) return;
+
+    setLoadingSavedPaymentMethods(true);
+    fetch("/api/payment-methods")
+      .then((r) => r.json())
+      .then((data) => {
+        const methods = data.paymentMethods ?? [];
+        setSavedPaymentMethods(methods);
+        setSelectedPaymentMethodId(methods[0]?.id ?? null);
+      })
+      .catch(() => {
+        setSavedPaymentMethods([]);
+        setSelectedPaymentMethodId(null);
+      })
+      .finally(() => setLoadingSavedPaymentMethods(false));
+  }, [open, user]);
+
+  useEffect(() => {
+    setClientSecret(null);
+    setPayError("");
+  }, [selectedPaymentMethodId, saveNewCard]);
+
   // Create a PaymentIntent when the user reaches the confirm step
   useEffect(() => {
-    if (step !== "confirm" || clientSecret) return;
+    if (step !== "confirm" || clientSecret || selectedPaymentMethodId) return;
 
     setFetchingIntent(true);
     fetch("/api/create-payment-intent", {
@@ -270,6 +311,7 @@ export function BookingModal({
         amount: totalCents,
         creatorName: creator.name,
         packageName: selectedPackage?.name ?? "Call",
+        saveForFuture: saveNewCard,
       }),
     })
       .then((r) => r.json())
@@ -279,7 +321,36 @@ export function BookingModal({
       })
       .catch(() => setPayError("Network error. Please try again."))
       .finally(() => setFetchingIntent(false));
-  }, [step, clientSecret, totalCents, creator.name, selectedPackage]);
+  }, [step, clientSecret, totalCents, creator.name, selectedPackage, saveNewCard, selectedPaymentMethodId]);
+
+  async function handleSavedPaymentSubmit() {
+    if (!selectedPaymentMethodId) return;
+    setIsSubmitting(true);
+    setPayError("");
+
+    try {
+      const res = await fetch("/api/create-payment-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: totalCents,
+          creatorName: creator.name,
+          packageName: selectedPackage?.name ?? "Call",
+          paymentMethodId: selectedPaymentMethodId,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.paymentIntentId) {
+        throw new Error(data.error ?? "Could not charge saved payment method.");
+      }
+
+      await handlePaymentSuccess(data.paymentIntentId);
+    } catch (error) {
+      setPayError(error instanceof Error ? error.message : "Could not charge saved payment method.");
+      setIsSubmitting(false);
+    }
+  }
 
   function handleReset() {
     setClientSecret(null);
@@ -371,6 +442,9 @@ export function BookingModal({
             <div>
               <p className="text-xs text-slate-500 mb-3">
                 Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}).
+              </p>
+              <p className="text-xs text-slate-500 mb-3 -mt-1">
+                Booking starts are offered every {bookingIntervalMinutes} minutes.
               </p>
               <div className="flex items-center justify-between mb-3">
                 <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
@@ -547,7 +621,7 @@ export function BookingModal({
               </div>
               <div className="flex justify-between text-sm mb-3">
                 <span className="text-slate-400">Platform fee (2.5%)</span>
-                <span className="text-slate-200">{formatCurrency(sessionPrice * 0.025)}</span>
+                <span className="text-slate-200">{formatCurrency(platformFeeAmount)}</span>
               </div>
               <div className="flex justify-between font-bold text-base border-t border-brand-border pt-3">
                 <span className="text-slate-100">Total</span>
@@ -555,8 +629,64 @@ export function BookingModal({
               </div>
             </div>
 
+            {/* Saved payments */}
+            {loadingSavedPaymentMethods ? (
+              <div className="flex items-center justify-center py-4 gap-2 text-slate-400 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading saved payments...
+              </div>
+            ) : savedPaymentMethods.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Saved Payments</p>
+                <div className="space-y-2">
+                  {savedPaymentMethods.map((paymentMethod) => (
+                    <label
+                      key={paymentMethod.id}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors",
+                        selectedPaymentMethodId === paymentMethod.id
+                          ? "border-brand-primary bg-brand-primary/10"
+                          : "border-brand-border bg-brand-elevated"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="saved-payment"
+                        checked={selectedPaymentMethodId === paymentMethod.id}
+                        onChange={() => setSelectedPaymentMethodId(paymentMethod.id)}
+                      />
+                      <div className="text-sm text-slate-200 capitalize">
+                        {paymentMethod.brand} ending in {paymentMethod.last4}
+                      </div>
+                      <div className="ml-auto text-xs text-slate-500">
+                        {String(paymentMethod.expMonth).padStart(2, "0")}/{paymentMethod.expYear}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setSelectedPaymentMethodId(null)}
+                  className="text-xs text-brand-primary-light hover:underline"
+                >
+                  Use a new card instead
+                </button>
+                <Button
+                  variant="gold"
+                  className="w-full gap-2"
+                  onClick={handleSavedPaymentSubmit}
+                  disabled={isSubmitting || !selectedPaymentMethodId}
+                >
+                  {isSubmitting ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                  ) : (
+                    "Pay with Saved Card"
+                  )}
+                </Button>
+              </div>
+            ) : null}
+
             {/* Stripe Elements */}
-            {fetchingIntent ? (
+            {selectedPaymentMethodId ? null : fetchingIntent ? (
               <div className="flex items-center justify-center py-8 gap-3 text-slate-400">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span className="text-sm">Loading payment form...</span>
@@ -576,6 +706,15 @@ export function BookingModal({
                   stripe={stripePromise}
                   options={{ ...STRIPE_OPTIONS, clientSecret }}
                 >
+                  <label className="flex items-center gap-2 text-xs text-slate-400 mb-3">
+                    <input
+                      type="checkbox"
+                      checked={saveNewCard}
+                      onChange={(e) => setSaveNewCard(e.target.checked)}
+                      className="rounded border-brand-border bg-brand-elevated"
+                    />
+                    Save this payment method for future payments
+                  </label>
                   <PaymentForm
                     onSuccess={handlePaymentSuccess}
                     onBack={() => setStep("details")}

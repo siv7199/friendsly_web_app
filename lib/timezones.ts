@@ -103,6 +103,14 @@ export function formatTimeZoneLabel(timeZone: string) {
   return `${city} (${abbreviation})`;
 }
 
+export function formatDateTimeLocalInTimeZone(dateValue: string | Date, timeZone: string) {
+  const date = typeof dateValue === "string" ? new Date(dateValue) : dateValue;
+  if (Number.isNaN(date.getTime())) return "";
+
+  const parts = getTimeZoneParts(date, timeZone);
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${pad(parts.hour)}:${pad(parts.minute)}`;
+}
+
 export interface WeeklyAvailabilitySlot {
   day_of_week: number;
   start_time: string;
@@ -176,9 +184,10 @@ export function getAvailableStartTimesForViewerDate(params: {
   availability: WeeklyAvailabilitySlot[];
   creatorTimeZone: string;
   durationMinutes: number;
+  incrementMinutes?: number;
   packageId?: string;
 }) {
-  const { date, availability, creatorTimeZone, durationMinutes, packageId } = params;
+  const { date, availability, creatorTimeZone, durationMinutes, incrementMinutes = 30, packageId } = params;
   const dateKey = localDateKey(date);
   const allowedAvailability = availability.filter((slot) => {
     if (!packageId) return true;
@@ -200,7 +209,7 @@ export function getAvailableStartTimesForViewerDate(params: {
         for (
           let cursor = new Date(startUtc);
           cursor.getTime() + durationMinutes * 60 * 1000 <= endUtc.getTime();
-          cursor = new Date(cursor.getTime() + 30 * 60 * 1000)
+          cursor = new Date(cursor.getTime() + incrementMinutes * 60 * 1000)
         ) {
           if (localDateKey(cursor) === dateKey) {
             result.add(cursor.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));

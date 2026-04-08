@@ -9,6 +9,7 @@ interface StatsCardProps {
   icon: React.ReactNode;
   accent?: "primary" | "gold" | "live" | "info";
   className?: string;
+  onClick?: () => void;
 }
 
 const accentMap = {
@@ -38,12 +39,15 @@ export function StatsCard({
   icon,
   accent = "primary",
   className,
+  onClick,
 }: StatsCardProps) {
   const a = accentMap[accent];
   return (
     <div
+      onClick={onClick}
       className={cn(
         "rounded-2xl border border-brand-border bg-brand-surface p-5 transition-all duration-200",
+        onClick ? "cursor-pointer" : "",
         a.border,
         className
       )}

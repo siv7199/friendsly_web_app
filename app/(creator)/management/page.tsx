@@ -25,6 +25,7 @@ interface AvailabilitySlot {
 }
 
 const DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const BOOKING_INTERVAL_OPTIONS = [15, 30, 60];
 
 function defaultSlot(dayOfWeek: number): AvailabilitySlot {
   return {
@@ -77,6 +78,7 @@ export default function ManagementPage() {
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [availabilitySaved, setAvailabilitySaved] = useState(false);
   const [creatorTimeZone, setCreatorTimeZone] = useState(getBrowserTimeZone());
+  const [bookingIntervalMinutes, setBookingIntervalMinutes] = useState(30);
 
   const supabase = createClient();
 
@@ -117,10 +119,10 @@ export default function ManagementPage() {
         })));
       }
 
-      let cp: { live_rate_per_minute?: number | null; timezone?: string | null } | null = null;
+      let cp: { live_rate_per_minute?: number | null; timezone?: string | null; booking_interval_minutes?: number | null } | null = null;
       const cpRes = await supabase
         .from("creator_profiles")
-        .select("live_rate_per_minute, timezone")
+        .select("live_rate_per_minute, timezone, booking_interval_minutes")
         .eq("id", user!.id)
         .single();
 
@@ -140,6 +142,9 @@ export default function ManagementPage() {
       }
       if (cp?.timezone) {
         setCreatorTimeZone(cp.timezone);
+      }
+      if (cp?.booking_interval_minutes) {
+        setBookingIntervalMinutes(cp.booking_interval_minutes);
       }
 
       let availability: any[] | null = null;
@@ -209,9 +214,14 @@ export default function ManagementPage() {
     if (!user) return;
     setLiveRateSaving(true);
     const rate = parseFloat(liveRate) || null;
-    await supabase
+    const rateRes = await supabase
       .from("creator_profiles")
-      .upsert({ id: user.id, live_rate_per_minute: rate }, { onConflict: "id" });
+      .upsert({ id: user.id, live_rate_per_minute: rate, booking_interval_minutes: bookingIntervalMinutes }, { onConflict: "id" });
+    if (rateRes.error) {
+      await supabase
+        .from("creator_profiles")
+        .upsert({ id: user.id, live_rate_per_minute: rate }, { onConflict: "id" });
+    }
     setLiveRateSaving(false);
     setLiveRateSaved(true);
     setTimeout(() => setLiveRateSaved(false), 2000);
@@ -276,12 +286,22 @@ export default function ManagementPage() {
 
     const profileUpdateRes = await supabase
       .from("creator_profiles")
-      .upsert({ id: user.id, next_available: nextAvailableLabel(validSlots), timezone: creatorTimeZone }, { onConflict: "id" });
+      .upsert({
+        id: user.id,
+        next_available: nextAvailableLabel(validSlots),
+        timezone: creatorTimeZone,
+        booking_interval_minutes: bookingIntervalMinutes,
+      }, { onConflict: "id" });
 
     if (profileUpdateRes.error) {
-      await supabase
+      const fallbackProfileRes = await supabase
         .from("creator_profiles")
-        .upsert({ id: user.id, next_available: nextAvailableLabel(validSlots) }, { onConflict: "id" });
+        .upsert({ id: user.id, next_available: nextAvailableLabel(validSlots), booking_interval_minutes: bookingIntervalMinutes }, { onConflict: "id" });
+      if (fallbackProfileRes.error) {
+        await supabase
+          .from("creator_profiles")
+          .upsert({ id: user.id, next_available: nextAvailableLabel(validSlots) }, { onConflict: "id" });
+      }
     }
 
     setAvailabilitySaving(false);
@@ -479,6 +499,32 @@ export default function ManagementPage() {
             </p>
           </div>
 
+          <div className="mb-5">
+            <label className="text-sm font-medium text-slate-300 mb-2 block">
+              Booking Start Increments
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {BOOKING_INTERVAL_OPTIONS.map((minutes) => (
+                <button
+                  key={minutes}
+                  type="button"
+                  onClick={() => setBookingIntervalMinutes(minutes)}
+                  className={cn(
+                    "px-3 py-2 rounded-xl border text-sm font-medium transition-all",
+                    bookingIntervalMinutes === minutes
+                      ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
+                      : "bg-brand-elevated border-brand-border text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
+                  )}
+                >
+                  Every {minutes} min
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Fans will only see booking start times spaced by this interval inside your available windows.
+            </p>
+          </div>
+
           <div className="space-y-3">
             {DAY_LABELS.map((dayLabel, dayIndex) => {
               const daySlots = availabilitySlots
@@ -538,6 +584,7 @@ export default function ManagementPage() {
                                   type="time"
                                   value={slot.start_time}
                                   onChange={(e) => updateAvailabilitySlot(slot.id, "start_time", e.target.value)}
+                                  step={bookingIntervalMinutes * 60}
                                   className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-primary"
                                 />
                               </div>
@@ -549,6 +596,7 @@ export default function ManagementPage() {
                                   type="time"
                                   value={slot.end_time}
                                   onChange={(e) => updateAvailabilitySlot(slot.id, "end_time", e.target.value)}
+                                  step={bookingIntervalMinutes * 60}
                                   className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-primary"
                                 />
                               </div>

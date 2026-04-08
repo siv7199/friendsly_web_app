@@ -1,29 +1,28 @@
-/**
- * POST /api/create-setup-intent
- *
- * Creates a Stripe SetupIntent — used to save a card WITHOUT charging it.
- * The browser uses the returned client_secret with Stripe Elements to
- * collect and tokenize card details. Stripe stores the PaymentMethod;
- * we get back a PaymentMethod ID to save against the user.
- *
- * Body: { customerId?: string }  (optional — if omitted Stripe creates an anonymous PM)
- *
- * → Future production: create/retrieve a real Stripe Customer for each user
- *   and attach the PaymentMethod to that customer so it can be reused.
- */
-
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-03-25.dahlia",
-});
+import { createClient } from "@/lib/supabase/server";
+import { ensureStripeCustomer, stripe } from "@/lib/server/stripe";
 
 export async function POST() {
   try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const customerId = await ensureStripeCustomer({
+      userId: user.id,
+      email: user.email,
+      fullName: user.user_metadata?.full_name ?? null,
+    });
+
     const setupIntent = await stripe.setupIntents.create({
+      customer: customerId,
       payment_method_types: ["card"],
-      usage: "off_session", // allows charging later without the customer present
+      usage: "off_session",
     });
 
     return NextResponse.json({ clientSecret: setupIntent.client_secret });

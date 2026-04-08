@@ -37,11 +37,12 @@ export default function SavedPage() {
         `id, creator_id,
            creator:profiles!creator_id(
            id, full_name, username, avatar_initials, avatar_color, avatar_url, created_at,
-           creator_profiles(
-             bio, category, tags, live_rate_per_minute, is_live,
-             followers_count, avg_rating, review_count, total_calls,
-             response_time, next_available
-           )
+            creator_profiles(
+              bio, category, tags, live_rate_per_minute, is_live, booking_interval_minutes,
+              scheduled_live_at, scheduled_live_timezone, timezone,
+              followers_count, avg_rating, review_count, total_calls,
+              response_time, next_available
+            )
          )`
       )
       .eq("fan_id", user!.id)
@@ -66,11 +67,47 @@ export default function SavedPage() {
       .eq("is_active", true)
       .order("price");
 
+    const [reviewsRes, completedBookingsRes, completedLiveQueueRes] = await Promise.all([
+      supabase
+        .from("reviews")
+        .select("creator_id")
+        .in("creator_id", creatorIds),
+      supabase
+        .from("bookings")
+        .select("creator_id")
+        .in("creator_id", creatorIds)
+        .eq("status", "completed"),
+      supabase
+        .from("live_queue_entries")
+        .select("id, live_sessions!inner(creator_id)")
+        .in("status", ["completed", "skipped"])
+        .not("amount_charged", "is", null)
+        .in("live_sessions.creator_id", creatorIds),
+    ]);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const packagesByCreator: Record<string, any[]> = {};
     (allPackages ?? []).forEach((pkg: { creator_id: string; price: number; duration: number }) => {
       if (!packagesByCreator[pkg.creator_id]) packagesByCreator[pkg.creator_id] = [];
       packagesByCreator[pkg.creator_id]!.push(pkg);
+    });
+
+    const reviewCountByCreator: Record<string, number> = {};
+    (reviewsRes.data ?? []).forEach((review: { creator_id: string }) => {
+      reviewCountByCreator[review.creator_id] = (reviewCountByCreator[review.creator_id] ?? 0) + 1;
+    });
+
+    const totalCallsByCreator: Record<string, number> = {};
+    (completedBookingsRes.data ?? []).forEach((booking: { creator_id: string }) => {
+      totalCallsByCreator[booking.creator_id] = (totalCallsByCreator[booking.creator_id] ?? 0) + 1;
+    });
+    (completedLiveQueueRes.data ?? []).forEach((entry: any) => {
+      const creatorId = Array.isArray(entry.live_sessions)
+        ? entry.live_sessions[0]?.creator_id
+        : entry.live_sessions?.creator_id;
+      if (creatorId) {
+        totalCallsByCreator[creatorId] = (totalCallsByCreator[creatorId] ?? 0) + 1;
+      }
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,8 +125,12 @@ export default function SavedPage() {
           bio: string;
           category: string;
           tags: string[];
-          live_rate_per_minute: number | null;
-          is_live: boolean;
+            live_rate_per_minute: number | null;
+            scheduled_live_at: string | null;
+            scheduled_live_timezone: string | null;
+            timezone: string | null;
+            booking_interval_minutes: number | null;
+            is_live: boolean;
           followers_count: number;
           avg_rating: number;
           review_count: number;
@@ -100,8 +141,12 @@ export default function SavedPage() {
           bio: string;
           category: string;
           tags: string[];
-          live_rate_per_minute: number | null;
-          is_live: boolean;
+            live_rate_per_minute: number | null;
+            scheduled_live_at: string | null;
+            scheduled_live_timezone: string | null;
+            timezone: string | null;
+            booking_interval_minutes: number | null;
+            is_live: boolean;
           followers_count: number;
           avg_rating: number;
           review_count: number;
@@ -128,9 +173,9 @@ export default function SavedPage() {
         bio: cp?.bio ?? "",
         category: cp?.category ?? "",
         tags: cp?.tags ?? [],
-        followers: formatFollowers(cp?.followers_count ?? 0),
+        followers: "",
         rating: Number(cp?.avg_rating ?? 0),
-        reviewCount: cp?.review_count ?? 0,
+        reviewCount: reviewCountByCreator[p.id] ?? 0,
         avatarInitials: p.avatar_initials,
         avatarColor: p.avatar_color,
         avatarUrl: p.avatar_url ?? undefined,
@@ -139,9 +184,12 @@ export default function SavedPage() {
         callPrice: minPrice,
         callDuration: packages[0]?.duration ?? 15,
         nextAvailable: minPrice > 0 ? (cp?.next_available ?? "Available this week") : "No packages yet",
-        totalCalls: cp?.total_calls ?? 0,
-        responseTime: cp?.response_time ?? "~5 min",
+        totalCalls: totalCallsByCreator[p.id] ?? 0,
+        responseTime: "",
         liveRatePerMinute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
+        scheduledLiveAt: cp?.scheduled_live_at ?? undefined,
+        scheduledLiveTimeZone: cp?.scheduled_live_timezone ?? cp?.timezone ?? undefined,
+        bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
         isNew: isNewCreator(p.created_at),
       };
     });

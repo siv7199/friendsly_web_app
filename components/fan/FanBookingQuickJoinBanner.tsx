@@ -7,7 +7,7 @@ import { Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { isBookingJoinable } from "@/lib/bookings";
+import { getBookingWindow, isBookingJoinable } from "@/lib/bookings";
 
 type ReadyBooking = {
   id: string;
@@ -26,6 +26,7 @@ export function FanBookingQuickJoinBanner() {
     const currentUser = user;
 
     const supabase = createClient();
+    let refreshTimer: number | null = null;
 
     async function loadReadyBooking() {
       const { data } = await supabase
@@ -36,12 +37,21 @@ export function FanBookingQuickJoinBanner() {
         .order("scheduled_at", { ascending: true })
         .limit(10);
 
-      const match = (data ?? []).find((booking: any) =>
+      const bookings = data ?? [];
+      const match = bookings.find((booking: any) =>
         isBookingJoinable(booking.status, booking.scheduled_at, booking.duration)
       );
 
       if (!match) {
         setReadyBooking(null);
+        const nextUpcoming = bookings.find((booking: any) => booking.status === "upcoming");
+        if (nextUpcoming) {
+          const { joinOpensAt } = getBookingWindow(nextUpcoming.scheduled_at, nextUpcoming.duration);
+          const delay = joinOpensAt.getTime() - Date.now();
+          if (delay > 0) {
+            refreshTimer = window.setTimeout(loadReadyBooking, delay + 1000);
+          }
+        }
         return;
       }
 
@@ -56,8 +66,22 @@ export function FanBookingQuickJoinBanner() {
 
     loadReadyBooking();
 
-    const interval = window.setInterval(loadReadyBooking, 15000);
-    return () => window.clearInterval(interval);
+    const channel = supabase
+      .channel(`fan-bookings-banner-${currentUser.id}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "bookings",
+        filter: `fan_id=eq.${currentUser.id}`,
+      }, () => {
+        loadReadyBooking();
+      })
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   if (!readyBooking || pathname.startsWith("/room/")) {

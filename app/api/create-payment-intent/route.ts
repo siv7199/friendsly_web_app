@@ -1,27 +1,19 @@
-/**
- * POST /api/create-payment-intent
- *
- * Creates a Stripe PaymentIntent server-side and returns the client_secret
- * to the browser. The browser then uses that secret with Stripe Elements to
- * collect and confirm payment — the card number never touches our server.
- *
- * Body: { amount: number, creatorName: string, packageName: string }
- * amount is in cents (e.g. $25.00 → 2500)
- *
- * → Future production: also create a booking record in Supabase here,
- *   and use a Stripe webhook to mark it "paid" after confirmation.
- */
-
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-03-25.dahlia",
-});
+import { createClient } from "@/lib/supabase/server";
+import { ensureStripeCustomer, stripe } from "@/lib/server/stripe";
 
 export async function POST(request: Request) {
   try {
-    const { amount, creatorName, packageName } = await request.json();
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { amount, creatorName, packageName, saveForFuture, paymentMethodId } = await request.json();
 
     if (!amount || typeof amount !== "number" || amount < 50) {
       return NextResponse.json(
@@ -30,18 +22,55 @@ export async function POST(request: Request) {
       );
     }
 
+    const shouldUseCustomer = Boolean(saveForFuture || paymentMethodId);
+    const customerId = shouldUseCustomer
+      ? await ensureStripeCustomer({
+          userId: user.id,
+          email: user.email,
+          fullName: user.user_metadata?.full_name ?? null,
+        })
+      : undefined;
+
+    if (paymentMethodId) {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency: "usd",
+        customer: customerId,
+        payment_method: paymentMethodId,
+        off_session: true,
+        confirm: true,
+        description: `Friendsly: ${packageName} with ${creatorName}`,
+        metadata: {
+          creatorName,
+          packageName,
+          userId: user.id,
+        },
+      });
+
+      return NextResponse.json({
+        paymentIntentId: paymentIntent.id,
+        status: paymentIntent.status,
+      });
+    }
+
     const paymentIntent = await stripe.paymentIntents.create({
-      amount,          // in cents
+      amount,
       currency: "usd",
+      customer: customerId,
       automatic_payment_methods: { enabled: true },
+      setup_future_usage: saveForFuture ? "off_session" : undefined,
       description: `Friendsly: ${packageName} with ${creatorName}`,
       metadata: {
         creatorName,
         packageName,
+        userId: user.id,
       },
     });
 
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret });
+    return NextResponse.json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

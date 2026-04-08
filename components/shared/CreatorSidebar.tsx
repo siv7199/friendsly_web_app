@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
+  BarChart3,
   Settings2,
   CalendarDays,
   Radio,
@@ -35,6 +36,12 @@ const NAV_ITEMS = [
     label: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+    badge: null,
+  },
+  {
+    label: "Analytics",
+    href: "/analytics",
+    icon: BarChart3,
     badge: null,
   },
   {
