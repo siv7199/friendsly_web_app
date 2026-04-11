@@ -36,6 +36,9 @@ export interface Creator {
   timeZone?: string;
   bookingIntervalMinutes?: number;
   isNew?: boolean;
+  instagramUrl?: string;
+  tiktokUrl?: string;
+  xUrl?: string;
 }
 
 // ── Booking ───────────────────────────────────────────────────────────
@@ -66,6 +69,7 @@ export interface QueueEntry {
   fanUsername: string;
   avatarInitials: string;
   avatarColor: string;
+  avatarUrl?: string;
   position: number;
   waitTime: string;        // "~8 min"
   waitSeconds?: number;    // Countdown estimate until admitted
@@ -81,6 +85,7 @@ export interface ChatMessage {
   username: string;
   avatarInitials: string;
   avatarColor: string;
+  avatarUrl?: string;
   message: string;
   timestamp: string;
   isCreator?: boolean;
@@ -142,6 +147,9 @@ export interface CreatorProfile extends BaseProfile {
   is_live: boolean;
   live_rate_per_minute?: number;    // USD/min charged during public live queue sessions
   timezone?: string;
+  instagram_url?: string;
+  tiktok_url?: string;
+  x_url?: string;
 }
 
 /** PendingProfile — signed up but hasn't picked a role yet (mid-onboarding) */

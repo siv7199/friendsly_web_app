@@ -128,6 +128,27 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
   const rate = creator.liveRatePerMinute ?? 0;
   const preAuthAmount = rate * PREAUTH_MINUTES;
 
+  async function findExistingQueueEntry(sessionId: string) {
+    if (!user) return null;
+
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("live_queue_entries")
+      .select("id, status, stripe_pre_auth_id")
+      .eq("session_id", sessionId)
+      .eq("fan_id", user.id)
+      .in("status", ["waiting", "active"])
+      .order("joined_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  }
+
   async function fetchSavedPaymentMethods() {
     if (!user) return;
     setLoadingSavedPaymentMethods(true);
@@ -264,6 +285,17 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
     }
 
     const supabase = createClient();
+    const existingEntry = await findExistingQueueEntry(targetSessionId);
+
+    if (existingEntry) {
+      setStep("success");
+      setTimeout(() => {
+        onClose();
+        router.push(`/waiting-room/${creator.id}`);
+      }, 400);
+      return;
+    }
+
     const { error } = await supabase.from("live_queue_entries").insert({
       session_id: targetSessionId,
       fan_id: user.id,
@@ -365,7 +397,7 @@ export function LiveJoinModal({ creator, open, onClose }: LiveJoinModalProps) {
         {step === "info" && (
           <div className="space-y-5">
             <div className="flex items-center gap-3 p-3 rounded-xl bg-brand-surface border border-brand-border">
-              <Avatar initials={creator.avatarInitials} color={creator.avatarColor} size="sm" />
+              <Avatar initials={creator.avatarInitials} color={creator.avatarColor} imageUrl={creator.avatarUrl} size="sm" />
               <div>
                 <p className="text-sm font-semibold text-slate-100">{creator.name}</p>
                 <div className="flex items-center gap-1 mt-0.5">

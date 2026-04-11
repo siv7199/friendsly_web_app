@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import {
   User, Mail, DollarSign,
   CreditCard, CheckCircle2, Save, Loader2,
-  Shield, Trash2, Camera, ArrowLeft, X,
+  Shield, Trash2, Camera, ArrowLeft, X, Instagram, Music2,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -31,7 +31,9 @@ import { isCreatorProfile } from "@/types";
 import { AVATAR_COLORS, CREATOR_CATEGORIES } from "@/lib/mock-auth";
 import { cn, formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { deriveBookingStatus, hasBookingEnded } from "@/lib/bookings";
+import { deriveBookingStatus, hasBookingEnded, shouldAutoCancelBooking } from "@/lib/bookings";
+import { sanitizeSocialUrl } from "@/lib/social";
+import { removeAvatarFile, uploadAvatarFile } from "@/lib/avatar-upload";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -129,6 +131,9 @@ export default function SettingsPage() {
   const [loadingSetup, setLoadingSetup] = useState(false);
   const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false);
   const [removingPaymentMethodId, setRemovingPaymentMethodId] = useState<string | null>(null);
+  const [billingError, setBillingError] = useState("");
+  const [avatarError, setAvatarError] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Financial state
   const [earnings, setEarnings] = useState({ available: 0, pending: 0, thisMonth: 0, totalEarned: 0 });
@@ -144,15 +149,25 @@ export default function SettingsPage() {
     category: CREATOR_CATEGORIES[0] as string,
     avatar_color: "",
     avatar_url: "",
+    instagram_url: "",
+    tiktok_url: "",
+    x_url: "",
   });
 
   async function loadPaymentMethods() {
     if (!user) return;
     setLoadingPaymentMethods(true);
+    setBillingError("");
     try {
       const res = await fetch("/api/payment-methods");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Unable to load payment methods.");
+      }
       setSavedPaymentMethods(data.paymentMethods ?? []);
+    } catch (err) {
+      setSavedPaymentMethods([]);
+      setBillingError(err instanceof Error ? err.message : "Unable to load payment methods.");
     } finally {
       setLoadingPaymentMethods(false);
     }
@@ -173,7 +188,7 @@ export default function SettingsPage() {
       const supabase = createClient();
       
       const [bookingsRes, payoutsRes, liveRes] = await Promise.all([
-        supabase.from("bookings").select("id, price, scheduled_at, duration, status").eq("creator_id", user!.id),
+        supabase.from("bookings").select("id, price, scheduled_at, duration, status, creator_present, fan_present").eq("creator_id", user!.id),
         supabase.from("payouts").select("*").eq("creator_id", user!.id).order('created_at', { ascending: false }),
         supabase
           .from("live_sessions")
@@ -185,15 +200,30 @@ export default function SettingsPage() {
       let monthEarned = 0;
       const now = new Date();
       const expiredIds: string[] = [];
+      const cancelledIds: string[] = [];
       
       (bookingsRes.data || []).forEach((b: any) => {
-        const normalizedStatus = deriveBookingStatus(b.status, b.scheduled_at, b.duration, now);
+        const normalizedStatus = deriveBookingStatus(
+          b.status,
+          b.scheduled_at,
+          b.duration,
+          now,
+          b.creator_present,
+          b.fan_present
+        );
         if (
           normalizedStatus === "completed" &&
           b.status !== "completed" &&
           hasBookingEnded(b.scheduled_at, b.duration, now)
         ) {
           expiredIds.push(b.id);
+        }
+        if (
+          normalizedStatus === "cancelled" &&
+          b.status !== "cancelled" &&
+          shouldAutoCancelBooking(b.status, b.scheduled_at, b.creator_present, b.fan_present, now)
+        ) {
+          cancelledIds.push(b.id);
         }
 
         if (normalizedStatus === "completed" || normalizedStatus === "upcoming" || normalizedStatus === "live") {
@@ -215,6 +245,17 @@ export default function SettingsPage() {
           .from("bookings")
           .update({ status: "completed" })
           .in("id", expiredIds);
+      }
+      if (cancelledIds.length > 0) {
+        await supabase
+          .from("bookings")
+          .update({
+            status: "cancelled",
+            creator_present: false,
+            fan_present: false,
+            auto_cancelled_at: now.toISOString(),
+          })
+          .in("id", cancelledIds);
       }
 
       (liveRes.data || []).forEach((session: any) => {
@@ -257,13 +298,22 @@ export default function SettingsPage() {
 
   async function handleAddCard() {
     setLoadingSetup(true);
-    const res = await fetch("/api/create-setup-intent", { method: "POST" });
-    const data = await res.json();
-    if (data.clientSecret) {
+    setBillingError("");
+    try {
+      const res = await fetch("/api/create-setup-intent", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.clientSecret) {
+        throw new Error(typeof data.error === "string" ? data.error : "Unable to start card setup.");
+      }
       setSetupClientSecret(data.clientSecret);
       setShowAddCard(true);
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : "Unable to start card setup.");
+      setShowAddCard(false);
+      setSetupClientSecret(null);
+    } finally {
+      setLoadingSetup(false);
     }
-    setLoadingSetup(false);
   }
 
   async function handleCardSaved() {
@@ -274,37 +324,42 @@ export default function SettingsPage() {
 
   async function handleRemoveCard(paymentMethodId: string) {
     setRemovingPaymentMethodId(paymentMethodId);
-    await fetch('/api/payment-methods/' + paymentMethodId, { method: "DELETE" });
-    await loadPaymentMethods();
-    setRemovingPaymentMethodId(null);
+    setBillingError("");
+    try {
+      const res = await fetch('/api/payment-methods/' + paymentMethodId, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Unable to remove card.");
+      }
+      await loadPaymentMethods();
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : "Unable to remove card.");
+    } finally {
+      setRemovingPaymentMethodId(null);
+    }
   }
 
   async function handleWithdraw() {
     if (!user || earnings.available <= 0) return;
     setIsWithdrawing(true);
-    const supabase = createClient();
     const amountToWithdraw = earnings.available;
-    
-    await supabase.from("payouts").insert({
-      creator_id: user.id,
-      amount: amountToWithdraw,
-      status: "pending"
+
+    const res = await fetch("/api/creator-payouts/withdraw", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: amountToWithdraw }),
     });
-    
-    // Optimistic UI update
-    setPayouts((prev) => [{
-      id: "opt-" + Date.now(),
-      amount: amountToWithdraw,
-      status: "pending",
-      created_at: new Date().toISOString()
-    }, ...prev]);
-    
-    setEarnings(prev => ({
-      ...prev,
-      available: 0,
-      pending: prev.pending + amountToWithdraw
-    }));
-    
+    const data = await res.json();
+
+    if (res.ok && data.payout) {
+      setPayouts((prev) => [data.payout, ...prev.filter((item) => item.id !== data.payout.id)]);
+      setEarnings((prev) => ({
+        ...prev,
+        available: 0,
+        pending: prev.pending + amountToWithdraw,
+      }));
+    }
+
     setIsWithdrawing(false);
   }
 
@@ -314,16 +369,46 @@ export default function SettingsPage() {
       setForm({
         full_name: user.full_name,
         username: user.username,
-        bio: isCreatorProfile(user) ? user.bio : "",
-        category: isCreatorProfile(user) ? user.category : CREATOR_CATEGORIES[0],
+        bio: isCreatorProfile(user) ? user.bio ?? "" : "",
+        category: isCreatorProfile(user) ? user.category ?? CREATOR_CATEGORIES[0] : CREATOR_CATEGORIES[0],
         avatar_color: user.avatar_color,
         avatar_url: user.avatar_url ?? "",
+        instagram_url: isCreatorProfile(user) ? user.instagram_url ?? "" : "",
+        tiktok_url: isCreatorProfile(user) ? user.tiktok_url ?? "" : "",
+        x_url: isCreatorProfile(user) ? user.x_url ?? "" : "",
       });
     }
   }, [user]);
 
   function update(field: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleAvatarSelected(file?: File | null) {
+    if (!file) return;
+    setUploadingAvatar(true);
+    setAvatarError("");
+    try {
+      const avatarUrl = await uploadAvatarFile(file);
+      update("avatar_url", avatarUrl);
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : "Could not upload avatar.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function handleAvatarRemoved() {
+    setUploadingAvatar(true);
+    setAvatarError("");
+    try {
+      await removeAvatarFile();
+      update("avatar_url", "");
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : "Could not remove avatar.");
+    } finally {
+      setUploadingAvatar(false);
+    }
   }
 
   async function handleSave() {
@@ -342,6 +427,9 @@ export default function SettingsPage() {
       Object.assign(updates, {
         bio: form.bio,
         category: form.category,
+        instagram_url: sanitizeSocialUrl(form.instagram_url),
+        tiktok_url: sanitizeSocialUrl(form.tiktok_url),
+        x_url: sanitizeSocialUrl(form.x_url),
       });
     }
 
@@ -385,7 +473,7 @@ export default function SettingsPage() {
 
       {/* ── Tabs ── */}
       <div className="flex border-b border-brand-border">
-        {(["account", "billing"] as Tab[]).map((tab) => (
+        {(["account", ...(!isCreator ? (["billing"] as Tab[]) : [])] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -422,29 +510,28 @@ export default function SettingsPage() {
                     accept="image/*"
                     className="hidden"
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        update("avatar_url", ev.target?.result as string);
-                      };
-                      reader.readAsDataURL(file);
+                      void handleAvatarSelected(e.target.files?.[0]);
+                      e.currentTarget.value = "";
                     }}
                   />
                 </label>
               </div>
               <div>
                 <p className="text-sm text-slate-300 mb-1">
-                  {form.avatar_url ? "Photo uploaded" : "Upload a photo or choose a color"}
+                  {uploadingAvatar ? "Uploading photo..." : form.avatar_url ? "Photo uploaded" : "Upload a photo or choose a color"}
                 </p>
                 {form.avatar_url && (
                   <button
                     type="button"
-                    onClick={() => update("avatar_url", "")}
+                    onClick={() => void handleAvatarRemoved()}
                     className="text-xs text-red-400 hover:text-red-300 mb-2 block"
+                    disabled={uploadingAvatar}
                   >
                     Remove photo
                   </button>
+                )}
+                {avatarError && (
+                  <p className="text-xs text-red-400 mb-2">{avatarError}</p>
                 )}
                 <div className="flex flex-wrap gap-2">
                   {AVATAR_COLORS.map((color) => (
@@ -517,7 +604,7 @@ export default function SettingsPage() {
               <div>
                 <label className="text-sm font-medium text-slate-300 mb-1.5 block">
                   Bio
-                  <span className="float-right text-xs font-normal text-slate-500">{form.bio.length}/280</span>
+                  <span className="float-right text-xs font-normal text-slate-500">{(form.bio ?? "").length}/280</span>
                 </label>
                 <textarea
                   value={form.bio}
@@ -547,6 +634,33 @@ export default function SettingsPage() {
                   ))}
                 </div>
               </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Input
+                  label="Instagram"
+                  type="url"
+                  placeholder="https://instagram.com/yourhandle"
+                  value={form.instagram_url}
+                  onChange={(e) => update("instagram_url", e.target.value)}
+                  icon={<Instagram className="w-4 h-4" />}
+                />
+                <Input
+                  label="TikTok"
+                  type="url"
+                  placeholder="https://tiktok.com/@yourhandle"
+                  value={form.tiktok_url}
+                  onChange={(e) => update("tiktok_url", e.target.value)}
+                  icon={<Music2 className="w-4 h-4" />}
+                />
+              </div>
+
+              <Input
+                label="X"
+                type="url"
+                placeholder="https://x.com/yourhandle"
+                value={form.x_url}
+                onChange={(e) => update("x_url", e.target.value)}
+              />
             </div>
           )}
 
@@ -606,13 +720,19 @@ export default function SettingsPage() {
       )}
 
       {/* ══ BILLING TAB ══════════════════════════════════════════════ */}
-      {activeTab === "billing" && (
+      {!isCreator && activeTab === "billing" && (
         <div className="space-y-6">
           {/* Payment method */}
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
             <h2 className="text-base font-semibold text-slate-100 mb-4">Payment Method</h2>
 
             {/* Saved payment methods */}
+            {billingError && (
+              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-4">
+                {billingError}
+              </p>
+            )}
+
             {savedPaymentMethods.length > 0 && !showAddCard && (
               <div className="space-y-3 mb-4">
                 {savedPaymentMethods.map((paymentMethod, index) => (

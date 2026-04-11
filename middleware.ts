@@ -14,8 +14,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PROTECTED_FAN     = ["/discover", "/profile", "/waiting-room", "/bookings", "/saved", "/settings"];
-const PROTECTED_CREATOR = ["/dashboard", "/management", "/calendar", "/live", "/settings"];
+const PROTECTED_FAN     = ["/discover", "/profile", "/waiting-room", "/bookings", "/payments", "/saved", "/settings", "/room"];
+const PROTECTED_CREATOR = ["/dashboard", "/management", "/calendar", "/live", "/settings", "/earnings", "/room"];
 const ONBOARDING_PREFIX = "/onboarding";
 const AUTH_ROUTES       = ["/", "/login", "/signup"];
 
@@ -58,7 +58,22 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
 
   const { pathname } = request.nextUrl;
-  const role = session?.user?.user_metadata?.role as string | undefined;
+  let role = session?.user?.user_metadata?.role as string | undefined;
+
+  // Fallback for older accounts whose DB profile role exists but JWT metadata
+  // has not been synced yet. This prevents login/redirect loops on protected routes.
+  if (!role && session?.user?.id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", session.user.id)
+      .single();
+
+    if (profile?.role) {
+      role = profile.role;
+    }
+  }
+
   const isPending   = Boolean(session && !role);
   const isFullAuth  = Boolean(session && role);
 

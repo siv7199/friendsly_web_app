@@ -13,11 +13,11 @@
  * page renders (via the useEffect below).
  */
 
+import Link from "next/link";
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Mail, Lock, User, Loader2, Sparkles,
-  Eye, EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,7 +104,7 @@ export default function AuthPage() {
                 : "text-slate-500 hover:text-slate-300"
             )}
           >
-            Create Account
+            Sign Up
           </button>
         </div>
 
@@ -138,9 +138,9 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-[34px] text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute right-3 top-[34px] text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
 
@@ -194,9 +194,9 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-[34px] text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute right-3 top-[34px] text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
 
@@ -207,11 +207,17 @@ export default function AuthPage() {
               )}
 
               <Button type="submit" variant="primary" size="lg" className="w-full" disabled={isLoading || !suName || !suEmail || !suPassword}>
-                {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating account...</> : "Create Account"}
+                {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating fan account...</> : "Create Fan Account"}
               </Button>
 
+              <Link href="/onboarding/creator-request" className="block">
+                <Button type="button" variant="outline" size="lg" className="w-full">
+                  Apply as Creator Instead
+                </Button>
+              </Link>
+
               <p className="text-center text-[11px] text-slate-600">
-                By signing up you agree to our Terms of Service and Privacy Policy.
+                By signing up you agree to our Terms of Service and Privacy Policy. Creator accounts are reviewed manually before access is enabled.
               </p>
             </form>
           )}

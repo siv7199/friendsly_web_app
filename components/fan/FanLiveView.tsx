@@ -12,6 +12,7 @@ function FanVideoStage({
   creatorName,
   creatorInitials,
   creatorColor,
+  creatorAvatarUrl,
   fanName,
   onLeaveClick,
 }: any) {
@@ -81,7 +82,7 @@ function FanVideoStage({
             </>
           ) : (
             <div className="flex flex-col items-center justify-center text-slate-500 p-6 text-center z-10">
-              <Avatar initials={creatorInitials} color={creatorColor} size="xl" className="opacity-50 mb-3" />
+              <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="xl" className="opacity-50 mb-3" />
               <p className="text-sm font-medium text-slate-400">Waiting for {creatorName}...</p>
             </div>
           )}
@@ -132,26 +133,31 @@ export function FanLiveView({
   creatorName,
   creatorInitials,
   creatorColor,
+  creatorAvatarUrl,
   fanName,
   onLeave,
   onDisconnect,
+  onJoin,
 }: {
   roomUrl: string;
   token: string;
   creatorName: string;
   creatorInitials: string;
   creatorColor: string;
+  creatorAvatarUrl?: string;
   fanName: string;
   onLeave: () => void;
   onDisconnect?: () => void;
+  onJoin?: () => void;
 }) {
   return (
-    <CallContainer url={roomUrl} token={token} onLeave={onDisconnect}>
+    <CallContainer url={roomUrl} token={token} onJoin={onJoin} onLeave={onDisconnect}>
       <div className="w-full max-w-4xl mx-auto">
         <FanVideoStage 
           creatorName={creatorName}
           creatorInitials={creatorInitials}
           creatorColor={creatorColor}
+          creatorAvatarUrl={creatorAvatarUrl}
           fanName={fanName}
           onLeaveClick={onLeave}
         />

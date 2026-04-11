@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getBookingWindow, hasBookingEnded } from "@/lib/bookings";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getBookingWindow, hasBookingEnded, shouldAutoCancelBooking } from "@/lib/bookings";
+import { cancelBookingWithRefund, inferAutoCancellationReason } from "@/lib/server/bookings";
 
 export async function POST(
   req: Request,
@@ -9,6 +10,7 @@ export async function POST(
   try {
     const bookingId = params.id;
     const supabase = createClient();
+    const serviceSupabase = createServiceClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -16,7 +18,7 @@ export async function POST(
     }
 
     // 1. Fetch booking details
-    const { data: booking, error: fetchError } = await supabase
+    const { data: booking, error: fetchError } = await serviceSupabase
       .from("bookings")
       .select("*, creator:profiles!creator_id(full_name)")
       .eq("id", bookingId)
@@ -38,8 +40,28 @@ export async function POST(
       return NextResponse.json({ error: "This booking is no longer available to join." }, { status: 400 });
     }
 
+    if (
+      shouldAutoCancelBooking(
+        booking.status,
+        booking.scheduled_at,
+        booking.creator_present,
+        booking.fan_present
+      )
+    ) {
+      await cancelBookingWithRefund({
+        bookingId,
+        reason: inferAutoCancellationReason(booking.creator_present, booking.fan_present),
+        autoCancelled: true,
+      });
+
+      return NextResponse.json(
+        { error: "This booking was auto-cancelled because both participants were not in the call 5 minutes after the scheduled start time." },
+        { status: 400 }
+      );
+    }
+
     if (hasBookingEnded(booking.scheduled_at, booking.duration)) {
-      await supabase
+      await serviceSupabase
         .from("bookings")
         .update({ status: "completed" })
         .eq("id", bookingId);
@@ -92,7 +114,7 @@ export async function POST(
       const roomData = await roomRes.json();
       roomUrl = roomData.url;
       // Attempt to claim the booking room only if another request has not already set it.
-      const { data: claimedBooking, error: claimError } = await supabase
+      const { data: claimedBooking, error: claimError } = await serviceSupabase
         .from("bookings")
         .update({
           daily_room_url: roomUrl,
@@ -109,7 +131,7 @@ export async function POST(
 
       if (!claimedBooking?.daily_room_url) {
         // Another participant won the race and stored the canonical room first.
-        const { data: latestBooking } = await supabase
+        const { data: latestBooking } = await serviceSupabase
           .from("bookings")
           .select("daily_room_url, status")
           .eq("id", bookingId)
@@ -123,14 +145,17 @@ export async function POST(
       }
     } else if (booking.status === "upcoming") {
       // If room already exists but status is still upcoming, move to live
-      await supabase
+      await serviceSupabase
         .from("bookings")
         .update({ status: "live" })
         .eq("id", bookingId);
     }
 
     // 4. Create meeting token
-    const roomName = roomUrl.split("/").pop();
+    const roomName = new URL(roomUrl).pathname.split("/").filter(Boolean).pop();
+    if (!roomName) {
+      return NextResponse.json({ error: "Invalid booking room URL." }, { status: 500 });
+    }
     const tokenRes = await fetch("https://api.daily.co/v1/meeting-tokens", {
       method: "POST",
       headers: {

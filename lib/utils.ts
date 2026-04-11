@@ -32,11 +32,15 @@ export function formatCurrency(amount: number): string {
  * formatDate("2025-08-01") → "Aug 1, 2025"
  */
 export function formatDate(dateStr: string): string {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+    ? new Date(`${dateStr}T12:00:00`)
+    : new Date(dateStr);
+
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
-  }).format(new Date(dateStr));
+  }).format(date);
 }
 
 /**

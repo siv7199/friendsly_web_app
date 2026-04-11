@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { MockProfile, UserRole } from "@/types";
+import { sanitizeSocialUrl } from "@/lib/social";
 
 export interface AuthState {
   user: MockProfile | null;
@@ -16,6 +17,14 @@ const INITIAL_STATE: AuthState = {
   isAuthenticated: false,
   isLoading: false,
   error: null,
+};
+
+type AuthMetadataShape = {
+  full_name: string;
+  username: string;
+  avatar_color: string;
+  avatar_initials: string;
+  role: UserRole | null;
 };
 
 // ── Build a minimal profile from JWT data (no DB call) ────────────────────────
@@ -46,6 +55,23 @@ function deriveInitials(fullName: string): string {
     .slice(0, 2) || "?";
 }
 
+function buildAuthMetadata(input: {
+  full_name?: string;
+  username?: string;
+  avatar_color?: string;
+  role?: UserRole | null;
+}): AuthMetadataShape {
+  const fullName = input.full_name ?? "";
+
+  return {
+    full_name: fullName,
+    username: input.username ?? "",
+    avatar_color: input.avatar_color ?? "bg-violet-600",
+    avatar_initials: deriveInitials(fullName),
+    role: input.role ?? null,
+  };
+}
+
 // ── Fetch full profile from DB (used for enriching state after nav) ───────────
 async function fetchProfile(userId: string): Promise<MockProfile | null> {
   const supabase = createClient();
@@ -72,15 +98,18 @@ async function fetchProfile(userId: string): Promise<MockProfile | null> {
     created_at: profile.created_at,
   };
 
-  if (profile.role === "creator" && cp) {
+  if (profile.role === "creator") {
     return {
       ...base,
       role: "creator",
-      bio: cp.bio ?? "",
+      bio: cp?.bio ?? "",
       hourly_rate: 0,
-      category: cp.category ?? "",
-      is_live: cp.is_live ?? false,
-      live_rate_per_minute: cp.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
+      category: cp?.category ?? "",
+      is_live: cp?.is_live ?? false,
+      live_rate_per_minute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
+      instagram_url: cp?.instagram_url ?? undefined,
+      tiktok_url: cp?.tiktok_url ?? undefined,
+      x_url: cp?.x_url ?? undefined,
     } as MockProfile;
   }
   if (profile.role === "fan") return { ...base, role: "fan" } as MockProfile;
@@ -147,17 +176,76 @@ export function useAuth() {
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const preflightRes = await fetch("/api/auth/prelogin-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+
+      const preflight = await preflightRes.json().catch(() => null);
+      if (!preflightRes.ok) {
+        setState((s) => ({ ...s, isLoading: false, error: preflight?.error ?? "Could not verify login access." }));
+        return;
+      }
+
+      if (preflight?.blocked) {
+        const message = preflight.requestStatus === "rejected"
+          ? "This creator application was not approved, so this account cannot sign in."
+          : "This creator application is still pending review. You can sign in after it is approved.";
+        setState((s) => ({ ...s, isLoading: false, error: message }));
+        return;
+      }
+
       const supabase = createClient();
-      const { error } = await Promise.race([
-        supabase.auth.signInWithPassword({ email, password }),
+      const { data, error } = await Promise.race([
+        supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
         new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Request timed out — check your connection.")), 8000)),
       ]);
       if (error) {
         setState((s) => ({ ...s, isLoading: false, error: error.message }));
         return;
       }
-      // State is set by onAuthStateChange — just clear loading
-      setState((s) => ({ ...s, isLoading: false }));
+
+      const session = data?.session ?? null;
+      if (!session) {
+        setState((s) => ({ ...s, isLoading: false, error: "Signed in, but no session was returned." }));
+        return;
+      }
+
+      const sessionUser = profileFromSession(session);
+      setState({
+        user: sessionUser,
+        isAuthenticated: Boolean(sessionUser.role),
+        isLoading: false,
+        error: null,
+      });
+
+      fetchProfile(session.user.id)
+        .then((full) => {
+          if (full) {
+            const hasOversizedMetadata = typeof session.user.user_metadata?.avatar_url === "string";
+            if (hasOversizedMetadata || !sessionUser.role) {
+              void supabase.auth.updateUser({
+                data: buildAuthMetadata({
+                  full_name: full.full_name,
+                  username: full.username,
+                  avatar_color: full.avatar_color,
+                  role: full.role,
+                }),
+              });
+            }
+            setState({
+              user: full,
+              isAuthenticated: Boolean(full.role),
+              isLoading: false,
+              error: null,
+            });
+          }
+        })
+        .catch(() => {
+          // Keep the session-backed user if profile enrichment fails.
+        });
     } catch (e) {
       setState((s) => ({ ...s, isLoading: false, error: e instanceof Error ? e.message : "Something went wrong." }));
     }
@@ -216,36 +304,38 @@ export function useAuth() {
 
     const profileUpdates: Record<string, unknown> = {};
     const creatorUpdates: Record<string, unknown> = {};
-    const authMetadataUpdates: Record<string, unknown> = {};
     const nextFullName = "full_name" in updates ? (updates.full_name ?? state.user.full_name) : state.user.full_name;
     const nextInitials = deriveInitials(nextFullName);
 
     if ("full_name" in updates) {
       profileUpdates.full_name = updates.full_name;
       profileUpdates.avatar_initials = nextInitials;
-      authMetadataUpdates.full_name = updates.full_name;
-      authMetadataUpdates.avatar_initials = nextInitials;
     }
     if ("username" in updates) {
       profileUpdates.username = updates.username;
-      authMetadataUpdates.username = updates.username;
     }
     if ("avatar_url" in updates) {
       profileUpdates.avatar_url = updates.avatar_url;
-      authMetadataUpdates.avatar_url = updates.avatar_url;
     }
     if ("avatar_color" in updates) {
       profileUpdates.avatar_color = updates.avatar_color;
-      authMetadataUpdates.avatar_color = updates.avatar_color;
     }
     if ("role" in updates) {
       profileUpdates.role = updates.role;
-      authMetadataUpdates.role = updates.role;
     }
 
     if ("bio" in updates)      creatorUpdates.bio = (updates as { bio?: string }).bio;
     if ("category" in updates) creatorUpdates.category = (updates as { category?: string }).category;
     if ("is_live" in updates)  creatorUpdates.is_live = (updates as { is_live?: boolean }).is_live;
+    if ("instagram_url" in updates) {
+      creatorUpdates.instagram_url = sanitizeSocialUrl((updates as { instagram_url?: string }).instagram_url ?? "");
+    }
+    if ("tiktok_url" in updates) {
+      creatorUpdates.tiktok_url = sanitizeSocialUrl((updates as { tiktok_url?: string }).tiktok_url ?? "");
+    }
+    if ("x_url" in updates) {
+      creatorUpdates.x_url = sanitizeSocialUrl((updates as { x_url?: string }).x_url ?? "");
+    }
     if ("live_rate_per_minute" in updates) {
       creatorUpdates.live_rate_per_minute = (updates as { live_rate_per_minute?: number }).live_rate_per_minute;
     }
@@ -263,9 +353,14 @@ export function useAuth() {
       }
     }
 
-    if (Object.keys(authMetadataUpdates).length > 0) {
-      await supabase.auth.updateUser({ data: authMetadataUpdates });
-    }
+    await supabase.auth.updateUser({
+      data: buildAuthMetadata({
+        full_name: nextFullName,
+        username: ("username" in updates ? updates.username : state.user.username) ?? "",
+        avatar_color: ("avatar_color" in updates ? updates.avatar_color : state.user.avatar_color) ?? "bg-violet-600",
+        role: ("role" in updates ? updates.role : state.user.role) ?? null,
+      }),
+    });
 
     // Update local state optimistically
     setState((s) => ({
@@ -281,7 +376,14 @@ export function useAuth() {
     const supabase = createClient();
 
     await supabase.from("profiles").update({ role }).eq("id", state.user.id);
-    await supabase.auth.updateUser({ data: { role } });
+    await supabase.auth.updateUser({
+      data: buildAuthMetadata({
+        full_name: state.user.full_name,
+        username: state.user.username,
+        avatar_color: state.user.avatar_color,
+        role,
+      }),
+    });
 
     if (role === "creator") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

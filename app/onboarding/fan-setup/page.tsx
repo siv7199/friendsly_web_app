@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { cn } from "@/lib/utils";
+import { removeAvatarFile, uploadAvatarFile } from "@/lib/avatar-upload";
 
 const AVATAR_COLORS = [
   { cls: "bg-violet-600",  hex: "#7c3aed" },
@@ -36,6 +37,8 @@ export default function FanSetupPage() {
   const [avatarColor, setAvatarColor] = useState(user?.avatar_color ?? "bg-violet-600");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
 
   const initials = (user?.full_name ?? "")
     .split(" ")
@@ -52,6 +55,33 @@ export default function FanSetupPage() {
       avatar_url: avatarUrl,
     });
     router.push("/discover");
+  }
+
+  async function handleAvatarSelected(file?: File | null) {
+    if (!file) return;
+    setUploadingAvatar(true);
+    setAvatarError("");
+    try {
+      const nextAvatarUrl = await uploadAvatarFile(file);
+      setAvatarUrl(nextAvatarUrl);
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : "Could not upload avatar.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function handleAvatarRemoved() {
+    setUploadingAvatar(true);
+    setAvatarError("");
+    try {
+      await removeAvatarFile();
+      setAvatarUrl("");
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : "Could not remove avatar.");
+    } finally {
+      setUploadingAvatar(false);
+    }
   }
 
   return (
@@ -85,13 +115,8 @@ export default function FanSetupPage() {
                   accept="image/*"
                   className="hidden"
                   onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                      setAvatarUrl(ev.target?.result as string);
-                    };
-                    reader.readAsDataURL(file);
+                    void handleAvatarSelected(e.target.files?.[0]);
+                    e.currentTarget.value = "";
                   }}
                 />
               </label>
@@ -100,11 +125,18 @@ export default function FanSetupPage() {
             {avatarUrl && (
               <button
                 type="button"
-                onClick={() => setAvatarUrl("")}
+                onClick={() => void handleAvatarRemoved()}
                 className="text-xs text-red-400 hover:text-red-300 -mt-2"
+                disabled={uploadingAvatar}
               >
                 Remove photo
               </button>
+            )}
+            {avatarError && (
+              <p className="text-xs text-red-400 -mt-2">{avatarError}</p>
+            )}
+            {uploadingAvatar && (
+              <p className="text-xs text-slate-400 -mt-2">Uploading photo...</p>
             )}
             <p className="text-xs text-slate-500">Pick a background color</p>
             <div className="flex flex-wrap justify-center gap-2">

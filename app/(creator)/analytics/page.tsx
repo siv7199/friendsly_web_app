@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, CalendarDays, Eye, Loader2, TrendingUp, Users, Video } from "lucide-react";
+import { BarChart3, CalendarDays, Loader2, MousePointerClick, TrendingUp, Users, Video } from "lucide-react";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
@@ -20,6 +20,7 @@ export default function AnalyticsPage() {
   const [profileViews, setProfileViews] = useState(0);
   const [uniqueViewers, setUniqueViewers] = useState(0);
   const [bookingsCreated, setBookingsCreated] = useState(0);
+  const [uniqueConverters, setUniqueConverters] = useState(0);
   const [completedCalls, setCompletedCalls] = useState(0);
   const [liveQueueJoins, setLiveQueueJoins] = useState(0);
   const [grossRevenue, setGrossRevenue] = useState(0);
@@ -35,6 +36,7 @@ export default function AnalyticsPage() {
       setProfileViews(snapshot.profileViews);
       setUniqueViewers(snapshot.uniqueViewers);
       setBookingsCreated(snapshot.bookingsCreated);
+      setUniqueConverters(snapshot.uniqueConverters);
       setCompletedCalls(snapshot.completedCalls);
       setLiveQueueJoins(snapshot.liveQueueJoins);
       setGrossRevenue(snapshot.creatorRevenue);
@@ -48,8 +50,8 @@ export default function AnalyticsPage() {
   const conversionRate = useMemo(() => {
     const base = uniqueViewers > 0 ? uniqueViewers : profileViews;
     if (base === 0) return 0;
-    return Math.min(100, Math.round(((bookingsCreated + liveQueueJoins) / base) * 1000) / 10);
-  }, [bookingsCreated, liveQueueJoins, profileViews, uniqueViewers]);
+    return Math.min(100, Math.round((uniqueConverters / base) * 1000) / 10);
+  }, [profileViews, uniqueConverters, uniqueViewers]);
 
   const maxBar = useMemo(() => {
     return Math.max(1, ...dailySeries.map((point) => Math.max(point.views, point.bookings, point.liveJoins)));
@@ -85,7 +87,7 @@ export default function AnalyticsPage() {
         <>
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             {[
-              { label: "Profile Views", value: profileViews.toLocaleString(), icon: Eye },
+              { label: "Profile Views", value: profileViews.toLocaleString(), icon: MousePointerClick },
               { label: "Bookings Created", value: bookingsCreated.toLocaleString(), icon: CalendarDays },
               { label: "Live Queue Joins", value: liveQueueJoins.toLocaleString(), icon: Users },
               { label: "Completed Calls", value: completedCalls.toLocaleString(), icon: Video },
@@ -137,7 +139,7 @@ export default function AnalyticsPage() {
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Conversion</p>
                 <p className="text-3xl font-black text-slate-100 mt-2">{conversionRate}%</p>
                 <p className="text-sm text-slate-400 mt-2">
-                  {bookingsCreated + liveQueueJoins} total conversion actions from {uniqueViewers > 0 ? uniqueViewers : profileViews} viewers.
+                  {uniqueConverters} unique converters from {uniqueViewers > 0 ? uniqueViewers : profileViews} viewers.
                 </p>
               </div>
 
@@ -147,14 +149,6 @@ export default function AnalyticsPage() {
                 <p className="text-sm text-slate-400 mt-2">
                   Includes completed booking sessions and paid live queue calls in the selected range.
                 </p>
-              </div>
-
-              <div className="flex items-center justify-between rounded-xl border border-brand-border bg-brand-elevated p-4">
-                <div>
-                  <p className="text-sm font-semibold text-slate-100">Best next use</p>
-                  <p className="text-xs text-slate-400 mt-1">Use this to see whether discover/profile traffic is turning into paid demand.</p>
-                </div>
-                <Badge variant="info">Beta</Badge>
               </div>
             </div>
           </div>

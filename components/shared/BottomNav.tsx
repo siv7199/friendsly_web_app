@@ -10,19 +10,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Compass, BookOpen, Heart,
-  LayoutDashboard, Settings2, CalendarDays, Radio,
+  Compass, BookOpen, Heart, CreditCard,
+  LayoutDashboard, Settings2, CalendarDays, Radio, DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const FAN_ITEMS = [
   { label: "Discover",  href: "/discover",    icon: Compass },
   { label: "Bookings",  href: "/bookings",    icon: BookOpen },
+  { label: "Payments",  href: "/payments",    icon: CreditCard },
   { label: "Saved",     href: "/saved",       icon: Heart },
 ];
 
 const CREATOR_ITEMS = [
   { label: "Dashboard", href: "/dashboard",  icon: LayoutDashboard },
+  { label: "Earnings",  href: "/earnings",   icon: DollarSign },
   { label: "Manage",    href: "/management", icon: Settings2 },
   { label: "Calendar",  href: "/calendar",   icon: CalendarDays },
   { label: "Go Live",   href: "/live",       icon: Radio, highlight: true },

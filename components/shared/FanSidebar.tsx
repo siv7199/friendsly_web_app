@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Compass,
   BookOpen,
+  CreditCard,
   Heart,
   Sparkles,
   Settings,
@@ -20,6 +21,7 @@ import { createClient } from "@/lib/supabase/client";
 const NAV_ITEMS = [
   { label: "Discover",    href: "/discover",   icon: Compass },
   { label: "My Bookings", href: "/bookings",   icon: BookOpen },
+  { label: "Payments",    href: "/payments",   icon: CreditCard },
   { label: "Saved",       href: "/saved",      icon: Heart },
 ];
 
@@ -29,10 +31,9 @@ export function FanSidebar() {
   const { user, logout } = useAuthContext();
   const [liveCount, setLiveCount] = useState(0);
 
-  // Fetch live creator count from Supabase
   useEffect(() => {
     const supabase = createClient();
-    
+
     async function getCount() {
       const heartbeatCutoffIso = new Date(Date.now() - 45000).toISOString();
       const { data } = await supabase
@@ -47,9 +48,27 @@ export function FanSidebar() {
       setLiveCount(uniqueLiveCreators.size);
     }
 
-    getCount();
-    const interval = setInterval(getCount, 30000); 
-    return () => clearInterval(interval);
+    function refreshIfVisible() {
+      if (document.visibilityState === "visible") {
+        void getCount();
+      }
+    }
+
+    void getCount();
+
+    const channel = supabase
+      .channel("fan-sidebar-live-count")
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, refreshIfVisible)
+      .subscribe();
+
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   async function handleLogout() {
@@ -95,23 +114,6 @@ export function FanSidebar() {
       </nav>
 
       {/* ── Featured Live Banner — only shown when creators are live AND fan is not already on Discover ── */}
-      {liveCount > 0 && pathname !== "/discover" && (
-        <div className="mx-3 mb-3 p-4 rounded-xl bg-gradient-to-br from-brand-live/10 to-brand-primary/10 border border-brand-live/20">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />
-            <span className="text-xs font-bold text-brand-live uppercase tracking-wider">
-              {liveCount} Live Now
-            </span>
-          </div>
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Creator{liveCount !== 1 ? "s are" : " is"} live right now.{" "}
-            <Link href="/discover" className="text-brand-primary-light underline underline-offset-2">
-              Join the queue →
-            </Link>
-          </p>
-        </div>
-      )}
-
       {/* ── Fan Profile ── */}
       <div className="px-3 pb-4 border-t border-brand-border pt-4">
         <div className="flex items-center gap-3">

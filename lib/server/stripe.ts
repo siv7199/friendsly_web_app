@@ -80,3 +80,44 @@ export async function settleManualCapturePaymentIntent(params: {
     status: paymentIntent.status,
   };
 }
+
+export async function refundPaymentIntent(params: {
+  paymentIntentId: string;
+  amountToRefundCents: number;
+}) {
+  const { paymentIntentId, amountToRefundCents } = params;
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  const refundAmount = Math.max(0, Math.round(amountToRefundCents));
+
+  if (refundAmount <= 0) {
+    return {
+      refundId: null,
+      refundedAmount: 0,
+      status: paymentIntent.status,
+    };
+  }
+
+  if (paymentIntent.status === "requires_capture") {
+    await stripe.paymentIntents.cancel(paymentIntentId);
+    return {
+      refundId: null,
+      refundedAmount: refundAmount,
+      status: "canceled",
+    };
+  }
+
+  if (paymentIntent.status !== "succeeded") {
+    throw new Error("Payment is not in a refundable state.");
+  }
+
+  const refund = await stripe.refunds.create({
+    payment_intent: paymentIntentId,
+    amount: refundAmount,
+  });
+
+  return {
+    refundId: refund.id,
+    refundedAmount: refundAmount,
+    status: refund.status,
+  };
+}

@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
-import { deriveBookingStatus, getBookingWindow, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
+import { deriveBookingStatus, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable, shouldAutoCancelBooking } from "@/lib/bookings";
 
 type Tab = "upcoming" | "completed" | "cancelled";
 
@@ -53,10 +53,15 @@ export default function BookingsPage() {
     let refreshTimer: number | null = null;
 
     async function loadBookings() {
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+        refreshTimer = null;
+      }
+
       const { data } = await supabase
         .from("bookings")
         .select(
-          `id, scheduled_at, duration, price, status, topic,
+          `id, scheduled_at, duration, price, status, topic, creator_present, fan_present,
            creator:profiles!creator_id(id, full_name, username, avatar_initials, avatar_color, avatar_url),
            package:call_packages!package_id(name)`
         )
@@ -66,16 +71,31 @@ export default function BookingsPage() {
       if (data) {
         const now = new Date();
         const expiredIds: string[] = [];
+        const cancelledIds: string[] = [];
 
         setBookings(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data.map((b: any) => {
             const creator = Array.isArray(b.creator) ? b.creator[0] : b.creator;
             const pkg = Array.isArray(b.package) ? b.package[0] : b.package;
-            const nextStatus = deriveBookingStatus(b.status, b.scheduled_at, b.duration, now);
+            const nextStatus = deriveBookingStatus(
+              b.status,
+              b.scheduled_at,
+              b.duration,
+              now,
+              b.creator_present,
+              b.fan_present
+            );
 
             if (nextStatus === "completed" && b.status !== "completed" && hasBookingEnded(b.scheduled_at, b.duration, now)) {
               expiredIds.push(b.id);
+            }
+            if (
+              nextStatus === "cancelled" &&
+              b.status !== "cancelled" &&
+              shouldAutoCancelBooking(b.status, b.scheduled_at, b.creator_present, b.fan_present, now)
+            ) {
+              cancelledIds.push(b.id);
             }
 
             return {
@@ -96,20 +116,44 @@ export default function BookingsPage() {
           })
         );
 
+        const nextDelay = getNextBookingRefreshDelay(
+          (data as any[]).map((booking: any) => ({
+            status: deriveBookingStatus(
+              booking.status,
+              booking.scheduled_at,
+              booking.duration,
+              now,
+              booking.creator_present,
+              booking.fan_present
+            ),
+            scheduledAt: booking.scheduled_at,
+            duration: booking.duration,
+          })),
+          now
+        );
+
         if (expiredIds.length > 0) {
           await supabase
             .from("bookings")
             .update({ status: "completed" })
             .in("id", expiredIds);
         }
+        if (cancelledIds.length > 0) {
+          await supabase
+            .from("bookings")
+            .update({
+              status: "cancelled",
+              creator_present: false,
+              fan_present: false,
+              auto_cancelled_at: now.toISOString(),
+            })
+            .in("id", cancelledIds);
+        }
 
-        const nextUpcoming = data.find((booking: any) => booking.status === "upcoming");
-        if (nextUpcoming) {
-          const { joinOpensAt } = getBookingWindow(nextUpcoming.scheduled_at, nextUpcoming.duration);
-          const delay = joinOpensAt.getTime() - Date.now();
-          if (delay > 0) {
-            refreshTimer = window.setTimeout(loadBookings, delay + 1000);
-          }
+        if (nextDelay) {
+          refreshTimer = window.setTimeout(() => {
+            void loadBookings();
+          }, nextDelay);
         }
       }
 
@@ -117,6 +161,11 @@ export default function BookingsPage() {
     }
 
     loadBookings();
+
+    function refreshIfVisible() {
+      if (document.visibilityState !== "visible") return;
+      void loadBookings();
+    }
 
     const channel = supabase
       .channel(`fan-bookings-${userId}`)
@@ -130,22 +179,30 @@ export default function BookingsPage() {
       })
       .subscribe();
 
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
     return () => {
       if (refreshTimer) window.clearTimeout(refreshTimer);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
       supabase.removeChannel(channel);
     };
   }, [user]);
 
   async function handleCancel(bookingId: string) {
     setCancellingId(bookingId);
-    const supabase = createClient();
-    await supabase
-      .from("bookings")
-      .update({ status: "cancelled" })
-      .eq("id", bookingId);
-    setBookings((prev) =>
-      prev.map((b) => (b.id === bookingId ? { ...b, status: "cancelled" } : b))
-    );
+    const res = await fetch(`/api/bookings/${bookingId}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "manual" }),
+    });
+
+    if (res.ok) {
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: "cancelled" } : b))
+      );
+    }
     setCancellingId(null);
   }
 

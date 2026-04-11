@@ -827,6 +827,11 @@ All pricing information across the application (on Discover cards and the Creato
 ### Dynamic Avatar Uploads
 The onboarding flows for both Creators and Fans were augmented to let users upload profile pictures via a sleek UI featuring a primary `Camera` icon overlay. It uses the `FileReader` API to instantly encode the selected picture as a base64 DataURL and sets it to the user's `avatar_url`. An option to "Remove photo" is also included to revert to the colored initials.
 
+Important implementation note:
+- uploading a photo is only half the job; any Supabase query that renders a user avatar must explicitly select `avatar_url`
+- any UI that uses the shared `Avatar` component must pass `imageUrl={...}` or it will fall back to initials even though the photo exists
+- this especially matters in live surfaces like waiting-room chat, queue cards, and live-call fallback states
+
 ### Booking Navigation
 The availability calendar component logic (now shared in `BookingModal.tsx` and the profile's page context) was improved with explicit pagination. A `weekOffset` state tracks how many weeks into the future the fan is viewing. Clicking "Prev" or "Next" seamlessly shifts the displayed days in 7-day increments up to 3 weeks ahead.
 
@@ -852,6 +857,20 @@ Important limitation:
 - when the queue entry completes, the server captures only the actual used amount
 - the unused remainder of the authorization is released/refunded
 - Stripe list views may still visually emphasize the original authorization amount, so PaymentIntent details are the true source of the final captured amount
+
+### Creator Request + Approval Flow
+- creator applicants now create their password during the creator request flow instead of waiting to create credentials later
+- the app creates the auth account first, then stores a `pending` creator request in `creator_signup_requests`
+- admins receive a notification email from the `creator-signup-notify` Edge Function
+- approval/rejection links are powered by a `review_token` stored on each request
+- approving a request promotes the existing account to `creator` and creates the `creator_profiles` row if needed
+- this keeps email volume low: one admin notification email, then approval can happen from that email instead of a separate admin panel
+
+### Fan Payment History
+- fans now have a dedicated `/payments` page that combines fixed booking purchases and live queue receipts
+- booked calls read from `bookings.price`
+- live queue receipts read from `live_queue_entries.amount_charged`
+- the page also calculates total spend so payment activity is visible in one place instead of being split across bookings and waiting-room receipts
 
 ### Availability / Scheduling Notes
 - creator availability is now stored in Supabase, not only mock state

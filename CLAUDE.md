@@ -88,6 +88,7 @@ supabase/
 | `live_sessions` | Public live queue events (rate_per_minute, is_active) |
 | `live_queue_entries` | Fan queue entries with pre-auth + actual charge fields |
 | `reviews` | Post-call ratings from fans |
+| `creator_signup_requests` | Pending/approved/rejected creator applications with review token + admin workflow |
 
 ## Color Palette (brand.*)
 ```
@@ -263,3 +264,9 @@ Server Components (no directive needed): layout files, static pages without inte
 - Creator availability is Supabase-backed, can be package-specific, is timezone-aware, and supports `15`, `30`, or `60` minute booking start increments.
 - Creators can announce a future live time using `scheduled_live_at` and `scheduled_live_timezone`, and fans see that as a countdown.
 - The app currently tracks creator earnings, pending payouts, and withdrawal requests in Supabase, but full Stripe Connect onboarding and true production money movement to creator bank accounts are not fully wired yet.
+
+## Recent Operational Notes
+- Creator onboarding now has a request-first approval flow. Applicants set their password up front, their request is saved in `creator_signup_requests`, and admins approve from an email link backed by `review_token`.
+- The admin email is sent by the `creator-signup-notify` Supabase Edge Function. The key secrets are `RESEND_API_KEY`, `CREATOR_REQUEST_FROM_EMAIL`, `CREATOR_REQUEST_NOTIFICATION_EMAIL`, and `APP_BASE_URL`.
+- Fan payment history now lives at `/payments`, combining normal bookings with live queue receipts.
+- Avatar uploads only show up where the query explicitly selects `avatar_url` and the UI passes it into `<Avatar imageUrl={...} />`. If a profile photo exists in Settings but initials still show in a view, check that data plumbing first.

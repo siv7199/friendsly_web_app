@@ -8,7 +8,7 @@
  * Step 3: Review + Launch
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   User, ChevronRight, ChevronLeft,
@@ -20,6 +20,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { CREATOR_CATEGORIES } from "@/lib/mock-auth";
 import { cn } from "@/lib/utils";
+import { removeAvatarFile, uploadAvatarFile } from "@/lib/avatar-upload";
 
 type Step = 1 | 2 | 3;
 
@@ -57,9 +58,11 @@ const STEPS = [
 
 export default function CreatorSetupPage() {
   const router = useRouter();
-  const { user, updateProfile } = useAuthContext();
+  const { user, updateProfile, isLoading } = useAuthContext();
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
 
   const [form, setForm] = useState<FormData>({
     full_name: user?.full_name ?? "",
@@ -70,8 +73,48 @@ export default function CreatorSetupPage() {
     avatar_url: user?.avatar_url ?? "",
   });
 
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (!user) {
+      router.replace("/");
+      return;
+    }
+
+    if (user.role !== "creator") {
+      router.replace("/onboarding/creator-request");
+    }
+  }, [user, isLoading, router]);
+
   function update(field: keyof FormData, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleAvatarSelected(file?: File | null) {
+    if (!file) return;
+    setUploadingAvatar(true);
+    setAvatarError("");
+    try {
+      const avatarUrl = await uploadAvatarFile(file);
+      update("avatar_url", avatarUrl);
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : "Could not upload avatar.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function handleAvatarRemoved() {
+    setUploadingAvatar(true);
+    setAvatarError("");
+    try {
+      await removeAvatarFile();
+      update("avatar_url", "");
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : "Could not remove avatar.");
+    } finally {
+      setUploadingAvatar(false);
+    }
   }
 
   const canAdvance: Record<Step, boolean> = {
@@ -154,13 +197,8 @@ export default function CreatorSetupPage() {
                       accept="image/*"
                       className="hidden"
                       onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                          update("avatar_url", ev.target?.result as string);
-                        };
-                        reader.readAsDataURL(file);
+                        void handleAvatarSelected(e.target.files?.[0]);
+                        e.currentTarget.value = "";
                       }}
                     />
                   </label>
@@ -168,11 +206,18 @@ export default function CreatorSetupPage() {
                 {form.avatar_url && (
                   <button
                     type="button"
-                    onClick={() => update("avatar_url", "")}
+                    onClick={() => void handleAvatarRemoved()}
                     className="text-xs text-red-400 hover:text-red-300 -mt-1"
+                    disabled={uploadingAvatar}
                   >
                     Remove photo
                   </button>
+                )}
+                {avatarError && (
+                  <p className="text-xs text-red-400 -mt-1">{avatarError}</p>
+                )}
+                {uploadingAvatar && (
+                  <p className="text-xs text-slate-400 -mt-1">Uploading photo...</p>
                 )}
                 <p className="text-xs text-slate-500">Pick a background color</p>
                 <div className="flex flex-wrap justify-center gap-2">

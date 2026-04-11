@@ -10,7 +10,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   DollarSign, Video, Star, Calendar,
-  Users, TrendingUp, Radio, ArrowRight, Loader2,
+  Users, TrendingUp, Radio, ArrowRight, Loader2, Sparkles,
 } from "lucide-react";
 import { StatsCard } from "@/components/creator/StatsCard";
 import { BookingList } from "@/components/creator/BookingList";
@@ -21,12 +21,13 @@ import { formatCurrency } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { isCreatorProfile } from "@/types";
 import type { CreatorStats } from "@/types";
-import { getCreatorPackages } from "@/lib/mock-auth";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { deriveBookingStatus, getBookingWindow, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
+import { deriveBookingStatus, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable, shouldAutoCancelBooking } from "@/lib/bookings";
 import { getCreatorAnalyticsSnapshot } from "@/lib/analytics";
+import { getCreatorInsights, type CreatorInsight } from "@/lib/creator-insights";
+import { localDateKey } from "@/lib/timezones";
 
 interface DashReview {
   id: string;
@@ -48,6 +49,28 @@ const EMPTY_STATS: CreatorStats = {
   conversionRate: 0,
 };
 
+function calculateProfileStrength(
+  user: ReturnType<typeof useAuthContext>["user"],
+  activePackageCount: number
+) {
+  if (!user) return 0;
+
+  let score = 0;
+  if (user.full_name) score += 20;
+  if (user.username) score += 10;
+  if (user.avatar_color) score += 5;
+  if (user.avatar_url) score += 15;
+
+  if (isCreatorProfile(user)) {
+    if (user.bio) score += 20;
+    if (user.category) score += 10;
+    if (user.instagram_url || user.tiktok_url || user.x_url) score += 10;
+    if (activePackageCount > 0) score += 10;
+  }
+
+  return score;
+}
+
 export default function DashboardPage() {
   const { user } = useAuthContext();
   const router = useRouter();
@@ -59,23 +82,27 @@ export default function DashboardPage() {
   const [nextJoinableBooking, setNextJoinableBooking] = useState<any | null>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
+  const [smartInsights, setSmartInsights] = useState<CreatorInsight[]>([]);
+  const [activePackageCount, setActivePackageCount] = useState(0);
 
   async function handleCancelBooking(booking: any) {
     const bookingId = booking.id;
     setCancellingBookingId(bookingId);
-    const supabase = createClient();
-    await supabase
-      .from("bookings")
-      .update({ status: "cancelled" })
-      .eq("id", bookingId);
+    const res = await fetch(`/api/bookings/${bookingId}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "manual" }),
+    });
 
-    setUpcomingBookings((prev: any[]) => prev.filter((booking) => booking.id !== bookingId));
-    setStats((prev) => ({
-      ...prev,
-      upcomingBookings: Math.max(0, prev.upcomingBookings - 1),
-    }));
-    if (nextJoinableBooking?.id === bookingId) {
-      setNextJoinableBooking(null);
+    if (res.ok) {
+      setUpcomingBookings((prev: any[]) => prev.filter((booking) => booking.id !== bookingId));
+      setStats((prev) => ({
+        ...prev,
+        upcomingBookings: Math.max(0, prev.upcomingBookings - 1),
+      }));
+      if (nextJoinableBooking?.id === bookingId) {
+        setNextJoinableBooking(null);
+      }
     }
     setCancellingBookingId(null);
   }
@@ -115,12 +142,17 @@ export default function DashboardPage() {
 
     // ── Load Bookings & Compute Stats ──
     async function loadDashboard() {
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+        refreshTimer = null;
+      }
+
       // 1. Fetch bookings, live queue joins, profile views, and raw reviews
-      const [bookingsRes, liveRes, reviewsRes, analyticsSnapshot] = await Promise.all([
+      const [bookingsRes, liveRes, reviewsRes, analyticsSnapshot, packagesRes, availabilityRes] = await Promise.all([
         supabase
           .from("bookings")
           .select(`
-            id, scheduled_at, duration, price, status, topic,
+            id, scheduled_at, duration, price, status, topic, creator_present, fan_present,
             fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
           `)
           .eq("creator_id", userId)
@@ -134,10 +166,21 @@ export default function DashboardPage() {
           .select("rating")
           .eq("creator_id", userId),
         getCreatorAnalyticsSnapshot(userId, "month"),
+        supabase
+          .from("call_packages")
+          .select("id", { count: "exact", head: true })
+          .eq("creator_id", userId)
+          .eq("is_active", true),
+        supabase
+          .from("creator_availability")
+          .select("id", { count: "exact", head: true })
+          .eq("creator_id", userId)
+          .eq("is_active", true),
       ]);
 
       const bookings = bookingsRes.data || [];
       const expiredBookingIds: string[] = [];
+      const cancelledBookingIds: string[] = [];
       
       let totalEarnedGross = 0;
       let callsMonth = 0;
@@ -151,10 +194,24 @@ export default function DashboardPage() {
 
       const mappedBookings = bookings.map((b: any) => {
         const fan = Array.isArray(b.fan) ? b.fan[0] : b.fan;
-        const normalizedStatus = deriveBookingStatus(b.status, b.scheduled_at, b.duration, now);
+        const normalizedStatus = deriveBookingStatus(
+          b.status,
+          b.scheduled_at,
+          b.duration,
+          now,
+          b.creator_present,
+          b.fan_present
+        );
 
         if (normalizedStatus === "completed" && b.status !== "completed" && hasBookingEnded(b.scheduled_at, b.duration, now)) {
           expiredBookingIds.push(b.id);
+        }
+        if (
+          normalizedStatus === "cancelled" &&
+          b.status !== "cancelled" &&
+          shouldAutoCancelBooking(b.status, b.scheduled_at, b.creator_present, b.fan_present, now)
+        ) {
+          cancelledBookingIds.push(b.id);
         }
         
         if (normalizedStatus === "completed" || normalizedStatus === "upcoming" || normalizedStatus === "live") {
@@ -190,7 +247,7 @@ export default function DashboardPage() {
           fanAvatarColor: fan?.avatar_color ?? "bg-violet-600",
           fanAvatarUrl: fan?.avatar_url ?? undefined,
           scheduledAt: b.scheduled_at,
-          date: bDate.toISOString().split("T")[0],
+          date: localDateKey(bDate),
           time: bDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
           duration: b.duration,
           price: Number(b.price) * 0.85, // Show their 85% cut!
@@ -205,19 +262,36 @@ export default function DashboardPage() {
           .update({ status: "completed" })
           .in("id", expiredBookingIds);
       }
+      if (cancelledBookingIds.length > 0) {
+        await supabase
+          .from("bookings")
+          .update({
+            status: "cancelled",
+            creator_present: false,
+            fan_present: false,
+            auto_cancelled_at: now.toISOString(),
+          })
+          .in("id", cancelledBookingIds);
+      }
 
       const upcoming = mappedBookings.filter((b: any) => b.status === "upcoming" || b.status === "live");
       setUpcomingBookings(upcoming);
       setNextJoinableBooking(
         mappedBookings.find((b: any) => isBookingJoinable(b.status, b.scheduledAt, b.duration)) ?? null
       );
-      const nextUpcomingBooking = mappedBookings.find((b: any) => b.status === "upcoming");
-      if (nextUpcomingBooking) {
-        const { joinOpensAt } = getBookingWindow(nextUpcomingBooking.scheduledAt, nextUpcomingBooking.duration);
-        const delay = joinOpensAt.getTime() - Date.now();
-        if (delay > 0) {
-          refreshTimer = window.setTimeout(loadDashboard, delay + 1000);
-        }
+
+      const nextDelay = getNextBookingRefreshDelay(
+        mappedBookings.map((booking: any) => ({
+          status: booking.status,
+          scheduledAt: booking.scheduledAt,
+          duration: booking.duration,
+        })),
+        now
+      );
+      if (nextDelay) {
+        refreshTimer = window.setTimeout(() => {
+          void loadDashboard();
+        }, nextDelay);
       }
 
       let totalLiveJoins = 0;
@@ -263,9 +337,40 @@ export default function DashboardPage() {
         conversionRate: analyticsSnapshot.conversionRate
       });
 
+      if (user && isCreatorProfile(user)) {
+        const nextActivePackageCount = packagesRes.count ?? 0;
+        const availabilitySlotCount = availabilityRes.count ?? 0;
+        setActivePackageCount(nextActivePackageCount);
+        const nextStats: CreatorStats = {
+          totalEarnings: creatorCut,
+          callsThisMonth: callsMonth,
+          avgRating: calculatedAvgRating,
+          reviewCount: allReviews.length,
+          upcomingBookings: upcomingCount,
+          totalFans: uniqueFans.size,
+          conversionRate: analyticsSnapshot.conversionRate,
+        };
+
+        setSmartInsights(
+          getCreatorInsights({
+            user,
+            stats: nextStats,
+            analytics: analyticsSnapshot,
+            profileStrength: calculateProfileStrength(user, nextActivePackageCount),
+            activePackageCount: nextActivePackageCount,
+            availabilitySlotCount,
+          })
+        );
+      }
+
       setLoadingDashboard(false);
     }
     loadDashboard();
+
+    function refreshIfVisible() {
+      if (document.visibilityState !== "visible") return;
+      void loadDashboard();
+    }
 
     const channel = supabase
       .channel(`creator-dashboard-${userId}`)
@@ -279,8 +384,13 @@ export default function DashboardPage() {
       })
       .subscribe();
 
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
     return () => {
       if (refreshTimer) window.clearTimeout(refreshTimer);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
       supabase.removeChannel(channel);
     };
   }, [user]);
@@ -292,22 +402,10 @@ export default function DashboardPage() {
   const avatarColor = user?.avatar_color ?? "bg-violet-600";
   const avatarUrl = user?.avatar_url ?? undefined;
 
-  // Calculate profile completeness score
-  const profileStrength = (() => {
-    if (!user) return 0;
-    let score = 0;
-    if (user.full_name) score += 20;
-    if (user.username) score += 10;
-    if (user.avatar_color) score += 5;
-    if (user.avatar_url) score += 15;
-    if (isCreatorProfile(user)) {
-      if (user.bio) score += 25;
-      if (user.category) score += 15;
-      const pkgs = getCreatorPackages(user.id);
-      if (pkgs.some((p) => p.isActive)) score += 10;
-    }
-    return score;
-  })();
+  const profileStrength = calculateProfileStrength(
+    user,
+    activePackageCount
+  );
 
   return (
     <div className="px-4 md:px-8 py-6 max-w-6xl mx-auto space-y-8">
@@ -437,8 +535,46 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="mt-4 p-3 rounded-xl bg-brand-elevated border border-brand-border text-xs text-slate-400">
-              💡 Add a profile video to increase bookings by up to 30%.
+            <div className="mt-4 rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-primary/15 text-brand-primary-light">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-100">Smart Insights</p>
+                  <p className="text-[11px] text-slate-500">Personalized next steps based on your profile and activity.</p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {smartInsights.map((insight) => (
+                  <div key={insight.id} className="rounded-xl border border-brand-border bg-brand-elevated/80 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-100">{insight.title}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">{insight.description}</p>
+                      </div>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide",
+                          insight.tone === "action" && "bg-amber-500/10 text-amber-300",
+                          insight.tone === "opportunity" && "bg-brand-primary/10 text-brand-primary-light",
+                          insight.tone === "momentum" && "bg-brand-live/10 text-brand-live"
+                        )}
+                      >
+                        {insight.tone}
+                      </span>
+                    </div>
+                    <Link
+                      href={insight.ctaHref}
+                      className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand-primary-light hover:underline"
+                    >
+                      {insight.ctaLabel}
+                      <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -449,7 +585,7 @@ export default function DashboardPage() {
               {[
                 { label: "Manage Offerings", href: "/management", icon: "⚙️" },
                 { label: "View Calendar", href: "/calendar", icon: "📅" },
-                { label: "Update Availability", href: "/management", icon: "🕐" },
+                { label: "Update Availability", href: "/calendar", icon: "🕐" },
               ].map((action) => (
                 <Link
                   key={action.href + action.label}

@@ -15,7 +15,6 @@ import { Avatar } from "@/components/ui/avatar";
 import type { Creator, CallPackage } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { getAvailableStartTimesForViewerDate, getBrowserTimeZone, getTimeZoneAbbreviation } from "@/lib/timezones";
 
@@ -32,6 +31,11 @@ interface SavedPaymentMethod {
   last4: string;
   expMonth: number;
   expYear: number;
+}
+
+interface ExistingBookingWindow {
+  scheduledAt: string;
+  duration: number;
 }
 
 // Initialise Stripe once (outside component so it's not recreated on render)
@@ -84,10 +88,23 @@ function getPackageAvailability(
   });
 }
 
+function rangesOverlap(
+  leftStartIso: string,
+  leftDurationMinutes: number,
+  rightStartIso: string,
+  rightDurationMinutes: number
+) {
+  const leftStart = new Date(leftStartIso).getTime();
+  const leftEnd = leftStart + (leftDurationMinutes * 60 * 1000);
+  const rightStart = new Date(rightStartIso).getTime();
+  const rightEnd = rightStart + (rightDurationMinutes * 60 * 1000);
+  return leftStart < rightEnd && rightStart < leftEnd;
+}
+
 // ── Inner payment form (needs to live inside <Elements>) ───────────────
 
 interface PaymentFormProps {
-  onSuccess: (paymentIntentId: string) => void;
+  onSuccess: (paymentIntentId: string) => Promise<void>;
   onBack: () => void;
   isSubmitting: boolean;
   setIsSubmitting: (v: boolean) => void;
@@ -113,7 +130,12 @@ function PaymentForm({ onSuccess, onBack, isSubmitting, setIsSubmitting, setPayE
       setPayError(error.message ?? "Payment failed. Please try again.");
       setIsSubmitting(false);
     } else if (paymentIntent) {
-      onSuccess(paymentIntent.id);
+      try {
+        await onSuccess(paymentIntent.id);
+      } catch (bookingError) {
+        setPayError(bookingError instanceof Error ? bookingError.message : "Could not create booking.");
+        setIsSubmitting(false);
+      }
     }
   }
 
@@ -186,6 +208,8 @@ export function BookingModal({
   const [loadingSavedPaymentMethods, setLoadingSavedPaymentMethods] = useState(false);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [saveNewCard, setSaveNewCard] = useState(false);
+  const [existingBookingWindows, setExistingBookingWindows] = useState<ExistingBookingWindow[]>([]);
+  const [loadingExistingBookings, setLoadingExistingBookings] = useState(false);
 
   const availableDates = getAvailableDates(weekOffset);
   const sessionPrice = selectedPackage?.price ?? creator.callPrice;
@@ -195,13 +219,35 @@ export function BookingModal({
   const bookingIntervalMinutes = creator.bookingIntervalMinutes ?? 30;
   const availableDateKeys = new Set(
     availableDates
-      .filter((date) => getAvailableStartTimesForViewerDate({
-        date,
-        availability: packageAvailability,
-        creatorTimeZone: creator.timeZone ?? "America/New_York",
-        durationMinutes: sessionDuration,
-        incrementMinutes: bookingIntervalMinutes,
-      }).length > 0)
+      .filter((date) => {
+        const rawSlots = getAvailableStartTimesForViewerDate({
+          date,
+          availability: packageAvailability,
+          creatorTimeZone: creator.timeZone ?? "America/New_York",
+          durationMinutes: sessionDuration,
+          incrementMinutes: bookingIntervalMinutes,
+        });
+
+        return rawSlots.some((slot) => {
+          const timeParts = slot.match(/(\d+):(\d+)\s+(AM|PM)/);
+          let hours = 12;
+          let mins = 0;
+          if (timeParts) {
+            hours = parseInt(timeParts[1]);
+            mins = parseInt(timeParts[2]);
+            if (timeParts[3] === "PM" && hours !== 12) hours += 12;
+            if (timeParts[3] === "AM" && hours === 12) hours = 0;
+          }
+
+          const scheduledDate = new Date(date);
+          scheduledDate.setHours(hours, mins, 0, 0);
+          const candidateIso = scheduledDate.toISOString();
+
+          return !existingBookingWindows.some((booking) =>
+            rangesOverlap(candidateIso, sessionDuration, booking.scheduledAt, booking.duration)
+          );
+        });
+      })
       .map((date) => date.toDateString())
   );
   const availableTimeSlots = selectedDate
@@ -212,6 +258,25 @@ export function BookingModal({
         durationMinutes: sessionDuration,
         incrementMinutes: bookingIntervalMinutes,
       })
+        .filter((slot) => {
+          const timeParts = slot.match(/(\d+):(\d+)\s+(AM|PM)/);
+          let hours = 12;
+          let mins = 0;
+          if (timeParts) {
+            hours = parseInt(timeParts[1]);
+            mins = parseInt(timeParts[2]);
+            if (timeParts[3] === "PM" && hours !== 12) hours += 12;
+            if (timeParts[3] === "AM" && hours === 12) hours = 0;
+          }
+
+          const scheduledDate = new Date(selectedDate);
+          scheduledDate.setHours(hours, mins, 0, 0);
+          const candidateIso = scheduledDate.toISOString();
+
+          return !existingBookingWindows.some((booking) =>
+            rangesOverlap(candidateIso, sessionDuration, booking.scheduledAt, booking.duration)
+          );
+        })
     : [];
   // Fan pays a 2.5% platform fee
   const totalCents = Math.round(sessionPrice * 1.025 * 100);
@@ -219,7 +284,7 @@ export function BookingModal({
   const platformFeeAmount = sessionGrossPrice - sessionPrice;
 
   async function handlePaymentSuccess(paymentIntentId: string) {
-    if (!user || !selectedDate || !selectedTime) return;
+    if (!user || !selectedDate || !selectedTime || !selectedPackage) return;
     
     const timeParts = selectedTime.match(/(\d+):(\d+)\s+(AM|PM)/);
     let hours = 12;
@@ -233,18 +298,22 @@ export function BookingModal({
     const scheduledDate = new Date(selectedDate);
     scheduledDate.setHours(hours, mins, 0, 0);
 
-    const supabase = createClient();
-    await supabase.from("bookings").insert({
-      creator_id: creator.id,
-      fan_id: user.id,
-      package_id: selectedPackage?.id,
-      scheduled_at: scheduledDate.toISOString(),
-      duration: sessionDuration,
-      price: sessionGrossPrice,
-      status: "upcoming",
-      topic: topic || null,
-      stripe_payment_intent_id: paymentIntentId
+    const res = await fetch("/api/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        creatorId: creator.id,
+        packageId: selectedPackage.id,
+        scheduledAt: scheduledDate.toISOString(),
+        topic,
+        paymentIntentId,
+      }),
     });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error ?? "Could not create booking.");
+    }
 
     setStep("success");
   }
@@ -293,6 +362,27 @@ export function BookingModal({
       })
       .finally(() => setLoadingSavedPaymentMethods(false));
   }, [open, user]);
+
+  useEffect(() => {
+    if (!open || !user) return;
+
+    setLoadingExistingBookings(true);
+
+    fetch(`/api/bookings/availability?creatorId=${creator.id}`)
+      .then((response) => response.json())
+      .then((data) => {
+        setExistingBookingWindows(
+          ((data.bookings ?? []) as { scheduledAt: string; duration: number }[]).map((booking) => ({
+            scheduledAt: booking.scheduledAt,
+            duration: Number(booking.duration ?? 0),
+          }))
+        );
+      })
+      .catch(() => {
+        setExistingBookingWindows([]);
+      })
+      .finally(() => setLoadingExistingBookings(false));
+  }, [open, creator.id, user]);
 
   useEffect(() => {
     setClientSecret(null);
@@ -429,7 +519,7 @@ export function BookingModal({
         {step === "select" && (
           <div className="space-y-5">
             <div className="flex items-center gap-3 p-3 rounded-xl bg-brand-surface border border-brand-border">
-              <Avatar initials={creator.avatarInitials} color={creator.avatarColor} size="sm" />
+              <Avatar initials={creator.avatarInitials} color={creator.avatarColor} imageUrl={creator.avatarUrl} size="sm" />
               <div>
                 <p className="text-sm font-semibold text-slate-100">{creator.name}</p>
                 <p className="text-xs text-slate-500">
@@ -510,7 +600,9 @@ export function BookingModal({
                 </label>
                 {availableTimeSlots.length === 0 ? (
                   <p className="text-sm text-slate-500 rounded-xl border border-brand-border bg-brand-elevated px-4 py-3">
-                    No times available for this offering on that date.
+                    {loadingExistingBookings
+                      ? "Checking booked times..."
+                      : "No times available for this offering on that date."}
                   </p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
@@ -591,7 +683,7 @@ export function BookingModal({
             {/* Booking summary */}
             <div className="rounded-xl border border-brand-border bg-brand-surface p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <Avatar initials={creator.avatarInitials} color={creator.avatarColor} size="sm" />
+                <Avatar initials={creator.avatarInitials} color={creator.avatarColor} imageUrl={creator.avatarUrl} size="sm" />
                 <div>
                   <p className="text-sm font-semibold text-slate-100">{creator.name}</p>
                   <p className="text-xs text-slate-500">{creator.category}</p>

@@ -11,6 +11,7 @@ import { CallContainer } from "@/components/video/CallContainer";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { cn } from "@/lib/utils";
+import { getBookingWindow } from "@/lib/bookings";
 
 type BookingParticipant = {
   full_name?: string;
@@ -196,7 +197,7 @@ export default function RoomPage() {
   const { id: rawBookingId } = useParams();
   const bookingId = Array.isArray(rawBookingId) ? rawBookingId[0] : rawBookingId;
   const router = useRouter();
-  const { user } = useAuthContext();
+  const { user, isLoading: authLoading } = useAuthContext();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -206,27 +207,52 @@ export default function RoomPage() {
   const [token, setToken] = useState("");
   const selfLeaveRequestedRef = useRef(false);
   const [remoteEnded, setRemoteEnded] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
+  const [creatorPresent, setCreatorPresent] = useState(false);
+  const [fanPresent, setFanPresent] = useState(false);
+  const autoCancelRequestedRef = useRef(false);
 
   const loadBooking = useCallback(async (bId: string) => {
     const supabase = createClient();
     const { data } = await supabase
       .from("bookings")
-      .select("id, topic, creator:profiles!creator_id(full_name, avatar_initials, avatar_color, avatar_url), fan:profiles!fan_id(full_name, avatar_initials, avatar_color, avatar_url)")
+      .select("id, topic, scheduled_at, creator_present, fan_present, creator:profiles!creator_id(full_name, avatar_initials, avatar_color, avatar_url), fan:profiles!fan_id(full_name, avatar_initials, avatar_color, avatar_url)")
       .eq("id", bId)
       .single();
 
     if (data) {
       setBooking(data as BookingDetails);
+      setScheduledAt((data as any).scheduled_at ?? null);
+      setCreatorPresent(Boolean((data as any).creator_present));
+      setFanPresent(Boolean((data as any).fan_present));
     }
   }, []);
 
+  const markPresence = useCallback(async (present: boolean) => {
+    if (!bookingId || !user) return;
+    await fetch(`/api/bookings/${bookingId}/presence`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ present }),
+    });
+  }, [bookingId, isCreator, user]);
+
+  const autoCancelBooking = useCallback(async () => {
+    if (!bookingId || autoCancelRequestedRef.current) return;
+
+    autoCancelRequestedRef.current = true;
+    await fetch(`/api/bookings/${bookingId}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "auto" }),
+    });
+  }, [bookingId]);
+
   const completeBooking = useCallback(async () => {
     if (!bookingId) return;
-    const supabase = createClient();
-    await supabase
-      .from("bookings")
-      .update({ status: "completed" })
-      .eq("id", bookingId);
+    await fetch(`/api/bookings/${bookingId}/complete`, {
+      method: "POST",
+    });
   }, [bookingId]);
 
   useEffect(() => {
@@ -236,7 +262,13 @@ export default function RoomPage() {
 
     async function initCall() {
       try {
-        const res = await fetch(`/api/bookings/${bookingId}/join`, { method: "POST" });
+        const joinController = new AbortController();
+        const joinTimeout = window.setTimeout(() => joinController.abort(), 15000);
+        const res = await fetch(`/api/bookings/${bookingId}/join`, {
+          method: "POST",
+          signal: joinController.signal,
+        });
+        window.clearTimeout(joinTimeout);
         const data = await res.json();
 
         if (cancelled) return;
@@ -250,14 +282,14 @@ export default function RoomPage() {
         setRoomUrl(data.url);
         setToken(data.token);
         setIsCreator(Boolean(data.isCreator));
-        await loadBooking(bookingId);
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
+        void loadBooking(bookingId);
       } catch (err) {
         console.error("Call init error:", err);
         if (!cancelled) {
-          setError("Failed to connect to the video room.");
+          setError(err instanceof Error && err.name === "AbortError"
+            ? "Connecting to the secure room timed out. Please try joining again."
+            : "Failed to connect to the video room.");
           setLoading(false);
         }
       }
@@ -271,6 +303,13 @@ export default function RoomPage() {
   }, [user, bookingId, loadBooking]);
 
   useEffect(() => {
+    if (!authLoading && !user) {
+      setError("You need to be signed in to join this booking room.");
+      setLoading(false);
+    }
+  }, [authLoading, user]);
+
+  useEffect(() => {
     if (!bookingId) return;
 
     const supabase = createClient();
@@ -281,6 +320,8 @@ export default function RoomPage() {
         { event: "UPDATE", schema: "public", table: "bookings", filter: `id=eq.${bookingId}` },
         (payload: any) => {
           const nextStatus = payload.new?.status;
+          setCreatorPresent(Boolean(payload.new?.creator_present));
+          setFanPresent(Boolean(payload.new?.fan_present));
           if ((nextStatus === "completed" || nextStatus === "cancelled") && !selfLeaveRequestedRef.current) {
             setRemoteEnded(true);
           }
@@ -295,23 +336,57 @@ export default function RoomPage() {
 
   const handleEndCall = useCallback(async () => {
     selfLeaveRequestedRef.current = true;
+    if (isCreator) {
+      setCreatorPresent(false);
+    } else {
+      setFanPresent(false);
+    }
+    await markPresence(false);
     await completeBooking();
-  }, [completeBooking]);
+  }, [completeBooking, isCreator, markPresence]);
 
   const handleLeave = useCallback(() => {
+    if (isCreator) {
+      setCreatorPresent(false);
+    } else {
+      setFanPresent(false);
+    }
+    void markPresence(false);
+
     if (selfLeaveRequestedRef.current) {
       router.push(isCreator ? "/dashboard" : "/bookings");
       return;
     }
 
     setError("Disconnected from the video room. If the booking is still active, you can rejoin from your dashboard or bookings.");
-  }, [isCreator, router]);
+  }, [isCreator, markPresence, router]);
 
   useEffect(() => {
     if (!remoteEnded) return;
 
     router.push(isCreator ? "/dashboard" : "/bookings");
   }, [isCreator, remoteEnded, router]);
+
+  useEffect(() => {
+    if (!scheduledAt) return;
+
+    const { noShowDeadline } = getBookingWindow(scheduledAt, 0);
+    const delay = noShowDeadline.getTime() - Date.now();
+
+    const checkAndCancel = () => {
+      if (!(creatorPresent && fanPresent)) {
+        void autoCancelBooking();
+      }
+    };
+
+    if (delay <= 0) {
+      checkAndCancel();
+      return;
+    }
+
+    const timer = window.setTimeout(checkAndCancel, delay + 250);
+    return () => window.clearTimeout(timer);
+  }, [autoCancelBooking, creatorPresent, fanPresent, scheduledAt]);
 
   if (loading) {
     return (
@@ -358,6 +433,14 @@ export default function RoomPage() {
         token={token}
         startAudio
         startVideo
+        onJoin={() => {
+          if (isCreator) {
+            setCreatorPresent(true);
+          } else {
+            setFanPresent(true);
+          }
+          void markPresence(true);
+        }}
         onLeave={handleLeave}
       >
         <BookingVideoStage booking={booking} isCreator={isCreator} onEndCall={handleEndCall} />

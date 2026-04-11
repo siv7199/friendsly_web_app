@@ -16,6 +16,7 @@ interface WaitingRoomProps {
   creatorName: string;
   creatorInitials: string;
   creatorColor: string;
+  creatorAvatarUrl?: string;
   creatorId: string;
   sessionId?: string;
   showQueueTab?: boolean;
@@ -36,6 +37,7 @@ export function WaitingRoom({
   creatorName,
   creatorInitials,
   creatorColor,
+  creatorAvatarUrl,
   creatorId,
   sessionId,
   showQueueTab = false,
@@ -75,7 +77,7 @@ export function WaitingRoom({
 
     supabase
       .from("live_chat_messages")
-      .select("*, profiles!user_id(username, avatar_initials, avatar_color, role)")
+      .select("*, profiles!user_id(username, avatar_initials, avatar_color, avatar_url, role)")
       .eq("session_id", resolvedSessionId)
       .order("created_at", { ascending: true })
       .limit(50)
@@ -86,6 +88,7 @@ export function WaitingRoom({
             username: `@${m.profiles.username}`,
             avatarInitials: m.profiles.avatar_initials,
             avatarColor: m.profiles.avatar_color,
+            avatarUrl: m.profiles.avatar_url ?? undefined,
             message: m.message,
             timestamp: m.created_at,
             isCreator: m.profiles.role === "creator",
@@ -103,7 +106,7 @@ export function WaitingRoom({
       }, async (payload: any) => {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("username, avatar_initials, avatar_color, role")
+          .select("username, avatar_initials, avatar_color, avatar_url, role")
           .eq("id", payload.new.user_id)
           .single();
 
@@ -115,6 +118,7 @@ export function WaitingRoom({
               username: `@${profile.username}`,
               avatarInitials: profile.avatar_initials,
               avatarColor: profile.avatar_color,
+              avatarUrl: profile.avatar_url ?? undefined,
               message: payload.new.message,
               timestamp: payload.new.created_at,
               isCreator: profile.role === "creator",
@@ -163,6 +167,7 @@ export function WaitingRoom({
       username: `@${user.username ?? "you"}`,
       avatarInitials: user.avatar_initials ?? "??",
       avatarColor: user.avatar_color ?? "bg-violet-600",
+      avatarUrl: user.avatar_url ?? undefined,
       message: messageText,
       timestamp: new Date().toISOString(),
       isCreator: user.role === "creator",
@@ -187,7 +192,7 @@ export function WaitingRoom({
     <div className="flex flex-col h-full bg-brand-surface rounded-2xl border border-brand-border overflow-hidden">
       <div className="px-5 py-4 border-b border-brand-border flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Avatar initials={creatorInitials} color={creatorColor} size="sm" isLive />
+          <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="sm" isLive />
           <div>
             <p className="text-sm font-bold text-slate-100">{creatorName} is Live</p>
             <p className="text-xs text-slate-400">
@@ -247,7 +252,7 @@ export function WaitingRoom({
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
             {messages.map((msg) => (
               <div key={msg.id} className="flex items-start gap-2.5">
-                <Avatar initials={msg.avatarInitials} color={msg.avatarColor} size="xs" className="mt-0.5 shrink-0" />
+                <Avatar initials={msg.avatarInitials} color={msg.avatarColor} imageUrl={msg.avatarUrl} size="xs" className="mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2">
                     <span className={cn("text-xs font-bold", msg.isCreator ? "text-brand-primary-light" : "text-slate-300")}>
@@ -297,7 +302,7 @@ export function WaitingRoom({
               <div className="w-6 h-6 rounded-full bg-brand-surface flex items-center justify-center shrink-0">
                 <span className="text-[11px] font-bold text-slate-400">{entry.position}</span>
               </div>
-              <Avatar initials={entry.avatarInitials} color={entry.avatarColor} size="xs" />
+              <Avatar initials={entry.avatarInitials} color={entry.avatarColor} imageUrl={entry.avatarUrl} size="xs" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-slate-200 truncate">{entry.fanUsername}</p>
                 {entry.topic && (

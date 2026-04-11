@@ -1,0 +1,4 @@
+ALTER TABLE public.creator_profiles
+ADD COLUMN IF NOT EXISTS instagram_url TEXT,
+ADD COLUMN IF NOT EXISTS tiktok_url TEXT,
+ADD COLUMN IF NOT EXISTS x_url TEXT;

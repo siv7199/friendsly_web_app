@@ -98,7 +98,7 @@ function LiveVideoStage({
           <span className={cn("text-xs font-semibold", creatorJoined ? "text-emerald-400" : "text-amber-400")}>
             {creatorJoined ? "Creator connected" : "Joining room..."}
           </span>
-          {currentFan ? (
+          {currentFan?.admittedAt ? (
             <span className="text-sm font-semibold text-brand-primary-light tabular-nums">
               {formatCountdown(activeFanRemainingSeconds)}
             </span>
@@ -315,7 +315,7 @@ export function LiveConsole() {
     async function fetchQueue(targetSid: string) {
       const { data } = await supabase
         .from("live_queue_entries")
-        .select("id, topic, joined_at, status, admitted_at, profiles:fan_id(full_name, username, avatar_initials, avatar_color)")
+        .select("id, topic, joined_at, status, admitted_at, profiles:fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)")
         .eq("session_id", targetSid)
         .in("status", ["waiting", "active"])
         .order("joined_at", { ascending: true });
@@ -334,6 +334,7 @@ export function LiveConsole() {
         fanUsername: `@${e.profiles.username}`,
         avatarInitials: e.profiles.avatar_initials,
         avatarColor: e.profiles.avatar_color,
+        avatarUrl: e.profiles.avatar_url ?? undefined,
         position: idx + 1,
         waitTime: "",
         waitSeconds: activeRemainingSeconds + (idx * MAX_LIVE_CALL_SECONDS),
@@ -349,6 +350,7 @@ export function LiveConsole() {
           fanUsername: `@${active.profiles.username}`,
           avatarInitials: active.profiles.avatar_initials,
           avatarColor: active.profiles.avatar_color,
+          avatarUrl: active.profiles.avatar_url ?? undefined,
           topic: active.topic || "Hi!",
           admittedAt: active.admitted_at,
         });
@@ -358,11 +360,26 @@ export function LiveConsole() {
     }
 
     fetchQueue(sessionId);
-    const channel = supabase.channel(`lq-${currentUser.id}-${sessionId}`).on("postgres_changes", { event: "*", schema: "public", table: "live_queue_entries", filter: `session_id=eq.${sessionId}` }, () => fetchQueue(sessionId)).subscribe();
-    const hb = setInterval(() => fetchQueue(sessionId), 5000);
+    const channel = supabase
+      .channel(`lq-${currentUser.id}-${sessionId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_queue_entries", filter: `session_id=eq.${sessionId}` }, () => fetchQueue(sessionId))
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions", filter: `id=eq.${sessionId}` }, () => fetchQueue(sessionId))
+      .subscribe();
+
+    function refreshIfVisible() {
+      if (document.visibilityState !== "visible") return;
+      if (!sessionId) return;
+      void fetchQueue(sessionId);
+    }
+
+    const hb = window.setInterval(refreshIfVisible, 15000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(hb);
+      window.clearInterval(hb);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
     };
   }, [user, sessionId]);
 
@@ -445,12 +462,18 @@ export function LiveConsole() {
         }
 
         if (sid) {
-          setRoomUrl(data.url);
-          setToken(data.token);
+          const heartbeatAt = new Date().toISOString();
+          await supabase
+            .from("live_sessions")
+            .update({ is_active: true, ended_at: null, last_heartbeat_at: heartbeatAt })
+            .eq("id", sid);
           await supabase
             .from("creator_profiles")
-            .update({ is_live: false, current_live_session_id: sid, scheduled_live_at: null, scheduled_live_timezone: null })
+            .update({ is_live: true, current_live_session_id: sid, scheduled_live_at: null, scheduled_live_timezone: null })
             .eq("id", user.id);
+
+          setRoomUrl(data.url);
+          setToken(data.token);
           setScheduledLiveAt("");
           setSessionState("live");
         }
@@ -464,12 +487,14 @@ export function LiveConsole() {
     if (queue.length === 0 || !user || !sessionId || finishingFanRef.current || !creatorJoined) return;
     const supabase = createClient();
     const nextFan = queue[0];
-    const admittedAt = new Date().toISOString();
     if (currentFan) {
       await finalizeQueueEntry(currentFan, "completed");
     }
-    const { error } = await supabase.from("live_queue_entries").update({ status: "active", admitted_at: admittedAt }).eq("id", nextFan.id);
-    if (!error) setCurrentFan({ ...nextFan, admittedAt });
+    const { error } = await supabase
+      .from("live_queue_entries")
+      .update({ status: "active", admitted_at: null })
+      .eq("id", nextFan.id);
+    if (!error) setCurrentFan({ ...nextFan, admittedAt: undefined });
   }
 
   async function endSession() {
@@ -507,7 +532,6 @@ export function LiveConsole() {
       .from("live_sessions")
       .update({ is_active: true, ended_at: null, last_heartbeat_at: new Date().toISOString() })
       .eq("id", activeSessionId);
-    await supabase.from("creator_profiles").update({ is_live: true, current_live_session_id: activeSessionId }).eq("id", user.id);
   }
 
   async function handleCreatorLeft() {
@@ -644,6 +668,7 @@ export function LiveConsole() {
                 creatorName={creatorName}
                 creatorInitials={creatorInitials}
                 creatorColor={creatorColor}
+                creatorAvatarUrl={user?.avatar_url ?? undefined}
                 creatorId={user?.id ?? ""}
                 sessionId={sessionId ?? undefined}
                 showQueueTab

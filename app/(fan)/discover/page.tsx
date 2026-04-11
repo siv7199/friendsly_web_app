@@ -29,6 +29,19 @@ const CATEGORIES = [
 
 const LIVE_SESSION_STALE_MS = 45000;
 
+function isSessionFresh(session: {
+  is_active?: boolean | null;
+  daily_room_url?: string | null;
+  last_heartbeat_at?: string | null;
+}) {
+  return Boolean(
+    session?.is_active &&
+    session?.daily_room_url &&
+    session?.last_heartbeat_at &&
+    Date.now() - new Date(session.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+  );
+}
+
 // ── Fetch all creators from Supabase ──────────────────────────────────────────
 
 async function fetchCreators(): Promise<Creator[]> {
@@ -37,7 +50,37 @@ async function fetchCreators(): Promise<Creator[]> {
   // Get all creator profiles with their base profile data
   const { data: profiles, error } = await supabase
     .from("profiles")
-    .select("*, creator_profiles(*), live_sessions(*)")
+    .select(`
+      id,
+      full_name,
+      username,
+      created_at,
+      avatar_initials,
+      avatar_color,
+      avatar_url,
+      creator_profiles(
+        bio,
+        category,
+        tags,
+        avg_rating,
+        live_rate_per_minute,
+        next_available,
+        booking_interval_minutes,
+        scheduled_live_at,
+        scheduled_live_timezone,
+        timezone,
+        current_live_session_id,
+        instagram_url,
+        tiktok_url,
+        x_url
+      ),
+      live_sessions(
+        id,
+        is_active,
+        daily_room_url,
+        last_heartbeat_at
+      )
+    `)
     .eq("role", "creator")
     .order("created_at", { ascending: false });
 
@@ -179,9 +222,12 @@ async function fetchCreators(): Promise<Creator[]> {
         responseTime: "",
         liveRatePerMinute: liveRate,
         scheduledLiveAt: cp?.scheduled_live_at ?? undefined,
-        scheduledLiveTimeZone: cp?.scheduled_live_timezone ?? cp?.timezone ?? undefined,
-        bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
-        isNew: isNewCreator(profile.created_at),
+      scheduledLiveTimeZone: cp?.scheduled_live_timezone ?? cp?.timezone ?? undefined,
+      bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
+      isNew: isNewCreator(profile.created_at),
+      instagramUrl: cp?.instagram_url ?? undefined,
+      tiktokUrl: cp?.tiktok_url ?? undefined,
+      xUrl: cp?.x_url ?? undefined,
       } satisfies Creator;
   });
 }
@@ -198,9 +244,11 @@ export default function DiscoverPage() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const refreshTimeoutsRef = useRef<number[]>([]);
+  const lastLoadAtRef = useRef(0);
 
   useEffect(() => {
     function load() {
+      lastLoadAtRef.current = Date.now();
       fetchCreators().then((data) => {
         setCreators(data);
         setLoading(false);
@@ -240,13 +288,49 @@ export default function DiscoverPage() {
         }
         scheduleRefreshes();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, scheduleRefreshes)
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, (payload: any) => {
+        const nextSession = payload.new ?? payload.old;
+        const creatorId = nextSession?.creator_id;
+
+        if (creatorId) {
+          const liveNow = payload.eventType !== "DELETE" && isSessionFresh(nextSession);
+          setCreators((prev) =>
+            prev.map((creator) =>
+              creator.id === creatorId
+                ? {
+                    ...creator,
+                    isLive: liveNow,
+                    currentLiveSessionId: liveNow ? nextSession.id : undefined,
+                    queueCount: liveNow ? creator.queueCount : 0,
+                  }
+                : creator
+            )
+          );
+        }
+
+        scheduleRefreshes();
+      })
       .subscribe();
-    const fallbackInterval = window.setInterval(load, 10000);
+
+    function refreshIfStale() {
+      if (Date.now() - lastLoadAtRef.current >= 60000) {
+        load();
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        refreshIfStale();
+      }
+    }
+
+    window.addEventListener("focus", refreshIfStale);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      window.clearInterval(fallbackInterval);
+      window.removeEventListener("focus", refreshIfStale);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(channels);
     };
   }, []);

@@ -14,6 +14,7 @@ import type { QueueEntry } from "@/types";
 import { Button } from "@/components/ui/button";
 
 const MAX_LIVE_CALL_SECONDS = 3 * 60;
+const QUEUE_FALLBACK_POLL_MS = 15000;
 
 function getCreator(id: string) {
   return (
@@ -42,11 +43,14 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   const userRef = useRef<any>(null);
   const missedSessionPollsRef = useRef(0);
   const selfLeavingRef = useRef(false);
+  const loadQueueRef = useRef<(() => Promise<void>) | null>(null);
+  const callEndedRef = useRef(false);
 
   useEffect(() => { inCallRef.current = inCall; }, [inCall]);
   useEffect(() => { creatorStateRef.current = creatorState; }, [creatorState]);
   useEffect(() => { liveSessionIdRef.current = liveSessionId; }, [liveSessionId]);
   useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { callEndedRef.current = Boolean(callEndedState); }, [callEndedState]);
 
   const applyReceipt = useCallback((nextReceipt: { durationSeconds: number; amountCharged: number } | null) => {
     setReceipt((currentReceipt) => {
@@ -63,20 +67,25 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     });
   }, []);
 
-  const hydrateLatestReceipt = useCallback(async () => {
+  const hydrateLatestReceipt = useCallback(async (sessionId?: string) => {
     const currentUser = userRef.current;
     if (!currentUser) return null;
 
     const supabase = createClient();
-    const { data: latestEndedEntry } = await supabase
+    let query = supabase
       .from("live_queue_entries")
       .select("duration_seconds, amount_charged, status, live_sessions!inner(creator_id)")
       .eq("fan_id", currentUser.id)
       .eq("live_sessions.creator_id", params.id)
       .in("status", ["completed", "skipped"])
       .order("ended_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+
+    if (sessionId) {
+      query = query.eq("session_id", sessionId);
+    }
+
+    const { data: latestEndedEntry } = await query.maybeSingle();
 
     if (!latestEndedEntry) return null;
 
@@ -92,6 +101,8 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   }, [applyReceipt, params.id]);
 
   const handleStatusChange = useCallback(async (status: string, _sessionId: string, url: string) => {
+    if (callEndedRef.current) return;
+
     if (status === "active" && !inCallRef.current) {
       const roomName = url.split("/").pop();
       try {
@@ -144,6 +155,8 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   }, []);
 
   const handleFanLeave = useCallback(async () => {
+    if (callEndedRef.current) return;
+
     selfLeavingRef.current = true;
     setInCall(false);
     setRoomUrl(null);
@@ -217,6 +230,8 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   }, [router]);
 
   const handleCreatorDisconnect = useCallback(async () => {
+    if (callEndedRef.current) return;
+
     selfLeavingRef.current = false;
     setInCall(false);
     setRoomUrl(null);
@@ -259,6 +274,25 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     });
   }, [applyReceipt]);
 
+  const handleFanJoinedRoom = useCallback(async () => {
+    const sid = liveSessionIdRef.current;
+    if (!sid) return;
+
+    try {
+      const res = await fetch("/api/live/mark-active-joined", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sid }),
+      });
+      const data = await res.json();
+      if (res.ok && data?.admittedAt) {
+        setActiveFanAdmittedAt(data.admittedAt);
+      }
+    } catch {
+      // Best effort. Realtime/polling will still reconcile the admitted_at timestamp.
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       const sid = liveSessionIdRef.current;
@@ -281,6 +315,8 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     const supabase = createClient();
 
     async function loadQueue() {
+      if (callEndedRef.current) return;
+
       let session: { id: string; daily_room_url: string | null } | null = null;
 
       const { data: activeSession } = await supabase
@@ -313,7 +349,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
 
       if (!session) {
         if (userRef.current) {
-          const latestEndedEntry = await hydrateLatestReceipt();
+          const latestEndedEntry = await hydrateLatestReceipt(liveSessionIdRef.current);
           if (latestEndedEntry) {
             setCallEndedState({
               type: latestEndedEntry.status === "skipped" ? "skipped" : "call",
@@ -357,7 +393,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
         .from("live_queue_entries")
         .select(`
           id, position, topic, joined_at, admitted_at, fan_id, status,
-          fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color)
+          fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
         `)
         .eq("session_id", session.id)
         .in("status", ["waiting", "active"])
@@ -368,7 +404,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       const active = data.find((entry: any) => entry.status === "active");
       const activeRemainingSeconds = active?.admitted_at
         ? Math.max(0, MAX_LIVE_CALL_SECONDS - Math.floor((Date.now() - new Date(active.admitted_at).getTime()) / 1000))
-        : 0;
+        : MAX_LIVE_CALL_SECONDS;
       setActiveFanAdmittedAt(active?.admitted_at ?? null);
 
       const waitingFans = data.filter((entry: any) => entry.status === "waiting");
@@ -380,6 +416,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
           fanUsername: `@${entry.fan.username}`,
           avatarInitials: entry.fan.avatar_initials,
           avatarColor: entry.fan.avatar_color,
+          avatarUrl: entry.fan.avatar_url ?? undefined,
           position: pos > 0 ? pos : 0,
           waitTime: "",
           waitSeconds: pos > 0 ? activeRemainingSeconds + ((pos - 1) * MAX_LIVE_CALL_SECONDS) : 0,
@@ -394,6 +431,12 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       setQueue(mapped);
 
       const myEntry = mapped.find((e: any) => e.fan_id === userRef.current?.id);
+      if (myEntry) {
+        if (callEndedRef.current) {
+          setCallEndedState(null);
+        }
+        setReceipt(null);
+      }
       if (!myEntry && userRef.current) {
         const { data: latestEndedEntry } = await supabase
           .from("live_queue_entries")
@@ -422,30 +465,62 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
         }
       }
 
-      setCallEndedState(null);
+      if (!callEndedRef.current) {
+        setCallEndedState(null);
+      }
       if (myEntry?.status === "active" && !inCallRef.current && session.daily_room_url) {
         handleStatusChange("active", session.id, session.daily_room_url);
       }
     }
 
+    loadQueueRef.current = loadQueue;
+
     loadQueue();
 
-    const heartbeat = setInterval(() => loadQueue(), 5000);
     const channel = supabase
-      .channel(`fan-queue:${params.id}-${liveSessionId || "init"}`)
+      .channel(`fan-queue:${params.id}`)
       .on("postgres_changes", {
         event: "*",
         schema: "public",
         table: "live_queue_entries",
-        filter: liveSessionId ? `session_id=eq.${liveSessionId}` : undefined,
+      }, () => loadQueue())
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "live_sessions",
+      }, () => loadQueue())
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "creator_profiles",
+        filter: `id=eq.${params.id}`,
       }, () => loadQueue())
       .subscribe();
 
     return () => {
+      loadQueueRef.current = null;
       supabase.removeChannel(channel);
-      clearInterval(heartbeat);
     };
   }, [user, params.id, liveSessionId, handleStatusChange]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    function runRefresh() {
+      if (document.visibilityState !== "visible") return;
+      void loadQueueRef.current?.();
+    }
+
+    const heartbeat = window.setInterval(runRefresh, QUEUE_FALLBACK_POLL_MS);
+    window.addEventListener("focus", runRefresh);
+    document.addEventListener("visibilitychange", runRefresh);
+
+    return () => {
+      window.clearInterval(heartbeat);
+      window.removeEventListener("focus", runRefresh);
+      document.removeEventListener("visibilitychange", runRefresh);
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -513,7 +588,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     let cancelled = false;
     (async () => {
       for (let attempt = 0; attempt < 5; attempt += 1) {
-        const latest = await hydrateLatestReceipt();
+        const latest = await hydrateLatestReceipt(liveSessionIdRef.current);
         if (cancelled) return;
         if (latest && (latest.receipt.durationSeconds > 0 || latest.receipt.amountCharged > 0)) {
           return;
@@ -600,9 +675,11 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             creatorName={creatorState.name}
             creatorInitials={creatorState.avatarInitials}
             creatorColor={creatorState.avatarColor}
+            creatorAvatarUrl={creatorState.avatarUrl}
             fanName={user?.full_name ?? "Fan"}
             onLeave={handleFanLeave}
             onDisconnect={handleCreatorDisconnect}
+            onJoin={handleFanJoinedRoom}
           />
         ) : (
           <WaitingRoom
@@ -615,6 +692,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             creatorName={creatorState.name}
             creatorInitials={creatorState.avatarInitials}
             creatorColor={creatorState.avatarColor}
+            creatorAvatarUrl={creatorState.avatarUrl}
             creatorId={params.id}
             sessionId={liveSessionId}
             activeFanAdmittedAt={activeFanAdmittedAt}

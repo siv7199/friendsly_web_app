@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   Star, Users, Video, Clock, ArrowLeft,
   CheckCircle2, Zap, Calendar,
-  TrendingUp, Shield, ChevronLeft, ChevronRight, Send, Loader2,
+  TrendingUp, Shield, ChevronLeft, ChevronRight, Send, Loader2, ExternalLink, Instagram, Music2,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -25,11 +25,25 @@ import {
   localDateKey,
 } from "@/lib/timezones";
 import { isNewCreator } from "@/lib/creators";
+import { getSocialHandleLabel, sanitizeSocialUrl } from "@/lib/social";
 
 // ── Availability Calendar helpers ─────────────────────────────────────────────
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LIVE_SESSION_STALE_MS = 45000;
+
+function isSessionFresh(session: {
+  is_active?: boolean | null;
+  daily_room_url?: string | null;
+  last_heartbeat_at?: string | null;
+}) {
+  return Boolean(
+    session?.is_active &&
+    session?.daily_room_url &&
+    session?.last_heartbeat_at &&
+    Date.now() - new Date(session.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+  );
+}
 
 function getWeekDates(offset = 0): Date[] {
   const today = new Date();
@@ -187,6 +201,9 @@ async function fetchCreatorData(id: string): Promise<{
       timeZone: cp?.timezone ?? "America/New_York",
       bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
       isNew: isNewCreator(profile.created_at),
+      instagramUrl: cp?.instagram_url ?? undefined,
+      tiktokUrl: cp?.tiktok_url ?? undefined,
+      xUrl: cp?.x_url ?? undefined,
   };
 
   return {
@@ -204,6 +221,7 @@ interface Review {
   fan: string;
   initials: string;
   color: string;
+  imageUrl?: string;
   rating: number;
   comment: string;
   date: string;
@@ -230,45 +248,49 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [canReview, setCanReview] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const refreshTimeoutsRef = useRef<number[]>([]);
+  const lastLoadAtRef = useRef(0);
+
+  const loadCreatorData = useCallback((supabase = createClient(), incrementProfileView = false) => {
+    lastLoadAtRef.current = Date.now();
+    fetchCreatorData(params.id).then(({ creator, packages, availability }) => {
+      if (!creator) {
+        setLoading(false);
+        return;
+      }
+
+      setCreator(creator);
+      setActivePackages(packages);
+      setAvailability(availability);
+      setLoading(false);
+
+      if (incrementProfileView) {
+        supabase.rpc("increment_profile_views", { creator_uuid: creator.id }).then();
+      }
+    });
+  }, [params.id]);
 
   useEffect(() => {
     const supabase = createClient();
     let incrementedProfileView = false;
 
-    function loadCreatorData() {
-      fetchCreatorData(params.id).then(({ creator, packages, availability }) => {
-        if (!creator) {
-          setLoading(false);
-          return;
-        }
-
-        setCreator(creator);
-        setActivePackages(packages);
-        setAvailability(availability);
-        setLoading(false);
-
-        if (!incrementedProfileView) {
-          incrementedProfileView = true;
-          supabase.rpc("increment_profile_views", { creator_uuid: creator.id }).then();
-        }
-      });
-    }
-
     function scheduleRefreshes() {
       refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
       refreshTimeoutsRef.current = [
-        window.setTimeout(loadCreatorData, 500),
-        window.setTimeout(loadCreatorData, 1800),
+        window.setTimeout(() => loadCreatorData(supabase), 500),
+        window.setTimeout(() => loadCreatorData(supabase), 1800),
       ];
     }
 
-    loadCreatorData();
+    loadCreatorData(supabase, !incrementedProfileView);
+    incrementedProfileView = true;
 
     // Load reviews from Supabase
     supabase
       .from("reviews")
-      .select("id, rating, comment, created_at, fan:profiles!fan_id(full_name, avatar_initials, avatar_color)")
+      .select("id, rating, comment, created_at, fan:profiles!fan_id(full_name, avatar_initials, avatar_color, avatar_url)")
       .eq("creator_id", params.id)
       .order("created_at", { ascending: false })
       .limit(10)
@@ -283,6 +305,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               fan: (fan as { full_name: string })?.full_name ?? "Fan",
               initials: (fan as { avatar_initials: string })?.avatar_initials ?? "F",
               color: (fan as { avatar_color: string })?.avatar_color ?? "bg-violet-500",
+              imageUrl: (fan as { avatar_url?: string | null })?.avatar_url ?? undefined,
               rating: r.rating,
               comment: r.comment ?? "",
               date: new Date(r.created_at).toLocaleDateString("en-US", {
@@ -292,6 +315,19 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           }));
         }
       });
+
+    if (user?.role === "fan" && user.id !== params.id) {
+      fetch(`/api/reviews?creatorId=${encodeURIComponent(params.id)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setCanReview(Boolean(data?.canReview));
+        })
+        .catch(() => {
+          setCanReview(false);
+        });
+    } else {
+      setCanReview(false);
+    }
 
     const realtimeChannel = supabase
       .channel(`fan_profile_${params.id}`)
@@ -318,46 +354,86 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "live_sessions", filter: `creator_id=eq.${params.id}` },
-        scheduleRefreshes
+        (payload: any) => {
+          const nextSession = payload.new ?? payload.old;
+          const liveNow = payload.eventType !== "DELETE" && isSessionFresh(nextSession);
+
+          setCreator((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  isLive: liveNow,
+                  currentLiveSessionId: liveNow ? nextSession?.id : undefined,
+                  queueCount: liveNow ? prev.queueCount : 0,
+                }
+              : prev
+          );
+
+          scheduleRefreshes();
+        }
       )
       .subscribe();
-    const fallbackInterval = window.setInterval(loadCreatorData, 10000);
+
+    function refreshIfStale() {
+      if (Date.now() - lastLoadAtRef.current >= 60000) {
+        loadCreatorData(supabase);
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        refreshIfStale();
+      }
+    }
+
+    window.addEventListener("focus", refreshIfStale);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      window.clearInterval(fallbackInterval);
+      window.removeEventListener("focus", refreshIfStale);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(realtimeChannel);
     };
-  }, [params.id]);
+  }, [loadCreatorData, params.id, user?.id, user?.role]);
 
   // ── Review submission ─────────────────────────────────────────────────────
   async function handleSubmitReview() {
     if (!user || reviewRating === 0 || !reviewComment.trim()) return;
     setSubmittingReview(true);
-    const supabase = createClient();
-    const { error } = await supabase.from("reviews").insert({
-      creator_id: params.id,
-      fan_id: user.id,
-      rating: reviewRating,
-      comment: reviewComment.trim(),
+    setReviewError(null);
+    const res = await fetch("/api/reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        creatorId: params.id,
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      }),
     });
-    if (!error) {
+    const data = await res.json();
+
+    if (res.ok && data.review) {
       setReviews((prev) => [
         {
-          id: crypto.randomUUID(),
+          id: data.review.id,
           fan: user.full_name ?? "You",
           initials: user.avatar_initials ?? "?",
           color: user.avatar_color ?? "bg-violet-600",
+          imageUrl: user.avatar_url ?? undefined,
           rating: reviewRating,
           comment: reviewComment.trim(),
-          date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          date: new Date(data.review.created_at ?? Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         },
         ...prev,
       ]);
+      setCanReview(false);
       setReviewRating(0);
       setReviewComment("");
       setReviewSubmitted(true);
       setTimeout(() => setReviewSubmitted(false), 3000);
+    } else {
+      setReviewError(data?.error ?? "You can only leave a review after a completed booking, once per booking.");
     }
     setSubmittingReview(false);
   }
@@ -427,6 +503,27 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     packageId: availabilityPackageId === "all" ? undefined : availabilityPackageId,
   }));
 
+  const socialLinks = [
+    {
+      key: "instagram",
+      label: "Instagram",
+      href: sanitizeSocialUrl(creator.instagramUrl ?? ""),
+      icon: Instagram,
+    },
+    {
+      key: "tiktok",
+      label: "TikTok",
+      href: sanitizeSocialUrl(creator.tiktokUrl ?? ""),
+      icon: Music2,
+    },
+    {
+      key: "x",
+      label: "X",
+      href: sanitizeSocialUrl(creator.xUrl ?? ""),
+      icon: ExternalLink,
+    },
+  ].filter((link) => link.href);
+
   return (
     <>
       <div className="px-4 md:px-8 py-6 max-w-4xl mx-auto space-y-6">
@@ -475,6 +572,23 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
             {creator.bio && (
               <p className="mt-4 text-slate-300 leading-relaxed">{creator.bio}</p>
+            )}
+
+            {socialLinks.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {socialLinks.map(({ key, label, href, icon: Icon }) => (
+                  <a
+                    key={key}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-brand-elevated px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-brand-primary/50 hover:text-slate-100"
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    <span>{getSocialHandleLabel(href) || label}</span>
+                  </a>
+                ))}
+              </div>
             )}
 
             <div className="flex flex-wrap gap-2 mt-4">
@@ -826,7 +940,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           ) : (
             <div className="space-y-4">
               {/* Review form — only for fans viewing someone else's profile */}
-              {isFan && !isOwnProfile && (
+              {isFan && !isOwnProfile && canReview && (
                 <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
                   {reviewSubmitted ? (
                     <div className="flex items-center gap-2 text-brand-live">
@@ -836,6 +950,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   ) : (
                     <div className="space-y-3">
                       <p className="text-sm font-semibold text-slate-200">Leave a review</p>
+                      {reviewError && (
+                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                          {reviewError}
+                        </div>
+                      )}
                       {/* Star rating */}
                       <div className="flex items-center gap-1">
                         {[1, 2, 3, 4, 5].map((n) => (
@@ -892,6 +1011,15 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </div>
               )}
 
+              {isFan && !isOwnProfile && !canReview && !reviewSubmitted && (
+                <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
+                  <p className="text-sm font-semibold text-slate-200">Reviews unlocked after completed sessions</p>
+                  <p className="mt-1 text-sm text-slate-400">
+                    You can leave one review for each completed booking that you have not already reviewed.
+                  </p>
+                </div>
+              )}
+
               {/* Review list */}
               {reviews.length === 0 && (
                 <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 text-center">
@@ -903,7 +1031,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               {reviews.map((review) => (
                 <div key={review.id} className="rounded-2xl border border-brand-border bg-brand-surface p-5">
                   <div className="flex items-start gap-3">
-                    <Avatar initials={review.initials} color={review.color} size="sm" />
+                    <Avatar initials={review.initials} color={review.color} imageUrl={review.imageUrl} size="sm" />
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold text-slate-100">{review.fan}</p>

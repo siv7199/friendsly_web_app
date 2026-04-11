@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { CalendarDays, Clock, CheckCircle2, Loader2 } from "lucide-react";
 import { BookingList } from "@/components/creator/BookingList";
+import { WeeklyAvailabilityEditor } from "@/components/creator/WeeklyAvailabilityEditor";
 import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/utils";
-import { deriveBookingStatus, hasBookingEnded } from "@/lib/bookings";
+import { deriveBookingStatus, getNextBookingRefreshDelay, hasBookingEnded, shouldAutoCancelBooking } from "@/lib/bookings";
+import { localDateKey } from "@/lib/timezones";
 import type { Booking } from "@/types";
 
 function groupByDate(bookings: Booking[]) {
@@ -20,7 +22,7 @@ function groupByDate(bookings: Booking[]) {
 }
 
 function formatGroupDate(dateStr: string) {
-  const date = new Date(dateStr);
+  const date = new Date(`${dateStr}T12:00:00`);
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
@@ -35,17 +37,20 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [upcoming, setUpcoming] = useState<Booking[]>([]);
   const [completed, setCompleted] = useState<Booking[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
 
   async function handleCancelBooking(booking: Booking) {
     setCancellingBookingId(booking.id);
-    const supabase = createClient();
-    await supabase
-      .from("bookings")
-      .update({ status: "cancelled" })
-      .eq("id", booking.id);
+    const res = await fetch(`/api/bookings/${booking.id}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "manual" }),
+    });
 
-    setUpcoming((prev) => prev.filter((item) => item.id !== booking.id));
+    if (res.ok) {
+      setUpcoming((prev) => prev.filter((item) => item.id !== booking.id));
+    }
     setCancellingBookingId(null);
   }
 
@@ -55,12 +60,36 @@ export default function CalendarPage() {
     const supabase = createClient();
     const creatorId = user.id;
     const creatorName = user.full_name || "Creator";
+    let refreshTimer: number | null = null;
 
     async function loadBookings() {
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+        refreshTimer = null;
+      }
+
+      const { data: packageData } = await supabase
+        .from("call_packages")
+        .select("id, name, duration, price, description, is_active, bookings_count")
+        .eq("creator_id", creatorId)
+        .order("created_at");
+
+      setPackages(
+        (packageData ?? []).map((pkg: any) => ({
+          id: pkg.id,
+          name: pkg.name,
+          duration: pkg.duration,
+          price: Number(pkg.price),
+          description: pkg.description,
+          isActive: pkg.is_active,
+          bookingsCount: pkg.bookings_count ?? 0,
+        }))
+      );
+
       const { data } = await supabase
         .from("bookings")
         .select(`
-          id, scheduled_at, duration, price, status, topic,
+          id, scheduled_at, duration, price, status, topic, creator_present, fan_present,
           fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
         `)
         .eq("creator_id", creatorId)
@@ -68,10 +97,18 @@ export default function CalendarPage() {
 
       const now = new Date();
       const expiredIds: string[] = [];
+      const cancelledIds: string[] = [];
 
       const mappedBookings: Booking[] = (data ?? []).map((booking: any) => {
         const fan = Array.isArray(booking.fan) ? booking.fan[0] : booking.fan;
-        const normalizedStatus = deriveBookingStatus(booking.status, booking.scheduled_at, booking.duration, now);
+        const normalizedStatus = deriveBookingStatus(
+          booking.status,
+          booking.scheduled_at,
+          booking.duration,
+          now,
+          booking.creator_present,
+          booking.fan_present
+        );
 
         if (
           normalizedStatus === "completed" &&
@@ -79,6 +116,13 @@ export default function CalendarPage() {
           hasBookingEnded(booking.scheduled_at, booking.duration, now)
         ) {
           expiredIds.push(booking.id);
+        }
+        if (
+          normalizedStatus === "cancelled" &&
+          booking.status !== "cancelled" &&
+          shouldAutoCancelBooking(booking.status, booking.scheduled_at, booking.creator_present, booking.fan_present, now)
+        ) {
+          cancelledIds.push(booking.id);
         }
 
         const bookingDate = new Date(booking.scheduled_at);
@@ -91,7 +135,7 @@ export default function CalendarPage() {
           fanInitials: fan?.avatar_initials ?? "F",
           fanAvatarColor: fan?.avatar_color ?? "bg-violet-600",
           fanAvatarUrl: fan?.avatar_url ?? undefined,
-          date: bookingDate.toISOString().split("T")[0],
+          date: localDateKey(bookingDate),
           time: bookingDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
           duration: booking.duration,
           price: Number(booking.price) * 0.85,
@@ -106,6 +150,31 @@ export default function CalendarPage() {
           .update({ status: "completed" })
           .in("id", expiredIds);
       }
+      if (cancelledIds.length > 0) {
+        await supabase
+          .from("bookings")
+          .update({
+            status: "cancelled",
+            creator_present: false,
+            fan_present: false,
+            auto_cancelled_at: now.toISOString(),
+          })
+            .in("id", cancelledIds);
+      }
+
+      const nextDelay = getNextBookingRefreshDelay(
+        mappedBookings.map((booking) => ({
+          status: booking.status,
+          scheduledAt: `${booking.date} ${booking.time}`,
+          duration: booking.duration,
+        })),
+        now
+      );
+      if (nextDelay) {
+        refreshTimer = window.setTimeout(() => {
+          void loadBookings();
+        }, nextDelay);
+      }
 
       setUpcoming(mappedBookings.filter((booking) => booking.status === "upcoming" || booking.status === "live"));
       setCompleted(mappedBookings.filter((booking) => booking.status === "completed"));
@@ -113,6 +182,33 @@ export default function CalendarPage() {
     }
 
     loadBookings();
+
+    function refreshIfVisible() {
+      if (document.visibilityState !== "visible") return;
+      void loadBookings();
+    }
+
+    const channel = supabase
+      .channel(`creator-calendar-${creatorId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "bookings",
+        filter: `creator_id=eq.${creatorId}`,
+      }, () => {
+        void loadBookings();
+      })
+      .subscribe();
+
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const groupedUpcoming = groupByDate(upcoming);
@@ -123,8 +219,15 @@ export default function CalendarPage() {
     <div className="px-4 md:px-8 py-6 max-w-4xl mx-auto space-y-8">
       <div>
         <h1 className="text-3xl font-black text-slate-100">Calendar</h1>
-        <p className="text-slate-400 mt-1">Your upcoming and completed sessions.</p>
+        <p className="text-slate-400 mt-1">Your availability plus upcoming and completed sessions.</p>
       </div>
+
+      {user && (
+        <WeeklyAvailabilityEditor
+          creatorId={user.id}
+          packages={packages}
+        />
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[

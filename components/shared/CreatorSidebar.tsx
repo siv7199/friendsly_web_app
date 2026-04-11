@@ -14,11 +14,11 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   BarChart3,
+  DollarSign,
   Settings2,
   CalendarDays,
   Radio,
   Sparkles,
-  DollarSign,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -27,9 +27,6 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { isCreatorProfile } from "@/types";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { formatCurrency } from "@/lib/utils";
 
 const NAV_ITEMS = [
   {
@@ -42,6 +39,12 @@ const NAV_ITEMS = [
     label: "Analytics",
     href: "/analytics",
     icon: BarChart3,
+    badge: null,
+  },
+  {
+    label: "Earnings",
+    href: "/earnings",
+    icon: DollarSign,
     badge: null,
   },
   {
@@ -61,7 +64,7 @@ const NAV_ITEMS = [
     href: "/live",
     icon: Radio,
     badge: null,
-    highlight: true, // special styling
+    highlight: true,
   },
 ];
 
@@ -69,56 +72,8 @@ export function CreatorSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthContext();
-  const [thisMonthEarnings, setThisMonthEarnings] = useState(0);
-  const [loadingEarnings, setLoadingEarnings] = useState(true);
 
   const isLive = user && isCreatorProfile(user) ? user.is_live : false;
-
-  useEffect(() => {
-    if (!user) return;
-    const currentUser = user;
-    const supabase = createClient();
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-
-    async function loadEarnings() {
-      const [bookingsRes, liveRes] = await Promise.all([
-        supabase
-          .from("bookings")
-          .select("price, scheduled_at, status")
-          .eq("creator_id", currentUser.id)
-          .gte("scheduled_at", startOfMonth),
-        supabase
-          .from("live_sessions")
-          .select("live_queue_entries(amount_charged, ended_at, status)")
-          .eq("creator_id", currentUser.id),
-      ]);
-
-      let monthlyGross = 0;
-
-      (bookingsRes.data || []).forEach((booking: any) => {
-        if ((booking.status === "completed" || booking.status === "upcoming") && booking.price) {
-          monthlyGross += Number(booking.price);
-        }
-      });
-
-      (liveRes.data || []).forEach((session: any) => {
-        if (!Array.isArray(session.live_queue_entries)) return;
-        session.live_queue_entries.forEach((entry: any) => {
-          if (!entry.amount_charged || !entry.ended_at) return;
-          const endedAt = new Date(entry.ended_at);
-          if (endedAt.getMonth() === now.getMonth() && endedAt.getFullYear() === now.getFullYear()) {
-            monthlyGross += Number(entry.amount_charged);
-          }
-        });
-      });
-
-      setThisMonthEarnings(monthlyGross * 0.85);
-      setLoadingEarnings(false);
-    }
-
-    loadEarnings();
-  }, [user]);
 
   async function handleLogout() {
     await logout();
@@ -127,7 +82,6 @@ export function CreatorSidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-64 min-h-screen bg-brand-surface border-r border-brand-border shrink-0">
-      {/* ── Logo ── */}
       <div className="px-6 py-5 border-b border-brand-border">
         <Link href="/" className="flex items-center gap-2 group">
           <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
@@ -144,7 +98,6 @@ export function CreatorSidebar() {
         </div>
       </div>
 
-      {/* ── Navigation ── */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
@@ -158,8 +111,8 @@ export function CreatorSidebar() {
                 isActive
                   ? "bg-brand-primary/20 text-brand-primary-light border border-brand-primary/20"
                   : item.highlight
-                  ? "text-brand-live hover:bg-brand-live/10 border border-transparent hover:border-brand-live/20"
-                  : "text-slate-400 hover:text-slate-100 hover:bg-brand-elevated border border-transparent"
+                    ? "text-brand-live hover:bg-brand-live/10 border border-transparent hover:border-brand-live/20"
+                    : "text-slate-400 hover:text-slate-100 hover:bg-brand-elevated border border-transparent"
               )}
             >
               <Icon
@@ -183,31 +136,6 @@ export function CreatorSidebar() {
         })}
       </nav>
 
-      {/* ── Earnings Snapshot ── */}
-      <div className="mx-3 mb-3 p-4 rounded-xl bg-brand-elevated border border-brand-border">
-        <div className="flex items-center gap-2 mb-3">
-          <DollarSign className="w-4 h-4 text-brand-gold" />
-          <span className="text-xs font-semibold text-slate-300">This Month</span>
-        </div>
-        {loadingEarnings ? (
-          <>
-            <div className="text-2xl font-black text-gradient-gold">$0</div>
-            <div className="text-xs text-slate-500 mt-1">Loading...</div>
-          </>
-        ) : thisMonthEarnings > 0 ? (
-          <>
-            <div className="text-2xl font-black text-gradient-gold">{formatCurrency(thisMonthEarnings)}</div>
-            <div className="text-xs text-brand-live mt-1">Earnings this month</div>
-          </>
-        ) : (
-          <>
-            <div className="text-2xl font-black text-gradient-gold">$0</div>
-            <div className="text-xs text-slate-500 mt-1">No earnings yet</div>
-          </>
-        )}
-      </div>
-
-      {/* ── Creator Profile ── */}
       <div className="px-3 pb-4 border-t border-brand-border pt-4">
         <div className="flex items-center gap-3">
           <Avatar
