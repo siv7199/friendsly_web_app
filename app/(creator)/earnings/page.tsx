@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { CreditCard, DollarSign, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,8 +43,7 @@ const EMPTY_CONNECT_STATE: StripeConnectState = {
 };
 
 export default function EarningsPage() {
-  const searchParams = useSearchParams();
-  const stripeQueryState = searchParams.get("stripe") ?? "";
+  const [stripeQueryState, setStripeQueryState] = useState("");
   const { user } = useAuthContext();
   const [earnings, setEarnings] = useState<EarningsState>(EMPTY_EARNINGS);
   const [payouts, setPayouts] = useState<any[]>([]);
@@ -57,6 +55,11 @@ export default function EarningsPage() {
   const [payoutError, setPayoutError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const lastStatusLoadKeyRef = useRef<string>("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setStripeQueryState(params.get("stripe") ?? "");
+  }, []);
 
   useEffect(() => {
     if (!user || !isCreatorProfile(user)) return;

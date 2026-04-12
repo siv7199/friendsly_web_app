@@ -84,6 +84,8 @@ export default function DashboardPage() {
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
   const [smartInsights, setSmartInsights] = useState<CreatorInsight[]>([]);
   const [activePackageCount, setActivePackageCount] = useState(0);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [clientOrigin, setClientOrigin] = useState("");
 
   async function handleCancelBooking(booking: any) {
     const bookingId = booking.id;
@@ -106,6 +108,18 @@ export default function DashboardPage() {
     }
     setCancellingBookingId(null);
   }
+
+  async function handleCopyShareLink() {
+    if (!user?.username) return;
+    const shareUrl = `${window.location.origin}/book/${user.username}`;
+    await navigator.clipboard.writeText(shareUrl);
+    setCopiedShareLink(true);
+    window.setTimeout(() => setCopiedShareLink(false), 1600);
+  }
+
+  useEffect(() => {
+    setClientOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -510,6 +524,21 @@ export default function DashboardPage() {
 
         {/* Quick actions + profile card */}
         <div className="space-y-4">
+          <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-primary-light">Shareable Booking Link</p>
+            <p className="mt-2 text-sm text-slate-300">
+              Send fans straight to your public booking page with one link.
+            </p>
+            <div className="mt-4 rounded-xl border border-brand-border bg-brand-elevated px-3 py-3 text-xs text-slate-300 break-all">
+              {clientOrigin && user?.username ? `${clientOrigin}/book/${user.username}` : `/book/${user?.username ?? ""}`}
+            </div>
+            <div className="mt-4 flex gap-3">
+              <Button variant="gold" className="w-full" onClick={() => void handleCopyShareLink()} disabled={!user?.username}>
+                {copiedShareLink ? "Copied" : "Copy link"}
+              </Button>
+            </div>
+          </div>
+
           {/* Profile card */}
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
             <div className="flex items-center gap-3 mb-4">

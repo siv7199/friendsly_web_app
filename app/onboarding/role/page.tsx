@@ -9,7 +9,7 @@
  */
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Users, Sparkles, Zap, CheckCircle2, ShieldCheck } from "lucide-react";
 import { useAuthContext } from "@/lib/context/AuthContext";
@@ -45,17 +45,23 @@ const ROLE_OPTIONS = [
 export default function RoleSelectionPage() {
   const router = useRouter();
   const { user, setRole, isLoading } = useAuthContext();
+  const [next, setNext] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setNext(params.get("next"));
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
-    if (user?.role === "fan") router.replace("/discover");
+    if (user?.role === "fan") router.replace(next || "/discover");
     else if (user?.role === "creator") router.replace("/dashboard");
     else if (!user) router.replace("/");
-  }, [user, isLoading, router]);
+  }, [user, isLoading, next, router]);
 
   async function handleFanSelect() {
     await setRole("fan");
-    router.push("/onboarding/fan-setup");
+    router.push(next ? `/onboarding/fan-setup?next=${encodeURIComponent(next)}` : "/onboarding/fan-setup");
   }
 
   return (

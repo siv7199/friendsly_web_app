@@ -252,12 +252,27 @@ export function useAuth() {
   }, []);
 
   // ── signup ────────────────────────────────────────────────────────────────
-  const signup = useCallback(async (email: string, password: string, full_name: string): Promise<void> => {
+  const signup = useCallback(async (
+    email: string,
+    password: string,
+    full_name: string,
+    nextPath?: string | null
+  ): Promise<void> => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
       const supabase = createClient();
+      const redirectUrl = typeof window !== "undefined"
+        ? `${window.location.origin}/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`
+        : undefined;
       const { data, error } = await Promise.race([
-        supabase.auth.signUp({ email, password, options: { data: { full_name } } }),
+        supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name },
+            emailRedirectTo: redirectUrl,
+          },
+        }),
         new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Request timed out — check your connection.")), 8000)),
       ]);
       if (error) {

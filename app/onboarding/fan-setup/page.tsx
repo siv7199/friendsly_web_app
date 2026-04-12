@@ -5,7 +5,7 @@
  * Confirm username + pick avatar color → /discover
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Compass, Loader2, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,12 @@ const AVATAR_COLORS = [
 export default function FanSetupPage() {
   const router = useRouter();
   const { user, updateProfile } = useAuthContext();
+  const [next, setNext] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setNext(params.get("next"));
+  }, []);
 
   const [username, setUsername] = useState(user?.username ?? "");
   const [avatarColor, setAvatarColor] = useState(user?.avatar_color ?? "bg-violet-600");
@@ -54,7 +60,7 @@ export default function FanSetupPage() {
       avatar_color: avatarColor,
       avatar_url: avatarUrl,
     });
-    router.push("/discover");
+    router.push(next || "/discover");
   }
 
   async function handleAvatarSelected(file?: File | null) {

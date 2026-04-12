@@ -235,6 +235,12 @@ export default function BookingsPage() {
       <div>
         <h1 className="text-3xl font-black text-slate-100">My Bookings</h1>
         <p className="text-slate-400 mt-1">Manage your upcoming and past sessions.</p>
+        <p className="text-xs text-slate-500 mt-2">
+          Refund policy: cancel more than 24 hours before the call for a full refund. Cancel within 24 hours for a 50% refund.
+        </p>
+        <p className="text-xs text-slate-500 mt-1">
+          Auto-cancel after 5 minutes: if nobody joins, you get a full refund. If only the creator joins, you get a 50% refund. If only you join, you get a full refund.
+        </p>
       </div>
 
       {/* Tabs */}
@@ -411,16 +417,24 @@ export default function BookingsPage() {
                     {(booking.status === "upcoming" || booking.status === "live") && (
                       <div className="flex gap-2 mt-3">
                         {booking.status === "upcoming" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCancel(booking.id)}
-                            disabled={cancellingId === booking.id}
-                            className="gap-1.5 text-red-400 border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40"
-                          >
-                            <XCircle className="w-3.5 h-3.5" />
-                            {cancellingId === booking.id ? "Cancelling..." : "Cancel"}
-                          </Button>
+                          <div className="flex flex-col gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCancel(booking.id)}
+                              disabled={cancellingId === booking.id}
+                              className="gap-1.5 text-red-400 border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              {cancellingId === booking.id ? "Cancelling..." : "Cancel"}
+                            </Button>
+                            <p className="text-[11px] text-slate-500">
+                              Full refund until 24h before. 50% refund after that.
+                            </p>
+                            <p className="text-[11px] text-slate-500">
+                              Auto-cancel after 5 minutes: nobody joins = full refund, creator no-show = full refund, fan no-show = 50% refund.
+                            </p>
+                          </div>
                         )}
                         {isJoinable && (
                           <Link href={`/room/${booking.id}`}>

@@ -1,0 +1,92 @@
+import { NextResponse } from "next/server";
+import { createServiceClient } from "@/lib/supabase/server";
+
+const LIVE_SESSION_STALE_MS = 45000;
+
+export async function GET(
+  _request: Request,
+  { params }: { params: { creatorSlug: string } }
+) {
+  try {
+    const creatorSlug = params.creatorSlug?.trim().toLowerCase();
+    if (!creatorSlug) {
+      return NextResponse.json({ error: "Missing creator slug." }, { status: 400 });
+    }
+
+    const supabase = createServiceClient();
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*, creator_profiles(*), live_sessions(*)")
+      .eq("role", "creator")
+      .eq("username", creatorSlug)
+      .single();
+
+    if (!profile) {
+      return NextResponse.json({ error: "Creator not found." }, { status: 404 });
+    }
+
+    const [packagesRes, availabilityRes] = await Promise.all([
+      supabase
+        .from("call_packages")
+        .select("*")
+        .eq("creator_id", profile.id)
+        .eq("is_active", true)
+        .order("price"),
+      supabase
+        .from("creator_availability")
+        .select("id, day_of_week, start_time, end_time, package_id")
+        .eq("creator_id", profile.id)
+        .eq("is_active", true)
+        .order("day_of_week"),
+    ]);
+
+    const cp = Array.isArray(profile.creator_profiles)
+      ? profile.creator_profiles[0]
+      : profile.creator_profiles;
+    const sessions = Array.isArray(profile.live_sessions) ? profile.live_sessions : [];
+    const activeSession = sessions.find(
+      (s: any) =>
+        s?.is_active === true &&
+        !!s?.daily_room_url &&
+        !!s?.last_heartbeat_at &&
+        Date.now() - new Date(s.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+    ) ?? null;
+
+    return NextResponse.json({
+      creator: {
+        id: profile.id,
+        slug: profile.username,
+        name: profile.full_name,
+        username: profile.username,
+        bio: cp?.bio ?? "",
+        category: cp?.category ?? "",
+        avatarInitials: profile.avatar_initials,
+        avatarColor: profile.avatar_color,
+        avatarUrl: profile.avatar_url ?? undefined,
+        timeZone: cp?.timezone ?? "America/New_York",
+        bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
+        liveRatePerMinute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : null,
+        isLive: Boolean(activeSession),
+      },
+      packages: (packagesRes.data ?? []).map((pkg: any) => ({
+        id: pkg.id,
+        name: pkg.name,
+        description: pkg.description ?? "",
+        duration: Number(pkg.duration),
+        price: Number(pkg.price),
+        isActive: Boolean(pkg.is_active),
+      })),
+      availability: (availabilityRes.data ?? []).map((slot: any) => ({
+        id: slot.id,
+        day_of_week: slot.day_of_week,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        package_id: slot.package_id ?? null,
+      })),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not load creator.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

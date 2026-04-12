@@ -29,6 +29,8 @@ type Tab = "signin" | "signup";
 export default function AuthPage() {
   const router = useRouter();
   const { login, signup, isAuthenticated, user, isLoading, error } = useAuthContext();
+  const [next, setNext] = useState<string | null>(null);
+  const [requestedTab, setRequestedTab] = useState<Tab | null>(null);
 
   const [tab, setTab] = useState<Tab>("signin");
   const [showPassword, setShowPassword] = useState(false);
@@ -45,9 +47,23 @@ export default function AuthPage() {
   // Redirect already-authenticated users immediately
   useEffect(() => {
     if (!isLoading && isAuthenticated && user?.role) {
-      router.replace(user.role === "creator" ? "/dashboard" : "/discover");
+      router.replace(user.role === "creator" ? "/dashboard" : (next || "/discover"));
     }
-  }, [isAuthenticated, user, isLoading, router]);
+  }, [isAuthenticated, user, isLoading, next, router]);
+
+  useEffect(() => {
+    if (requestedTab === "signin" || requestedTab === "signup") {
+      setTab(requestedTab);
+    }
+  }, [requestedTab]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nextValue = params.get("next");
+    const tabValue = params.get("tab");
+    setNext(nextValue);
+    setRequestedTab(tabValue === "signup" ? "signup" : tabValue === "signin" ? "signin" : null);
+  }, []);
 
   async function handleSignIn(e: FormEvent) {
     e.preventDefault();
@@ -57,8 +73,8 @@ export default function AuthPage() {
 
   async function handleSignUp(e: FormEvent) {
     e.preventDefault();
-    await signup(suEmail, suPassword, suName);
-    router.push("/onboarding/role");
+    await signup(suEmail, suPassword, suName, next);
+    router.push(next ? `/onboarding/role?next=${encodeURIComponent(next)}` : "/onboarding/role");
   }
 
   return (
