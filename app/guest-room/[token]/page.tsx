@@ -8,6 +8,7 @@ import { CallContainer } from "@/components/video/CallContainer";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { LateFeeGate } from "@/components/booking/LateFeeGate";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
@@ -174,6 +175,7 @@ export default function GuestRoomPage() {
   const [token, setToken] = useState("");
   const [accessPayload, setAccessPayload] = useState<AccessPayload | null>(null);
   const [remoteEnded, setRemoteEnded] = useState(false);
+  const [lateFeeAmount, setLateFeeAmount] = useState<number | null>(null);
 
   const markPresence = useCallback(async (present: boolean) => {
     if (!rawToken) return;
@@ -203,10 +205,18 @@ export default function GuestRoomPage() {
 
         const joinData = await joinRes.json();
         if (!joinRes.ok) {
+          if (joinData.requiresLateFee) {
+            if (!cancelled) {
+              setAccessPayload(accessData);
+              setLateFeeAmount(Number(joinData.lateFeeAmount ?? 0));
+            }
+            return;
+          }
           throw new Error(joinData.error ?? "Could not join room.");
         }
 
         if (!cancelled) {
+          setLateFeeAmount(null);
           setAccessPayload(accessData);
           setRoomUrl(joinData.url);
           setToken(joinData.token);
@@ -263,6 +273,44 @@ export default function GuestRoomPage() {
   }
 
   if (error || !roomUrl || !token) {
+    if (lateFeeAmount) {
+      return (
+        <LateFeeGate
+          amount={lateFeeAmount}
+          title="Late fee required before joining"
+          description="This booking is more than 5 minutes past the scheduled start. Pay the 10% late fee to enter the room."
+          backLabel="Back to booking"
+          onBack={() => router.push(`/booking-access/${rawToken}`)}
+          createIntent={async () => {
+            const response = await fetch(`/api/public/booking-access/${rawToken}/late-fee`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ mode: "create" }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.clientSecret) {
+              throw new Error(data.error ?? "Could not initialise the late fee payment.");
+            }
+            return { clientSecret: data.clientSecret as string };
+          }}
+          confirmPayment={async (paymentIntentId) => {
+            const response = await fetch(`/api/public/booking-access/${rawToken}/late-fee`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ mode: "confirm", paymentIntentId }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+              throw new Error(data.error ?? "Could not confirm the late fee payment.");
+            }
+            setLoading(true);
+            setError("");
+            window.location.reload();
+          }}
+        />
+      );
+    }
+
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-brand-bg px-4 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">

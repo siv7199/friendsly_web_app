@@ -66,7 +66,7 @@ export async function GET(
         avatarUrl: profile.avatar_url ?? undefined,
         timeZone: cp?.timezone ?? "America/New_York",
         bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
-        liveRatePerMinute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : null,
+        liveJoinFee: cp?.live_join_fee ? Number(cp.live_join_fee) : null,
         isLive: Boolean(activeSession),
       },
       packages: (packagesRes.data ?? []).map((pkg: any) => ({

@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Creator } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { isNewCreator } from "@/lib/creators";
+import { useAuthContext } from "@/lib/context/AuthContext";
 
 const CATEGORIES = [
   "All",
@@ -63,7 +64,7 @@ async function fetchCreators(): Promise<Creator[]> {
         category,
         tags,
         avg_rating,
-        live_rate_per_minute,
+        live_join_fee,
         next_available,
         booking_interval_minutes,
         scheduled_live_at,
@@ -195,7 +196,7 @@ async function fetchCreators(): Promise<Creator[]> {
     const minDuration = packages.length ? packages[0].duration : 15;
 
     const hasPackages = minPrice > 0;
-    const liveRate = cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined;
+    const liveJoinFee = cp?.live_join_fee ? Number(cp.live_join_fee) : undefined;
     const totalCalls = totalCallsByCreator[profile.id] ?? 0;
 
     return {
@@ -220,7 +221,7 @@ async function fetchCreators(): Promise<Creator[]> {
       nextAvailable: hasPackages ? (cp?.next_available ?? "Available this week") : "No packages yet",
       totalCalls,
         responseTime: "",
-        liveRatePerMinute: liveRate,
+        liveJoinFee,
         scheduledLiveAt: cp?.scheduled_live_at ?? undefined,
       scheduledLiveTimeZone: cp?.scheduled_live_timezone ?? cp?.timezone ?? undefined,
       bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
@@ -239,8 +240,10 @@ function formatFollowers(count: number): string {
 }
 
 export default function DiscoverPage() {
+  const { user } = useAuthContext();
   const [creators, setCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savedCreatorIds, setSavedCreatorIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const refreshTimeoutsRef = useRef<number[]>([]);
@@ -278,9 +281,9 @@ export default function DiscoverPage() {
                       currentLiveSessionId: payload.new.current_live_session_id ?? undefined,
                       scheduledLiveAt: payload.new.scheduled_live_at ?? undefined,
                       scheduledLiveTimeZone: payload.new.scheduled_live_timezone ?? creator.scheduledLiveTimeZone,
-                      liveRatePerMinute: payload.new.live_rate_per_minute != null
-                        ? Number(payload.new.live_rate_per_minute)
-                        : creator.liveRatePerMinute,
+                      liveJoinFee: payload.new.live_join_fee != null
+                        ? Number(payload.new.live_join_fee)
+                        : creator.liveJoinFee,
                   }
                 : creator
             )
@@ -334,6 +337,25 @@ export default function DiscoverPage() {
       supabase.removeChannel(channels);
     };
   }, []);
+
+  useEffect(() => {
+    if (!user || creators.length === 0) {
+      setSavedCreatorIds(new Set());
+      return;
+    }
+
+    const supabase = createClient();
+    const creatorIds = creators.map((creator) => creator.id);
+
+    supabase
+      .from("saved_creators")
+      .select("creator_id")
+      .eq("fan_id", user.id)
+      .in("creator_id", creatorIds)
+      .then(({ data }: any) => {
+        setSavedCreatorIds(new Set((data ?? []).map((entry: { creator_id: string }) => entry.creator_id)));
+      });
+  }, [user, creators]);
 
   // ── Filtering ─────────────────────────────────────────────────────────────
 
@@ -438,7 +460,11 @@ export default function DiscoverPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {liveCreators.map((creator) => (
-              <InfluencerCard key={creator.id} creator={creator} />
+              <InfluencerCard
+                key={creator.id}
+                creator={creator}
+                initialIsSaved={savedCreatorIds.has(creator.id)}
+              />
             ))}
           </div>
         </section>
@@ -460,11 +486,15 @@ export default function DiscoverPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {allCreators.map((creator) => (
-              <InfluencerCard key={creator.id} creator={creator} />
-            ))}
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {allCreators.map((creator) => (
+                <InfluencerCard
+                  key={creator.id}
+                  creator={creator}
+                  initialIsSaved={savedCreatorIds.has(creator.id)}
+                />
+              ))}
+            </div>
         )}
       </section>
     </div>

@@ -62,7 +62,7 @@ export default function PaymentsPage() {
         supabase
           .from("bookings")
           .select(
-            `id, scheduled_at, created_at, duration, price, status,
+            `id, scheduled_at, created_at, duration, price, status, late_fee_amount, late_fee_paid_at,
              creator:profiles!creator_id(id, full_name, username, avatar_initials, avatar_color, avatar_url),
              package:call_packages!package_id(name)`
           )
@@ -96,11 +96,13 @@ export default function PaymentsPage() {
             creatorInitials: creator?.avatar_initials ?? "?",
             creatorColor: creator?.avatar_color ?? "bg-violet-600",
             creatorAvatarUrl: creator?.avatar_url ?? undefined,
-            amount: Number(booking.price ?? 0),
-            date: booking.created_at ?? booking.scheduled_at,
+            amount: Number(booking.price ?? 0) + Number(booking.late_fee_paid_at ? booking.late_fee_amount ?? 0 : 0),
+            date: booking.late_fee_paid_at ?? booking.created_at ?? booking.scheduled_at,
             status: booking.status ?? "completed",
             description: pkg?.name ? `Booked call: ${pkg.name}` : "Booked 1-on-1 call",
-            meta: `${booking.duration ?? 0} min session`,
+            meta: booking.late_fee_paid_at
+              ? `${booking.duration ?? 0} min session · includes ${formatCurrency(Number(booking.late_fee_amount ?? 0))} late fee`
+              : `${booking.duration ?? 0} min session`,
           };
         });
 

@@ -21,7 +21,7 @@
  */
 
 import React, { createContext, useContext } from "react";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuth, type OAuthProvider } from "@/lib/hooks/useAuth";
 import type { MockProfile, UserRole } from "@/types";
 
 // ── Context Shape ─────────────────────────────────────────────────────
@@ -33,6 +33,7 @@ interface AuthContextValue {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, full_name: string, nextPath?: string | null) => Promise<void>;
+  signInWithOAuth: (provider: OAuthProvider, nextPath?: string | null) => Promise<void>;
   logout: () => void;
   deleteAccount: () => void;
   updateProfile: (updates: Partial<MockProfile>) => void;

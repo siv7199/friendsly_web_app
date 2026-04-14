@@ -14,6 +14,7 @@ import type { CallPackage } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { LIVE_MIN_JOIN_FEE } from "@/lib/live";
 
 export default function ManagementPage() {
   const { user } = useAuthContext();
@@ -27,10 +28,13 @@ export default function ManagementPage() {
   const [liveRate, setLiveRate] = useState<string>("");
   const [liveRateSaving, setLiveRateSaving] = useState(false);
   const [liveRateSaved, setLiveRateSaved] = useState(false);
+  const parsedLiveRate = parseFloat(liveRate);
+  const isLiveRateFilled = liveRate.trim().length > 0;
+  const isLiveRateValid = !isLiveRateFilled || (Number.isFinite(parsedLiveRate) && parsedLiveRate >= LIVE_MIN_JOIN_FEE);
 
   const supabase = createClient();
 
-  // Load packages + live rate from Supabase on mount
+  // Load packages + live join fee from Supabase on mount
   useEffect(() => {
     if (!user) return;
 
@@ -67,17 +71,17 @@ export default function ManagementPage() {
         })));
       }
 
-      let cp: { live_rate_per_minute?: number | null } | null = null;
+      let cp: { live_join_fee?: number | null } | null = null;
       const cpRes = await supabase
         .from("creator_profiles")
-        .select("live_rate_per_minute")
+        .select("live_join_fee")
         .eq("id", user!.id)
         .single();
 
       if (cpRes.error) {
         const fallbackCpRes = await supabase
           .from("creator_profiles")
-          .select("live_rate_per_minute")
+          .select("live_join_fee")
           .eq("id", user!.id)
           .single();
         cp = fallbackCpRes.data;
@@ -85,8 +89,8 @@ export default function ManagementPage() {
         cp = cpRes.data;
       }
 
-      if (cp?.live_rate_per_minute != null) {
-        setLiveRate(String(cp.live_rate_per_minute));
+      if (cp?.live_join_fee != null) {
+        setLiveRate(String(cp.live_join_fee));
       }
     }
 
@@ -121,15 +125,17 @@ export default function ManagementPage() {
 
   async function saveLiveRate() {
     if (!user) return;
+    if (!isLiveRateValid) return;
     setLiveRateSaving(true);
-    const rate = parseFloat(liveRate) || null;
+    const parsedRate = parseFloat(liveRate);
+    const rate = Number.isFinite(parsedRate) && parsedRate >= LIVE_MIN_JOIN_FEE ? parsedRate : null;
     const rateRes = await supabase
       .from("creator_profiles")
-      .upsert({ id: user.id, live_rate_per_minute: rate }, { onConflict: "id" });
+      .upsert({ id: user.id, live_join_fee: rate }, { onConflict: "id" });
     if (rateRes.error) {
       await supabase
         .from("creator_profiles")
-        .upsert({ id: user.id, live_rate_per_minute: rate }, { onConflict: "id" });
+        .upsert({ id: user.id, live_join_fee: rate }, { onConflict: "id" });
     }
     setLiveRateSaving(false);
     setLiveRateSaved(true);
@@ -242,34 +248,41 @@ export default function ManagementPage() {
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
           <div className="flex items-center gap-2 mb-1">
             <Zap className="w-5 h-5 text-brand-live" />
-            <h2 className="text-lg font-bold text-slate-100">Public Live Rate</h2>
+            <h2 className="text-lg font-bold text-slate-100">Public Live Join Fee</h2>
           </div>
           <p className="text-sm text-slate-400 mb-5">
-            When you go live, fans join your queue and are charged this rate per minute for the time
-            they&apos;re on the call with you. Set to blank to disable live queue billing.
+            Fans can watch and chat for free. This is the one-time fee they pay to request a 30-second on-stage spot during your live.
           </p>
           <div className="flex items-end gap-4">
             <div className="flex-1 max-w-xs">
               <label className="text-sm font-medium text-slate-300 mb-2 block">
-                Rate per minute (USD)
+                Join fee (USD, minimum $10)
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
                 <input
                   type="number"
-                  min="0.10"
+                  min={String(LIVE_MIN_JOIN_FEE)}
                   step="0.10"
-                  placeholder="e.g. 1.50"
+                  placeholder={`Minimum ${LIVE_MIN_JOIN_FEE.toFixed(2)}`}
                   value={liveRate}
                   onChange={(e) => setLiveRate(e.target.value)}
                   className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated pl-7 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
                 />
               </div>
+              <p className="mt-2 text-xs text-amber-300">
+                Minimum live join fee: {formatCurrency(LIVE_MIN_JOIN_FEE)}
+              </p>
+              {isLiveRateFilled && !isLiveRateValid && (
+                <p className="mt-2 text-xs text-red-400">
+                  Enter at least {formatCurrency(LIVE_MIN_JOIN_FEE)} to save a live join fee.
+                </p>
+              )}
             </div>
             <Button
               variant={liveRateSaved ? "surface" : "primary"}
               onClick={saveLiveRate}
-              disabled={liveRateSaving}
+              disabled={liveRateSaving || !isLiveRateValid}
               className="mb-0.5"
             >
               {liveRateSaving ? "Saving…" : liveRateSaved ? "Saved ✓" : "Save Rate"}
@@ -277,7 +290,7 @@ export default function ManagementPage() {
           </div>
           {liveRate && parseFloat(liveRate) > 0 && (
             <p className="text-xs text-brand-live mt-3">
-              Fans will see &quot;{formatCurrency(parseFloat(liveRate))}/min&quot; on your profile and discover card.
+              Fans will see &quot;{formatCurrency(parseFloat(liveRate))} to join live for 30 seconds&quot; on your profile and discover card. Fees below {formatCurrency(LIVE_MIN_JOIN_FEE)} won&apos;t be used for live joining.
             </p>
           )}
         </div>

@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sessionId } = await request.json();
+    const { sessionId, dailySessionId } = await request.json();
 
     if (!sessionId) {
       return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
@@ -22,12 +22,14 @@ export async function POST(request: Request) {
     const joinedAt = new Date().toISOString();
     const { data: entry, error } = await serviceSupabase
       .from("live_queue_entries")
-      .update({ admitted_at: joinedAt })
+      .update({
+        admitted_at: joinedAt,
+        admitted_daily_session_id: dailySessionId ?? null,
+      })
       .eq("session_id", sessionId)
       .eq("fan_id", user.id)
       .eq("status", "active")
-      .is("admitted_at", null)
-      .select("id, admitted_at")
+      .select("id, admitted_at, admitted_daily_session_id")
       .maybeSingle();
 
     if (error) {
@@ -37,6 +39,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       admittedAt: entry?.admitted_at ?? joinedAt,
+      admittedDailySessionId: entry?.admitted_daily_session_id ?? dailySessionId ?? null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not mark live join.";

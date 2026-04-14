@@ -27,6 +27,8 @@ type AuthMetadataShape = {
   role: UserRole | null;
 };
 
+export type OAuthProvider = "google" | "apple";
+
 // ── Build a minimal profile from JWT data (no DB call) ────────────────────────
 function profileFromSession(session: { user: { id: string; email?: string; user_metadata?: Record<string, unknown> } }): MockProfile {
   const meta = session.user.user_metadata ?? {};
@@ -106,7 +108,7 @@ async function fetchProfile(userId: string): Promise<MockProfile | null> {
       hourly_rate: 0,
       category: cp?.category ?? "",
       is_live: cp?.is_live ?? false,
-      live_rate_per_minute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
+      live_join_fee: cp?.live_join_fee ? Number(cp.live_join_fee) : undefined,
       instagram_url: cp?.instagram_url ?? undefined,
       tiktok_url: cp?.tiktok_url ?? undefined,
       x_url: cp?.x_url ?? undefined,
@@ -290,6 +292,33 @@ export function useAuth() {
     }
   }, []);
 
+  const signInWithOAuth = useCallback(async (
+    provider: OAuthProvider,
+    nextPath?: string | null
+  ): Promise<void> => {
+    setState((s) => ({ ...s, isLoading: true, error: null }));
+    try {
+      const supabase = createClient();
+      const redirectTo = typeof window !== "undefined"
+        ? `${window.location.origin}/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`
+        : undefined;
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+          queryParams: provider === "google" ? { access_type: "offline", prompt: "consent" } : undefined,
+        },
+      });
+
+      if (error) {
+        setState((s) => ({ ...s, isLoading: false, error: error.message }));
+      }
+    } catch (e) {
+      setState((s) => ({ ...s, isLoading: false, error: e instanceof Error ? e.message : "Something went wrong." }));
+    }
+  }, []);
+
   // ── logout ────────────────────────────────────────────────────────────────
   const logout = useCallback(async (): Promise<void> => {
     const supabase = createClient();
@@ -351,8 +380,8 @@ export function useAuth() {
     if ("x_url" in updates) {
       creatorUpdates.x_url = sanitizeSocialUrl((updates as { x_url?: string }).x_url ?? "");
     }
-    if ("live_rate_per_minute" in updates) {
-      creatorUpdates.live_rate_per_minute = (updates as { live_rate_per_minute?: number }).live_rate_per_minute;
+    if ("live_join_fee" in updates) {
+      creatorUpdates.live_join_fee = (updates as { live_join_fee?: number }).live_join_fee;
     }
 
     if (Object.keys(profileUpdates).length > 0) {
@@ -412,5 +441,5 @@ export function useAuth() {
     }));
   }, [state.user]);
 
-  return { ...state, login, signup, logout, deleteAccount, updateProfile, setRole };
+  return { ...state, login, signup, signInWithOAuth, logout, deleteAccount, updateProfile, setRole };
 }

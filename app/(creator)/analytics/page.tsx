@@ -62,7 +62,7 @@ export default function AnalyticsPage() {
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-100">Analytics</h1>
-          <p className="text-slate-400 mt-1">Track profile views, conversion, bookings, and live queue interest.</p>
+          <p className="text-slate-400 mt-1">Track profile views, conversion, bookings, and public live guest interest.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {RANGE_OPTIONS.map((option) => (
@@ -147,7 +147,7 @@ export default function AnalyticsPage() {
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Creator Revenue</p>
                 <p className="text-3xl font-black text-slate-100 mt-2">{formatCurrency(grossRevenue)}</p>
                 <p className="text-sm text-slate-400 mt-2">
-                  Includes completed booking sessions and paid live queue calls in the selected range.
+                  Includes completed booking sessions and paid public live guest turns in the selected range.
                 </p>
               </div>
             </div>

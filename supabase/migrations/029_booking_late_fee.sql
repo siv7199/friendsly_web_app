@@ -1,0 +1,5 @@
+ALTER TABLE public.bookings
+ADD COLUMN IF NOT EXISTS late_fee_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS late_fee_payment_intent_id TEXT,
+ADD COLUMN IF NOT EXISTS late_fee_paid_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS late_fee_refund_id TEXT;

@@ -24,7 +24,7 @@ import type { CreatorStats } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { deriveBookingStatus, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable, shouldAutoCancelBooking } from "@/lib/bookings";
+import { deriveBookingStatus, getBookingGrossAmount, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable, shouldAutoCancelBooking } from "@/lib/bookings";
 import { getCreatorAnalyticsSnapshot } from "@/lib/analytics";
 import { getCreatorInsights, type CreatorInsight } from "@/lib/creator-insights";
 import { localDateKey } from "@/lib/timezones";
@@ -166,7 +166,7 @@ export default function DashboardPage() {
         supabase
           .from("bookings")
           .select(`
-            id, scheduled_at, duration, price, status, topic, creator_present, fan_present,
+            id, scheduled_at, duration, price, status, topic, creator_present, fan_present, late_fee_amount, late_fee_paid_at,
             fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
           `)
           .eq("creator_id", userId)
@@ -194,7 +194,6 @@ export default function DashboardPage() {
 
       const bookings = bookingsRes.data || [];
       const expiredBookingIds: string[] = [];
-      const cancelledBookingIds: string[] = [];
       
       let totalEarnedGross = 0;
       let callsMonth = 0;
@@ -208,6 +207,11 @@ export default function DashboardPage() {
 
       const mappedBookings = bookings.map((b: any) => {
         const fan = Array.isArray(b.fan) ? b.fan[0] : b.fan;
+        const grossBookingAmount = getBookingGrossAmount(
+          Number(b.price),
+          b.late_fee_amount,
+          b.late_fee_paid_at
+        );
         const normalizedStatus = deriveBookingStatus(
           b.status,
           b.scheduled_at,
@@ -220,16 +224,8 @@ export default function DashboardPage() {
         if (normalizedStatus === "completed" && b.status !== "completed" && hasBookingEnded(b.scheduled_at, b.duration, now)) {
           expiredBookingIds.push(b.id);
         }
-        if (
-          normalizedStatus === "cancelled" &&
-          b.status !== "cancelled" &&
-          shouldAutoCancelBooking(b.status, b.scheduled_at, b.creator_present, b.fan_present, now)
-        ) {
-          cancelledBookingIds.push(b.id);
-        }
-        
         if (normalizedStatus === "completed" || normalizedStatus === "upcoming" || normalizedStatus === "live") {
-          totalEarnedGross += Number(b.price);
+          totalEarnedGross += grossBookingAmount;
           totalBookings++; // To be used in conversion rate
         }
 
@@ -264,7 +260,7 @@ export default function DashboardPage() {
           date: localDateKey(bDate),
           time: bDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
           duration: b.duration,
-          price: Number(b.price) * 0.85, // Show their 85% cut!
+          price: grossBookingAmount * 0.85, // Show their 85% cut!
           status: normalizedStatus,
           topic: b.topic || ""
         };
@@ -276,18 +272,6 @@ export default function DashboardPage() {
           .update({ status: "completed" })
           .in("id", expiredBookingIds);
       }
-      if (cancelledBookingIds.length > 0) {
-        await supabase
-          .from("bookings")
-          .update({
-            status: "cancelled",
-            creator_present: false,
-            fan_present: false,
-            auto_cancelled_at: now.toISOString(),
-          })
-          .in("id", cancelledBookingIds);
-      }
-
       const upcoming = mappedBookings.filter((b: any) => b.status === "upcoming" || b.status === "live");
       setUpcomingBookings(upcoming);
       setNextJoinableBooking(

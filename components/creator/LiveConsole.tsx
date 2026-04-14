@@ -13,7 +13,7 @@ import { useAuthContext } from "@/lib/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { CallContainer } from "@/components/video/CallContainer";
-import { useLocalSessionId, useParticipantIds, DailyVideo, useDaily } from "@daily-co/daily-react";
+import { useLocalSessionId, DailyVideo, useDaily } from "@daily-co/daily-react";
 import {
   COMMON_TIME_ZONES,
   formatDateTimeLocalInTimeZone,
@@ -21,8 +21,8 @@ import {
   getBrowserTimeZone,
   zonedTimeToUtc,
 } from "@/lib/timezones";
+import { LIVE_MIN_JOIN_FEE, LIVE_STAGE_SECONDS } from "@/lib/live";
 
-const MAX_LIVE_CALL_SECONDS = 3 * 60;
 const LIVE_SESSION_HEARTBEAT_MS = 15000;
 const LIVE_SESSION_STALE_MS = 45000;
 
@@ -33,7 +33,30 @@ function formatCountdown(totalSeconds: number) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
+function getBestParticipantSessionId(params: {
+  participants: any[];
+  preferredUserName?: string | null;
+}) {
+  const remoteParticipants = params.participants.filter((participant) => !participant?.local);
+  if (remoteParticipants.length === 0) return null;
+
+  const exactMatch = params.preferredUserName
+    ? remoteParticipants.find((participant) => participant?.user_name === params.preferredUserName)
+    : null;
+  if (exactMatch?.session_id) return exactMatch.session_id;
+
+  const playableVideo = remoteParticipants.find((participant) => {
+    const videoState = participant?.tracks?.video?.state;
+    return videoState === "playable" || videoState === "loading";
+  });
+  if (playableVideo?.session_id) return playableVideo.session_id;
+
+  return remoteParticipants[0]?.session_id ?? null;
+}
+
 function LiveVideoStage({
+  queue,
+  chatPanel,
   currentFan,
   creatorName,
   creatorInitials,
@@ -45,11 +68,11 @@ function LiveVideoStage({
   initialCam,
   activeFanRemainingSeconds,
   creatorJoined,
+  sessionId,
 }: any) {
   const localSessionId = useLocalSessionId();
   const daily = useDaily();
-  const remoteParticipantIds = useParticipantIds({ filter: "remote" });
-  const fanId = remoteParticipantIds[0];
+  const [fanSessionId, setFanSessionId] = useState<string | null>(null);
   const [micOn, setMicOn] = useState(initialMic);
   const [camOn, setCamOn] = useState(initialCam);
 
@@ -84,63 +107,211 @@ function LiveVideoStage({
     };
   }, [daily, initialMic, initialCam]);
 
+  useEffect(() => {
+    if (!daily) return;
+
+    const syncFanParticipant = () => {
+      if (!currentFan?.fanId) {
+        setFanSessionId(null);
+        return;
+      }
+
+      if (currentFan?.admittedDailySessionId) {
+        setFanSessionId(currentFan.admittedDailySessionId);
+        return;
+      }
+
+      const participants = Object.values(daily.participants() ?? {});
+      setFanSessionId(getBestParticipantSessionId({
+        participants,
+        preferredUserName: currentFan.fanId,
+      }));
+    };
+
+    syncFanParticipant();
+    daily.on("participant-joined", syncFanParticipant);
+    daily.on("participant-updated", syncFanParticipant);
+    daily.on("participant-left", syncFanParticipant);
+    return () => {
+      daily.off("participant-joined", syncFanParticipant);
+      daily.off("participant-updated", syncFanParticipant);
+      daily.off("participant-left", syncFanParticipant);
+    };
+  }, [currentFan?.fanId, daily]);
+
   return (
-    <div className="flex-1 flex flex-col gap-3 min-h-0">
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <Badge variant="live">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
-            LIVE
-          </Badge>
-          <span className="text-sm text-slate-400">
-            {currentFan ? `Session with ${currentFan.fanName}` : "Waiting for fans..."}
-          </span>
-          <span className={cn("text-xs font-semibold", creatorJoined ? "text-emerald-400" : "text-amber-400")}>
-            {creatorJoined ? "Creator connected" : "Joining room..."}
-          </span>
-          {currentFan?.admittedAt ? (
-            <span className="text-sm font-semibold text-brand-primary-light tabular-nums">
-              {formatCountdown(activeFanRemainingSeconds)}
+    <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_380px_360px] gap-4">
+      <div className="min-h-0 rounded-[28px] border border-brand-border bg-brand-surface p-4 md:p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="live">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
+              LIVE
+            </Badge>
+            <span className="text-sm text-slate-300">
+              {currentFan ? `Now with ${currentFan.fanName}` : "Public live is open"}
             </span>
+            <span className={cn("text-xs font-semibold", creatorJoined ? "text-emerald-400" : "text-amber-400")}>
+              {creatorJoined ? "Creator connected" : "Joining room..."}
+            </span>
+          </div>
+          {currentFan?.admittedAt ? (
+            <div className="rounded-xl border border-brand-live/30 bg-brand-live/10 px-3 py-2 text-right">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-brand-live">On Stage</p>
+              <p className="text-lg font-black text-brand-live tabular-nums">{formatCountdown(activeFanRemainingSeconds)}</p>
+            </div>
           ) : null}
         </div>
-      </div>
 
-      <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
-        <div className="relative rounded-2xl bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center aspect-video">
+        <div className="relative flex-1 min-h-[420px] rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center">
           {localSessionId ? (
             <div className="w-full h-full relative overflow-hidden">
               <DailyVideo sessionId={localSessionId} type="video" className="w-full h-full object-cover z-10" />
               <style dangerouslySetInnerHTML={{ __html: ".daily-video-container div[style*='position: absolute'] { display: none !important; } .daily-video-container video { transform: none !important; }" }} />
             </div>
           ) : <Avatar initials={creatorInitials} color={creatorColor} size="xl" />}
-          <div className="absolute bottom-3 right-3 text-[10px] font-semibold text-white bg-black/50 rounded-lg px-2 py-1 z-20">You ({creatorName})</div>
+          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
+          <div className="absolute left-4 bottom-4 right-4 flex items-end justify-between gap-3 z-20">
+            <div className="rounded-xl bg-black/45 px-3 py-2 text-white">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Host</p>
+              <p className="text-sm font-semibold">{creatorName}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={toggleMic} className={cn("w-11 h-11 rounded-full border flex items-center justify-center transition-colors", micOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary" : "border-red-500/40 bg-red-500/20 text-red-400")}>{micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}</button>
+              <button onClick={toggleCam} className={cn("w-11 h-11 rounded-full border flex items-center justify-center transition-colors", camOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary" : "border-red-500/40 bg-red-500/20 text-red-400")}>{camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}</button>
+            </div>
+          </div>
         </div>
 
-        <div className="relative rounded-2xl bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center aspect-video">
-          {fanId ? (
-            <>
-              <DailyVideo sessionId={fanId} type="video" className="w-full h-full object-cover z-10" />
-              <div className="absolute bottom-3 right-3 text-[10px] font-semibold text-white bg-black/50 rounded-lg px-2 py-1 z-20">{currentFan?.fanName || "Fan"}</div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center text-slate-500 p-6 text-center z-10">
-              <Users className="w-8 h-8 opacity-20 mb-3" />
-              <p className="text-sm font-medium text-slate-400">No fan currently admitted</p>
-            </div>
-          )}
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm text-slate-400">
+            {queueCount > 0 ? `${queueCount} fans waiting for a 30-second turn` : "No one is waiting right now"}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={admitNext} disabled={queueCount < 1} className="gap-1.5"><SkipForward className="w-4 h-4" />Admit Next ({queueCount})</Button>
+            <Button variant="danger" size="sm" onClick={endSession} className="gap-1.5"><StopCircle className="w-4 h-4" />End Session</Button>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <button onClick={toggleMic} className={cn("w-10 h-10 rounded-full border flex items-center justify-center transition-colors", micOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary" : "border-red-500/40 bg-red-500/20 text-red-400")}>{micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}</button>
-          <button onClick={toggleCam} className={cn("w-10 h-10 rounded-full border flex items-center justify-center transition-colors", camOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary" : "border-red-500/40 bg-red-500/20 text-red-400")}>{camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}</button>
+      <div className="min-h-0 rounded-[28px] border border-brand-border bg-brand-surface p-4 md:p-5 flex flex-col gap-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Queue Line</p>
+          <p className="mt-1 text-sm text-slate-300">Fans are stacked here in admission order.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={admitNext} disabled={queueCount < 1} className="gap-1.5"><SkipForward className="w-4 h-4" />Admit Next ({queueCount})</Button>
-          <Button variant="danger" size="sm" onClick={endSession} className="gap-1.5"><StopCircle className="w-4 h-4" />End Session</Button>
+
+        <div className="rounded-[22px] border border-brand-border bg-brand-elevated p-4">
+          {queue.length > 0 ? (
+            <>
+              <div className="relative px-4 py-3 rounded-[20px] border border-brand-live/20 bg-[radial-gradient(circle_at_top,rgba(34,197,94,0.14),transparent_58%)]">
+                <div className="absolute left-10 right-10 top-[42px] h-px bg-gradient-to-r from-transparent via-brand-live/35 to-transparent" />
+                <div className="relative flex items-start justify-between gap-3">
+                  {queue.slice(0, 5).map((entry: any, index: number) => (
+                    <div key={entry.id} className="flex min-w-0 flex-1 flex-col items-center text-center">
+                      <div className={cn(
+                        "relative rounded-full p-1.5 border",
+                        index === 0 ? "border-brand-live/60 bg-brand-live/10 shadow-[0_0_30px_rgba(34,197,94,0.18)]" : "border-brand-border bg-brand-surface"
+                      )}>
+                        <Avatar initials={entry.avatarInitials} color={entry.avatarColor} imageUrl={entry.avatarUrl} size="sm" />
+                        <div className={cn(
+                          "absolute -right-1 -top-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-brand-elevated",
+                          index === 0 ? "bg-brand-live text-brand-bg" : "bg-slate-700 text-slate-100"
+                        )}>
+                          {index + 1}
+                        </div>
+                      </div>
+                      <p className={cn(
+                        "mt-2 text-xs font-semibold truncate max-w-full",
+                        index === 0 ? "text-brand-live" : "text-slate-200"
+                      )}>
+                        {entry.fanName}
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        {index === 0 ? "Up next" : `${index + 1} in line`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {queue.slice(0, 4).map((entry: any, index: number) => (
+                  <div
+                    key={entry.id}
+                    className={cn(
+                      "flex items-center gap-3 rounded-2xl border px-3 py-3 transition-colors",
+                      index === 0
+                        ? "border-brand-live/30 bg-brand-live/10"
+                        : "border-brand-border bg-brand-surface"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
+                      index === 0 ? "bg-brand-live text-brand-bg" : "bg-brand-elevated text-slate-300"
+                    )}>
+                      {index + 1}
+                    </div>
+                    <Avatar initials={entry.avatarInitials} color={entry.avatarColor} imageUrl={entry.avatarUrl} size="xs" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-100 truncate">{entry.fanName}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{entry.topic || "Ready to join live"}</p>
+                    </div>
+                    {index === 0 ? (
+                      <Badge variant="live" className="shrink-0">Next</Badge>
+                    ) : (
+                      <span className="text-[11px] text-slate-500 shrink-0">{index + 1}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="py-8 text-center">
+              <div className="w-16 h-16 mx-auto rounded-full bg-brand-surface border border-brand-border flex items-center justify-center">
+                <Users className="w-7 h-7 text-slate-600" />
+              </div>
+              <p className="mt-4 text-sm text-slate-300">Queue is empty</p>
+              <p className="mt-1 text-xs text-slate-500">Fans who pay to join live will appear here in order.</p>
+            </div>
+          )}
         </div>
+
+        <div className="flex-1 min-h-[280px] rounded-[22px] border border-brand-border bg-brand-elevated overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-brand-border">
+            <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Guest Stage</p>
+            <p className="mt-1 text-sm text-slate-300">
+              {currentFan ? `${currentFan.fanName} is live with you now.` : "The next admitted fan appears here."}
+            </p>
+          </div>
+          <div className="flex-1 relative flex items-center justify-center">
+            {fanSessionId ? (
+              <>
+                <DailyVideo sessionId={fanSessionId} type="video" className="w-full h-full object-cover z-10" />
+                <div className="absolute left-4 bottom-4 rounded-xl bg-black/45 px-3 py-2 text-white z-20">
+                  <p className="text-sm font-semibold">{currentFan?.fanName || "Fan"}</p>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-slate-500 p-6 text-center z-10">
+                <Users className="w-9 h-9 opacity-20 mb-3" />
+                <p className="text-sm font-medium text-slate-300">No fan currently admitted</p>
+                <p className="mt-1 text-xs text-slate-500">Use the queue above to bring the next person on stage.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="min-h-0 rounded-[28px] border border-brand-border bg-brand-surface p-4 md:p-5 flex flex-col gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Live Chat</p>
+          <p className="mt-1 text-sm text-slate-300">Keep the room moving while you manage the stage.</p>
+        </div>
+        <div className="flex-1 min-h-0">
+          {chatPanel}
+        </div>
+        <div className="px-3 py-1 bg-brand-elevated rounded border border-brand-border text-[10px] text-slate-500 font-mono truncate">Session: {sessionId}</div>
       </div>
     </div>
   );
@@ -178,8 +349,8 @@ export function LiveConsole() {
   const creatorInitials = user?.avatar_initials ?? "??";
   const creatorColor = user?.avatar_color ?? "bg-violet-600";
   const activeFanRemainingSeconds = currentFan?.admittedAt
-    ? Math.max(0, MAX_LIVE_CALL_SECONDS - Math.floor((currentTime - new Date(currentFan.admittedAt).getTime()) / 1000))
-    : MAX_LIVE_CALL_SECONDS;
+    ? Math.max(0, LIVE_STAGE_SECONDS - Math.floor((currentTime - new Date(currentFan.admittedAt).getTime()) / 1000))
+    : LIVE_STAGE_SECONDS;
 
   function isRecentHeartbeat(value?: string | null) {
     if (!value) return false;
@@ -199,12 +370,12 @@ export function LiveConsole() {
     const supabase = createClient();
     const { data: profile } = await supabase
       .from("creator_profiles")
-      .select("live_rate_per_minute, scheduled_live_at, scheduled_live_timezone, timezone")
+      .select("live_join_fee, scheduled_live_at, scheduled_live_timezone, timezone")
       .eq("id", userId)
       .maybeSingle();
 
-    const parsedRate = profile?.live_rate_per_minute != null
-      ? Number(profile.live_rate_per_minute)
+    const parsedRate = profile?.live_join_fee != null
+      ? Number(profile.live_join_fee)
       : null;
     const nextScheduledTimeZone = profile?.scheduled_live_timezone || profile?.timezone || getBrowserTimeZone();
 
@@ -272,7 +443,7 @@ export function LiveConsole() {
             const tokenRes = await fetch("/api/daily/token", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ roomName: existingSession.daily_room_url.split("/").pop(), isOwner: true }),
+              body: JSON.stringify({ roomName: existingSession.daily_room_url.split("/").pop(), isOwner: true, userName: currentUser.id }),
             });
             const tokenData = await tokenRes.json();
             if (tokenData.token) setToken(tokenData.token);
@@ -315,7 +486,7 @@ export function LiveConsole() {
     async function fetchQueue(targetSid: string) {
       const { data } = await supabase
         .from("live_queue_entries")
-        .select("id, topic, joined_at, status, admitted_at, profiles:fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)")
+        .select("id, topic, joined_at, status, admitted_at, admitted_daily_session_id, fan_id, profiles:fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)")
         .eq("session_id", targetSid)
         .in("status", ["waiting", "active"])
         .order("joined_at", { ascending: true });
@@ -324,20 +495,22 @@ export function LiveConsole() {
 
       const active = data.find((e: any) => e.status === "active");
       const activeRemainingSeconds = active?.admitted_at
-        ? Math.max(0, MAX_LIVE_CALL_SECONDS - Math.floor((Date.now() - new Date(active.admitted_at).getTime()) / 1000))
+        ? Math.max(0, LIVE_STAGE_SECONDS - Math.floor((Date.now() - new Date(active.admitted_at).getTime()) / 1000))
         : 0;
       const waiting = data.filter((e: any) => e.status === "waiting");
 
       setQueue(waiting.map((e: any, idx: number) => ({
         id: e.id,
+        fanId: e.fan_id,
         fanName: e.profiles.full_name,
         fanUsername: `@${e.profiles.username}`,
         avatarInitials: e.profiles.avatar_initials,
         avatarColor: e.profiles.avatar_color,
         avatarUrl: e.profiles.avatar_url ?? undefined,
+        admittedDailySessionId: e.admitted_daily_session_id ?? undefined,
         position: idx + 1,
         waitTime: "",
-        waitSeconds: activeRemainingSeconds + (idx * MAX_LIVE_CALL_SECONDS),
+        waitSeconds: activeRemainingSeconds + (idx * LIVE_STAGE_SECONDS),
         topic: e.topic ?? undefined,
         joinedAt: e.joined_at,
         creator_id: currentUser.id,
@@ -346,11 +519,13 @@ export function LiveConsole() {
       if (active) {
         setCurrentFan({
           id: active.id,
+          fanId: active.fan_id,
           fanName: active.profiles.full_name,
           fanUsername: `@${active.profiles.username}`,
           avatarInitials: active.profiles.avatar_initials,
           avatarColor: active.profiles.avatar_color,
           avatarUrl: active.profiles.avatar_url ?? undefined,
+          admittedDailySessionId: active.admitted_daily_session_id ?? undefined,
           topic: active.topic || "Hi!",
           admittedAt: active.admitted_at,
         });
@@ -429,7 +604,7 @@ export function LiveConsole() {
     setCreatorJoined(false);
     const latestSettings = await fetchLatestLiveSettings(user.id);
     if (!hasConfiguredLiveRate(latestSettings.liveRate)) {
-      setStartError("You must set a live rate in Management first.");
+      setStartError(`Set a live join fee of at least $${LIVE_MIN_JOIN_FEE} in Management first.`);
       return;
     }
     if (previewStreamRef.current) {
@@ -437,7 +612,7 @@ export function LiveConsole() {
       previewStreamRef.current = null;
     }
     try {
-      const res = await fetch("/api/daily/room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const res = await fetch("/api/daily/room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: user.id }) });
       const data = await res.json();
       if (data.url && data.token) {
         const supabase = createClient();
@@ -452,7 +627,7 @@ export function LiveConsole() {
         } else {
           const { data: newSession } = await supabase
             .from("live_sessions")
-            .insert({ creator_id: user.id, rate_per_minute: latestSettings.liveRate ?? 0, is_active: false, daily_room_url: data.url, last_heartbeat_at: null })
+            .insert({ creator_id: user.id, join_fee: latestSettings.liveRate ?? 0, is_active: false, daily_room_url: data.url, last_heartbeat_at: null })
             .select("id")
             .single();
           if (newSession) {
@@ -492,9 +667,9 @@ export function LiveConsole() {
     }
     const { error } = await supabase
       .from("live_queue_entries")
-      .update({ status: "active", admitted_at: null })
+      .update({ status: "active", admitted_at: new Date().toISOString() })
       .eq("id", nextFan.id);
-    if (!error) setCurrentFan({ ...nextFan, admittedAt: undefined });
+    if (!error) setCurrentFan({ ...nextFan, admittedAt: new Date().toISOString() });
   }
 
   async function endSession() {
@@ -631,7 +806,7 @@ export function LiveConsole() {
           </div>
           {!hasConfiguredLiveRate(liveRate) ? (
             <p className="text-sm text-amber-300 mb-4">
-              Set a live rate in Management before going live.
+              Set a live join fee in Management before going live.
             </p>
           ) : null}
           <Button variant="live" size="xl" onClick={startSession} className="shadow-glow-live">Start Live Session</Button>
@@ -646,8 +821,24 @@ export function LiveConsole() {
           onJoin={handleCreatorJoined}
           onLeave={handleCreatorLeft}
         >
-          <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+          <div className="flex-1 min-h-0">
             <LiveVideoStage
+              queue={queue}
+              chatPanel={(
+                <WaitingRoom
+                  key={sessionId}
+                  queue={[]}
+                  currentUserPosition={0}
+                  creatorName={creatorName}
+                  creatorInitials={creatorInitials}
+                  creatorColor={creatorColor}
+                  creatorAvatarUrl={user?.avatar_url ?? undefined}
+                  creatorId={user?.id ?? ""}
+                  sessionId={sessionId ?? undefined}
+                  showQueueTab={false}
+                  activeFanAdmittedAt={currentFan?.admittedAt ?? null}
+                />
+              )}
               currentFan={currentFan}
               creatorName={creatorName}
               creatorInitials={creatorInitials}
@@ -659,23 +850,8 @@ export function LiveConsole() {
               initialCam={camOn}
               activeFanRemainingSeconds={activeFanRemainingSeconds}
               creatorJoined={creatorJoined}
+              sessionId={sessionId}
             />
-            <div className="w-full lg:w-72 shrink-0 min-h-0 flex flex-col gap-2">
-              <WaitingRoom
-                key={sessionId}
-                queue={queue}
-                currentUserPosition={0}
-                creatorName={creatorName}
-                creatorInitials={creatorInitials}
-                creatorColor={creatorColor}
-                creatorAvatarUrl={user?.avatar_url ?? undefined}
-                creatorId={user?.id ?? ""}
-                sessionId={sessionId ?? undefined}
-                showQueueTab
-                activeFanAdmittedAt={currentFan?.admittedAt ?? null}
-              />
-              <div className="px-3 py-1 bg-brand-surface rounded border border-brand-border text-[10px] text-slate-500 font-mono truncate">Session: {sessionId}</div>
-            </div>
           </div>
         </CallContainer>
       )}

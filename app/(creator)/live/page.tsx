@@ -14,7 +14,7 @@ export default function LivePage() {
       <div>
         <h1 className="text-2xl font-black text-slate-100">Live Studio</h1>
         <p className="text-slate-400 text-sm mt-0.5">
-          Start a session and admit fans from your queue one by one.
+          Go public, chat with viewers, and admit one paid guest at a time for 30-second turns.
         </p>
       </div>
 

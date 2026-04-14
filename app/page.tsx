@@ -52,6 +52,12 @@ export default function AuthPage() {
   }, [isAuthenticated, user, isLoading, next, router]);
 
   useEffect(() => {
+    if (!isLoading && user && !user.role) {
+      router.replace(next ? `/onboarding/role?next=${encodeURIComponent(next)}` : "/onboarding/role");
+    }
+  }, [isLoading, user, next, router]);
+
+  useEffect(() => {
     if (requestedTab === "signin" || requestedTab === "signup") {
       setTab(requestedTab);
     }
@@ -126,7 +132,6 @@ export default function AuthPage() {
 
         {/* Card body */}
         <div className="glass-card rounded-2xl p-6 space-y-4">
-
           {/* ── SIGN IN ── */}
           {tab === "signin" && (
             <form onSubmit={handleSignIn} className="space-y-4">

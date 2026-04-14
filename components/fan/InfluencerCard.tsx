@@ -6,7 +6,6 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookingModal } from "@/components/fan/BookingModal";
-import { LiveJoinModal } from "@/components/fan/LiveJoinModal";
 import type { Creator, CallPackage } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -16,6 +15,7 @@ import Link from "next/link";
 
 interface InfluencerCardProps {
   creator: Creator;
+  initialIsSaved?: boolean;
 }
 
 interface AvailabilitySlot {
@@ -25,77 +25,20 @@ interface AvailabilitySlot {
   package_id?: string | null;
 }
 
-export function InfluencerCard({ creator }: InfluencerCardProps) {
+export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCardProps) {
   const { user } = useAuthContext();
   const [showBooking, setShowBooking] = useState(false);
-  const [showLiveJoin, setShowLiveJoin] = useState(false);
   const [packages, setPackages] = useState<CallPackage[]>([]);
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
-  const [isSaved, setIsSaved] = useState(false);
+  const [isSaved, setIsSaved] = useState(initialIsSaved);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingBookingData, setIsLoadingBookingData] = useState(false);
   const [countdownText, setCountdownText] = useState<string | null>(null);
   const [scheduledLabel, setScheduledLabel] = useState<string | null>(null);
 
   useEffect(() => {
-    const supabase = createClient();
-    
-    // 1. Load packages
-    supabase
-      .from("call_packages")
-      .select("*")
-      .eq("creator_id", creator.id)
-      .eq("is_active", true)
-      .then(({ data }: any) => {
-        if (data) {
-          setPackages(data.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            duration: p.duration,
-            price: Number(p.price),
-            description: p.description,
-            isActive: p.is_active,
-            bookingsCount: p.bookings_count,
-          })));
-        }
-      });
-
-    // 2. Load availability for booking modal parity with profile page
-    supabase
-      .from("creator_availability")
-      .select("day_of_week, start_time, end_time, package_id")
-      .eq("creator_id", creator.id)
-      .eq("is_active", true)
-      .then(({ data, error }: any) => {
-        if (data && !error) {
-          setAvailability(data);
-          return;
-        }
-
-        supabase
-          .from("creator_availability")
-          .select("day_of_week, start_time, end_time")
-          .eq("creator_id", creator.id)
-          .eq("is_active", true)
-          .then(({ data: fallbackData }: any) => {
-            if (fallbackData) {
-              setAvailability(fallbackData.map((slot: any) => ({ ...slot, package_id: null })));
-            }
-          });
-      });
-
-    // 3. Check if saved
-    if (user) {
-      supabase
-        .from("saved_creators")
-        .select("id")
-        .eq("fan_id", user.id)
-        .eq("creator_id", creator.id)
-        .maybeSingle()
-        .then(({ data }: any) => {
-          if (data) setIsSaved(true);
-        });
-    }
-  }, [creator.id, user]);
+    setIsSaved(initialIsSaved);
+  }, [initialIsSaved]);
 
   useEffect(() => {
     function updateCountdown() {
@@ -156,7 +99,52 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
     setIsSaving(false);
   }
 
-  const hasLiveRate = Boolean(creator.liveRatePerMinute && creator.liveRatePerMinute > 0);
+  async function loadBookingData() {
+    if (packages.length > 0 || availability.length > 0 || isLoadingBookingData) return;
+
+    setIsLoadingBookingData(true);
+    const supabase = createClient();
+
+    try {
+      const [{ data: packageData }, { data: availabilityData, error: availabilityError }] = await Promise.all([
+        supabase
+          .from("call_packages")
+          .select("*")
+          .eq("creator_id", creator.id)
+          .eq("is_active", true),
+        supabase
+          .from("creator_availability")
+          .select("day_of_week, start_time, end_time, package_id")
+          .eq("creator_id", creator.id)
+          .eq("is_active", true),
+      ]);
+
+      if (packageData) {
+        setPackages(packageData.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          duration: p.duration,
+          price: Number(p.price),
+          description: p.description,
+          isActive: p.is_active,
+          bookingsCount: p.bookings_count,
+        })));
+      }
+
+      if (availabilityData && !availabilityError) {
+        setAvailability(availabilityData);
+      }
+    } finally {
+      setIsLoadingBookingData(false);
+    }
+  }
+
+  async function handleOpenBooking() {
+    setShowBooking(true);
+    await loadBookingData();
+  }
+
+  const hasLiveRate = Boolean(creator.liveJoinFee && creator.liveJoinFee > 0);
   const hasPackages  = creator.callPrice > 0 || packages.length > 0;
 
   return (
@@ -262,17 +250,16 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
         {/* ── Pricing / Availability ── */}
         <div className="px-5 py-4 mt-3 border-t border-brand-border flex items-center justify-between gap-3">
           <div>
-            {/* Live rate takes priority when creator is live */}
+            {/* Live join fee takes priority when creator is live */}
             {creator.isLive && hasLiveRate ? (
               <>
                 <div className="flex items-baseline gap-1">
                   <Zap className="w-3.5 h-3.5 text-brand-live" />
                   <span className="text-xl font-black text-brand-live">
-                    {formatCurrency(creator.liveRatePerMinute!)}
+                    {formatCurrency(creator.liveJoinFee!)}
                   </span>
-                  <span className="text-xs text-slate-500">/ min</span>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">Pay only for time on call</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Join live for 30 seconds</p>
               </>
             ) : hasPackages ? (
               <>
@@ -285,7 +272,7 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
                 {hasLiveRate && (
                   <p className="text-[11px] text-brand-live mt-0.5">
                     <Zap className="w-2.5 h-2.5 inline mr-0.5" />
-                    Live: {formatCurrency(creator.liveRatePerMinute!)}/min
+                    Live: {formatCurrency(creator.liveJoinFee!)} for 30s
                   </p>
                 )}
                 {!creator.isLive && countdownText && (
@@ -311,7 +298,7 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowBooking(true)}
+                onClick={() => void handleOpenBooking()}
                 className="shrink-0 px-2.5"
                 title="Book Call"
               >
@@ -320,10 +307,12 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
             )}
 
             {creator.isLive && hasLiveRate ? (
-              <Button variant="live" size="sm" onClick={() => setShowLiveJoin(true)} className="gap-1.5 shrink-0">
-                <Zap className="w-3.5 h-3.5" />
-                Join Queue
-              </Button>
+              <Link href={`/waiting-room/${creator.id}`}>
+                <Button variant="live" size="sm" className="gap-1.5 shrink-0">
+                  <Zap className="w-3.5 h-3.5" />
+                  Watch Live
+                </Button>
+              </Link>
             ) : creator.isLive && !hasLiveRate ? (
               <Button variant="outline" size="sm" disabled className="gap-1.5 opacity-60 cursor-not-allowed">
                 <Zap className="w-3.5 h-3.5" />
@@ -333,11 +322,12 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => setShowBooking(true)}
+                onClick={() => void handleOpenBooking()}
                 className="gap-1.5 shrink-0"
+                disabled={isLoadingBookingData}
               >
                 <Video className="w-3.5 h-3.5" />
-                Book Call
+                {isLoadingBookingData ? "Loading..." : "Book Call"}
               </Button>
             ) : (
               <Button
@@ -361,14 +351,6 @@ export function InfluencerCard({ creator }: InfluencerCardProps) {
         packages={packages}
         availability={availability}
       />
-      
-      {creator.liveRatePerMinute && (
-        <LiveJoinModal
-          creator={creator}
-          open={showLiveJoin}
-          onClose={() => setShowLiveJoin(false)}
-        />
-      )}
     </>
   );
 }

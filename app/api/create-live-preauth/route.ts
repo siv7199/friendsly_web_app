@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureStripeCustomer, stripe } from "@/lib/server/stripe";
-
-const DEFAULT_PREAUTH_MINUTES = 10;
+import { getLiveJoinFeeCents, isValidLiveJoinFee, normalizeLiveJoinFee } from "@/lib/live";
 
 export async function POST(request: Request) {
   try {
@@ -19,16 +18,16 @@ export async function POST(request: Request) {
     const {
       ratePerMinute,
       creatorName,
-      preAuthMinutes = DEFAULT_PREAUTH_MINUTES,
       saveForFuture,
       paymentMethodId,
     } = body;
 
-    if (!ratePerMinute || ratePerMinute <= 0) {
-      return NextResponse.json({ error: "Invalid rate." }, { status: 400 });
+    if (!isValidLiveJoinFee(ratePerMinute)) {
+      return NextResponse.json({ error: "Invalid live join fee." }, { status: 400 });
     }
 
-    const preAuthAmount = Math.round(ratePerMinute * preAuthMinutes * 100);
+    const joinFee = normalizeLiveJoinFee(ratePerMinute);
+    const amount = getLiveJoinFeeCents(joinFee);
     const shouldUseCustomer = Boolean(saveForFuture || paymentMethodId);
     const customerId = shouldUseCustomer
       ? await ensureStripeCustomer({
@@ -40,19 +39,17 @@ export async function POST(request: Request) {
 
     if (paymentMethodId) {
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: preAuthAmount,
+        amount,
         currency: "usd",
         customer: customerId,
         payment_method: paymentMethodId,
-        capture_method: "manual",
         off_session: true,
         confirm: true,
-        description: `Live queue - ${creatorName} @ $${ratePerMinute}/min`,
+        description: `Live queue join - ${creatorName}`,
         metadata: {
-          type: "live_preauth",
+          type: "live_queue_join",
           creator_name: creatorName,
-          rate_per_minute: String(ratePerMinute),
-          pre_auth_minutes: String(preAuthMinutes),
+          live_join_fee: String(joinFee),
           user_id: user.id,
         },
       });
@@ -64,18 +61,16 @@ export async function POST(request: Request) {
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: preAuthAmount,
+      amount,
       currency: "usd",
       customer: customerId,
-      capture_method: "manual",
       automatic_payment_methods: { enabled: true },
       setup_future_usage: saveForFuture ? "off_session" : undefined,
-      description: `Live queue - ${creatorName} @ $${ratePerMinute}/min`,
+      description: `Live queue join - ${creatorName}`,
       metadata: {
-        type: "live_preauth",
+        type: "live_queue_join",
         creator_name: creatorName,
-        rate_per_minute: String(ratePerMinute),
-        pre_auth_minutes: String(preAuthMinutes),
+        live_join_fee: String(joinFee),
         user_id: user.id,
       },
     });

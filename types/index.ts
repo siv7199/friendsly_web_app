@@ -30,7 +30,7 @@ export interface Creator {
   nextAvailable: string;        // Human-readable — "Today, 3:00 PM"
   totalCalls: number;
   responseTime: string;         // e.g. "~2 min"
-  liveRatePerMinute?: number;   // USD/min for public live queue sessions
+  liveJoinFee?: number;         // USD one-time fee for a 30-second public live guest turn
   scheduledLiveAt?: string;
   scheduledLiveTimeZone?: string;
   timeZone?: string;
@@ -65,6 +65,7 @@ export interface Booking {
 // ── Queue Entry (Waiting Room) ────────────────────────────────────────
 export interface QueueEntry {
   id: string;
+  fanId?: string;
   fanName: string;
   fanUsername: string;
   avatarInitials: string;
@@ -145,7 +146,7 @@ export interface CreatorProfile extends BaseProfile {
   hourly_rate: number;              // USD — cheapest active booking package price
   category: string;                 // e.g. "Fitness & Wellness"
   is_live: boolean;
-  live_rate_per_minute?: number;    // USD/min charged during public live queue sessions
+  live_join_fee?: number;           // USD fee charged for a 30-second public live guest turn
   timezone?: string;
   instagram_url?: string;
   tiktok_url?: string;

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { hashAccessToken } from "@/lib/server/booking-access";
 import { getBookingWindow, isBookingJoinable } from "@/lib/bookings";
-import { BOOKING_LATE_CANCEL_HOURS, getFanCancellationReason, getRefundAmountForReason } from "@/lib/server/bookings";
+import { BOOKING_LATE_CANCEL_HOURS, getFanCancellationReason, getLateFeeAmountForPrice, getRefundAmountForReason, isLateFeeRequired } from "@/lib/server/bookings";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -31,6 +31,8 @@ export async function GET(
           duration,
           price,
           topic,
+          late_fee_amount,
+          late_fee_paid_at,
           guest_name_snapshot,
           guest_email_snapshot,
           creator:profiles!creator_id(full_name, username, avatar_initials, avatar_color, avatar_url)
@@ -51,7 +53,12 @@ export async function GET(
     const booking = (tokenRecord as any).booking;
     const window = getBookingWindow(booking.scheduled_at, Number(booking.duration ?? 0));
     const cancellationReason = getFanCancellationReason(booking.scheduled_at);
-    const refundAmount = getRefundAmountForReason(Number(booking.price ?? 0), cancellationReason);
+    const lateFeeAmount = Number(booking.late_fee_paid_at ? booking.late_fee_amount ?? 0 : 0);
+    const refundAmount = getRefundAmountForReason(Number(booking.price ?? 0), cancellationReason, lateFeeAmount);
+    const lateFeeRequired = isLateFeeRequired({
+      scheduledAt: booking.scheduled_at,
+      lateFeePaidAt: booking.late_fee_paid_at,
+    });
 
     return NextResponse.json({
       booking: {
@@ -68,6 +75,8 @@ export async function GET(
         canJoinNow: isBookingJoinable(booking.status, booking.scheduled_at, Number(booking.duration ?? 0)),
         canCancel: booking.status === "upcoming",
         refundAmount,
+        lateFeeRequired,
+        lateFeeAmount: lateFeeRequired ? getLateFeeAmountForPrice(Number(booking.price ?? 0)) : lateFeeAmount,
         refundPolicyText:
           cancellationReason === "fan_cancelled_late"
             ? `Cancelling within ${BOOKING_LATE_CANCEL_HOURS} hours refunds 50% of the booking price.`

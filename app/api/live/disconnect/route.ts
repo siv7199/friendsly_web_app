@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { settleManualCapturePaymentIntent } from "@/lib/server/stripe";
+import { refundPaymentIntent } from "@/lib/server/stripe";
 import { NextResponse } from "next/server";
+import { LIVE_STAGE_SECONDS } from "@/lib/live";
 
 export async function POST(req: Request) {
   try {
@@ -15,31 +16,25 @@ export async function POST(req: Request) {
 
     const { data: session } = await supabase
       .from("live_sessions")
-      .select("id, rate_per_minute")
+      .select("id")
       .eq("id", sessionId)
       .eq("creator_id", creatorId)
       .maybeSingle();
 
     const { data: sessionEntries } = await supabase
       .from("live_queue_entries")
-      .select("id, admitted_at, duration_seconds, amount_charged, ended_at, stripe_pre_auth_id, status")
+      .select("id, admitted_at, duration_seconds, amount_pre_authorized, amount_charged, ended_at, stripe_pre_auth_id, status")
       .eq("session_id", sessionId)
-      .in("status", ["active", "completed", "skipped"])
+      .in("status", ["waiting", "active", "completed", "skipped"])
       .not("stripe_pre_auth_id", "is", null);
 
     for (const entry of sessionEntries ?? []) {
-      const durationSeconds =
-        entry.status === "active"
-          ? entry.admitted_at
-            ? Math.max(0, Math.floor((Date.now() - new Date(entry.admitted_at).getTime()) / 1000))
-            : 0
-          : Number(entry.duration_seconds ?? 0);
-      const amountCharged =
-        entry.status === "active"
-          ? Number((((durationSeconds / 60) * Number(session?.rate_per_minute ?? 0))).toFixed(2))
-          : Number(entry.amount_charged ?? 0);
-
       if (entry.status === "active") {
+        const durationSeconds = entry.admitted_at
+          ? Math.max(0, Math.min(LIVE_STAGE_SECONDS, Math.floor((Date.now() - new Date(entry.admitted_at).getTime()) / 1000)))
+          : 0;
+        const amountCharged = Number(entry.amount_charged ?? entry.amount_pre_authorized ?? 0);
+
         await supabase
           .from("live_queue_entries")
           .update({
@@ -50,12 +45,26 @@ export async function POST(req: Request) {
           })
           .eq("id", entry.id)
           .eq("status", "active");
+        continue;
       }
 
-      await settleManualCapturePaymentIntent({
-        paymentIntentId: entry.stripe_pre_auth_id,
-        amountToCaptureCents: Math.round(amountCharged * 100),
-      });
+      if (entry.status === "waiting") {
+        await refundPaymentIntent({
+          paymentIntentId: entry.stripe_pre_auth_id,
+          amountToRefundCents: Math.round(Number(entry.amount_pre_authorized ?? 0) * 100),
+        });
+
+        await supabase
+          .from("live_queue_entries")
+          .update({
+            status: "skipped",
+            ended_at: new Date().toISOString(),
+            duration_seconds: 0,
+            amount_charged: 0,
+          })
+          .eq("id", entry.id)
+          .eq("status", "waiting");
+      }
     }
 
     await supabase

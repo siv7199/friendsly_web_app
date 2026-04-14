@@ -21,7 +21,7 @@ const ROLE_OPTIONS = [
     title: "I'm a Fan",
     description: "Discover creators, book 1-on-1 calls, and join live sessions with people who inspire you.",
     icon: Users,
-    perks: ["Browse all creators", "Book video calls", "Join live queues", "Direct access to experts"],
+    perks: ["Browse all creators", "Book video calls", "Watch public lives", "Direct access to experts"],
     accentBorder: "hover:border-brand-primary",
     accentGlow: "hover:shadow-glow-primary",
     iconBg: "bg-brand-primary/20 text-brand-primary-light",

@@ -38,7 +38,7 @@ export default function SavedPage() {
            creator:profiles!creator_id(
            id, full_name, username, avatar_initials, avatar_color, avatar_url, created_at,
             creator_profiles(
-              bio, category, tags, live_rate_per_minute, is_live, booking_interval_minutes,
+              bio, category, tags, live_join_fee, is_live, booking_interval_minutes,
               scheduled_live_at, scheduled_live_timezone, timezone,
               followers_count, avg_rating, review_count, total_calls,
               response_time, next_available
@@ -125,7 +125,7 @@ export default function SavedPage() {
           bio: string;
           category: string;
           tags: string[];
-            live_rate_per_minute: number | null;
+            live_join_fee: number | null;
             scheduled_live_at: string | null;
             scheduled_live_timezone: string | null;
             timezone: string | null;
@@ -141,7 +141,7 @@ export default function SavedPage() {
           bio: string;
           category: string;
           tags: string[];
-            live_rate_per_minute: number | null;
+            live_join_fee: number | null;
             scheduled_live_at: string | null;
             scheduled_live_timezone: string | null;
             timezone: string | null;
@@ -186,7 +186,7 @@ export default function SavedPage() {
         nextAvailable: minPrice > 0 ? (cp?.next_available ?? "Available this week") : "No packages yet",
         totalCalls: totalCallsByCreator[p.id] ?? 0,
         responseTime: "",
-        liveRatePerMinute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
+        liveJoinFee: cp?.live_join_fee ? Number(cp.live_join_fee) : undefined,
         scheduledLiveAt: cp?.scheduled_live_at ?? undefined,
         scheduledLiveTimeZone: cp?.scheduled_live_timezone ?? cp?.timezone ?? undefined,
         bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,

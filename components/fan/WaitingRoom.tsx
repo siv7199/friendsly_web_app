@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { QueueEntry, ChatMessage } from "@/types";
 import { timeAgo, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { LIVE_STAGE_SECONDS } from "@/lib/live";
 
 interface WaitingRoomProps {
   queue: QueueEntry[];
@@ -22,8 +23,6 @@ interface WaitingRoomProps {
   showQueueTab?: boolean;
   activeFanAdmittedAt?: string | null;
 }
-
-const MAX_LIVE_CALL_SECONDS = 3 * 60;
 
 function formatWaitTime(waitSeconds: number) {
   if (waitSeconds <= 0) return "0 min wait";
@@ -143,11 +142,11 @@ export function WaitingRoom({
   }, []);
 
   const activeFanRemainingSeconds = activeFanAdmittedAt
-    ? Math.max(0, MAX_LIVE_CALL_SECONDS - Math.floor((currentTime - new Date(activeFanAdmittedAt).getTime()) / 1000))
+    ? Math.max(0, LIVE_STAGE_SECONDS - Math.floor((currentTime - new Date(activeFanAdmittedAt).getTime()) / 1000))
     : 0;
 
   const queueWithCountdown = queue.map((entry) => {
-    const fallbackSeconds = Math.max(0, (entry.position - 1) * MAX_LIVE_CALL_SECONDS);
+    const fallbackSeconds = Math.max(0, (entry.position - 1) * LIVE_STAGE_SECONDS);
     const waitSeconds = entry.waitSeconds ?? fallbackSeconds;
     return {
       ...entry,
@@ -185,7 +184,7 @@ export function WaitingRoom({
   }
 
   const currentUserWaitSeconds = currentUserPosition > 0
-    ? Math.max(0, activeFanRemainingSeconds + Math.max(0, currentUserPosition - 1) * MAX_LIVE_CALL_SECONDS)
+    ? Math.max(0, activeFanRemainingSeconds + Math.max(0, currentUserPosition - 1) * LIVE_STAGE_SECONDS)
     : 0;
 
   return (
@@ -196,7 +195,7 @@ export function WaitingRoom({
           <div>
             <p className="text-sm font-bold text-slate-100">{creatorName} is Live</p>
             <p className="text-xs text-slate-400">
-              {queue.length} {queue.length === 1 ? "person" : "people"} in queue
+              Public chat plus paid 30-second guest queue
             </p>
           </div>
         </div>

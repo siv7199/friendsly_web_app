@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/utils";
-import { deriveBookingStatus, getNextBookingRefreshDelay, hasBookingEnded, shouldAutoCancelBooking } from "@/lib/bookings";
+import { deriveBookingStatus, getBookingGrossAmount, getNextBookingRefreshDelay, hasBookingEnded, shouldAutoCancelBooking } from "@/lib/bookings";
 import { localDateKey } from "@/lib/timezones";
 import type { Booking } from "@/types";
 
@@ -89,7 +89,7 @@ export default function CalendarPage() {
       const { data } = await supabase
         .from("bookings")
         .select(`
-          id, scheduled_at, duration, price, status, topic, creator_present, fan_present,
+          id, scheduled_at, duration, price, status, topic, creator_present, fan_present, late_fee_amount, late_fee_paid_at,
           fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
         `)
         .eq("creator_id", creatorId)
@@ -97,10 +97,14 @@ export default function CalendarPage() {
 
       const now = new Date();
       const expiredIds: string[] = [];
-      const cancelledIds: string[] = [];
 
       const mappedBookings: Booking[] = (data ?? []).map((booking: any) => {
         const fan = Array.isArray(booking.fan) ? booking.fan[0] : booking.fan;
+        const grossBookingAmount = getBookingGrossAmount(
+          Number(booking.price),
+          booking.late_fee_amount,
+          booking.late_fee_paid_at
+        );
         const normalizedStatus = deriveBookingStatus(
           booking.status,
           booking.scheduled_at,
@@ -117,14 +121,6 @@ export default function CalendarPage() {
         ) {
           expiredIds.push(booking.id);
         }
-        if (
-          normalizedStatus === "cancelled" &&
-          booking.status !== "cancelled" &&
-          shouldAutoCancelBooking(booking.status, booking.scheduled_at, booking.creator_present, booking.fan_present, now)
-        ) {
-          cancelledIds.push(booking.id);
-        }
-
         const bookingDate = new Date(booking.scheduled_at);
         return {
           id: booking.id,
@@ -138,7 +134,7 @@ export default function CalendarPage() {
           date: localDateKey(bookingDate),
           time: bookingDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
           duration: booking.duration,
-          price: Number(booking.price) * 0.85,
+          price: grossBookingAmount * 0.85,
           status: normalizedStatus,
           topic: booking.topic || "",
         };
@@ -150,18 +146,6 @@ export default function CalendarPage() {
           .update({ status: "completed" })
           .in("id", expiredIds);
       }
-      if (cancelledIds.length > 0) {
-        await supabase
-          .from("bookings")
-          .update({
-            status: "cancelled",
-            creator_present: false,
-            fan_present: false,
-            auto_cancelled_at: now.toISOString(),
-          })
-            .in("id", cancelledIds);
-      }
-
       const nextDelay = getNextBookingRefreshDelay(
         mappedBookings.map((booking) => ({
           status: booking.status,

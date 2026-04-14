@@ -31,7 +31,7 @@ import { isCreatorProfile } from "@/types";
 import { AVATAR_COLORS, CREATOR_CATEGORIES } from "@/lib/mock-auth";
 import { cn, formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { deriveBookingStatus, hasBookingEnded, shouldAutoCancelBooking } from "@/lib/bookings";
+import { deriveBookingStatus, getBookingGrossAmount, hasBookingEnded, shouldAutoCancelBooking } from "@/lib/bookings";
 import { sanitizeSocialUrl } from "@/lib/social";
 import { removeAvatarFile, uploadAvatarFile } from "@/lib/avatar-upload";
 
@@ -188,7 +188,7 @@ export default function SettingsPage() {
       const supabase = createClient();
       
       const [bookingsRes, payoutsRes, liveRes] = await Promise.all([
-        supabase.from("bookings").select("id, price, scheduled_at, duration, status, creator_present, fan_present").eq("creator_id", user!.id),
+        supabase.from("bookings").select("id, price, scheduled_at, duration, status, creator_present, fan_present, late_fee_amount, late_fee_paid_at").eq("creator_id", user!.id),
         supabase.from("payouts").select("*").eq("creator_id", user!.id).order('created_at', { ascending: false }),
         supabase
           .from("live_sessions")
@@ -200,9 +200,13 @@ export default function SettingsPage() {
       let monthEarned = 0;
       const now = new Date();
       const expiredIds: string[] = [];
-      const cancelledIds: string[] = [];
       
       (bookingsRes.data || []).forEach((b: any) => {
+        const grossBookingAmount = getBookingGrossAmount(
+          Number(b.price),
+          b.late_fee_amount,
+          b.late_fee_paid_at
+        );
         const normalizedStatus = deriveBookingStatus(
           b.status,
           b.scheduled_at,
@@ -218,16 +222,8 @@ export default function SettingsPage() {
         ) {
           expiredIds.push(b.id);
         }
-        if (
-          normalizedStatus === "cancelled" &&
-          b.status !== "cancelled" &&
-          shouldAutoCancelBooking(b.status, b.scheduled_at, b.creator_present, b.fan_present, now)
-        ) {
-          cancelledIds.push(b.id);
-        }
-
         if (normalizedStatus === "completed" || normalizedStatus === "upcoming" || normalizedStatus === "live") {
-          const cut = Number(b.price) * 0.85; // 85% cut calculation
+          const cut = grossBookingAmount * 0.85; // 85% cut calculation
           totalEarned += cut;
           const bDate = new Date(b.scheduled_at);
           if (
@@ -246,18 +242,6 @@ export default function SettingsPage() {
           .update({ status: "completed" })
           .in("id", expiredIds);
       }
-      if (cancelledIds.length > 0) {
-        await supabase
-          .from("bookings")
-          .update({
-            status: "cancelled",
-            creator_present: false,
-            fan_present: false,
-            auto_cancelled_at: now.toISOString(),
-          })
-          .in("id", cancelledIds);
-      }
-
       (liveRes.data || []).forEach((session: any) => {
         (session.live_queue_entries || []).forEach((entry: any) => {
           if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {

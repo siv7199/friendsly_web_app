@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { settleManualCapturePaymentIntent } from "@/lib/server/stripe";
 
 export async function POST(request: Request) {
   try {
@@ -13,7 +12,7 @@ export async function POST(request: Request) {
     const supabase = createServiceClient();
     const { data: entry, error } = await supabase
       .from("live_queue_entries")
-      .select("id, admitted_at, duration_seconds, amount_charged, stripe_pre_auth_id, status, ended_at, live_sessions(rate_per_minute)")
+      .select("id, admitted_at, duration_seconds, amount_pre_authorized, amount_charged, stripe_pre_auth_id, status, ended_at")
       .eq("id", queueEntryId)
       .single();
 
@@ -22,17 +21,14 @@ export async function POST(request: Request) {
     }
 
     let durationSeconds = Number(entry.duration_seconds ?? 0);
-    let amountCharged = Number(entry.amount_charged ?? 0);
+    let amountCharged = Number(entry.amount_charged ?? entry.amount_pre_authorized ?? 0);
     let finalStatus = entry.status;
     let endedAt = entry.ended_at;
-    const paymentIntentId = entry.stripe_pre_auth_id;
 
     if (status && entry.status === "active") {
       durationSeconds = entry.admitted_at
         ? Math.max(0, Math.floor((Date.now() - new Date(entry.admitted_at).getTime()) / 1000))
         : 0;
-      const ratePerMinute = Number((entry.live_sessions as any)?.rate_per_minute ?? 0);
-      amountCharged = Number((((durationSeconds / 60) * ratePerMinute)).toFixed(2));
       endedAt = new Date().toISOString();
       finalStatus = status;
 
@@ -48,34 +44,14 @@ export async function POST(request: Request) {
         .eq("status", "active");
     }
 
-    if (!paymentIntentId) {
-      return NextResponse.json({
-        ok: true,
-        receipt: {
-          queueEntryId: entry.id,
-          durationSeconds,
-          amountCharged,
-          charged: false,
-          endedAt,
-          status: finalStatus,
-        },
-      });
-    }
-
-    const captureAmount = Math.max(0, Math.round(amountCharged * 100));
-    const settlement = await settleManualCapturePaymentIntent({
-      paymentIntentId,
-      amountToCaptureCents: captureAmount,
-    });
-
     return NextResponse.json({
       ok: true,
       receipt: {
         queueEntryId: entry.id,
         durationSeconds,
         amountCharged,
-        charged: settlement.charged,
-        refundedAmount: settlement.refundedAmount / 100,
+        charged: amountCharged > 0,
+        refundedAmount: 0,
         endedAt,
         status: finalStatus,
       },

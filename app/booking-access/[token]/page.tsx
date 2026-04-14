@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Calendar, Clock, Loader2, Video, XCircle } from "lucide-react";
+import { Calendar, Clock, Loader2, Lock, UserPlus, Video, XCircle } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useAuthContext } from "@/lib/context/AuthContext";
 import { formatCurrency } from "@/lib/utils";
 import { getTimeZoneAbbreviation } from "@/lib/timezones";
 
@@ -23,6 +24,8 @@ type AccessPayload = {
     endsAt: string;
     refundAmount: number;
     refundPolicyText: string;
+    lateFeeRequired: boolean;
+    lateFeeAmount: number;
     creator: {
       full_name?: string;
       username?: string;
@@ -36,12 +39,14 @@ type AccessPayload = {
 export default function BookingAccessPage() {
   const params = useParams();
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuthContext();
   const rawToken = Array.isArray(params.token) ? params.token[0] : params.token;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [payload, setPayload] = useState<AccessPayload | null>(null);
   const [clientTimeZone, setClientTimeZone] = useState("America/New_York");
   const [cancelling, setCancelling] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
   async function loadBooking() {
     if (!rawToken) return;
@@ -127,6 +132,8 @@ export default function BookingAccessPage() {
   const isCancelled = booking.status === "cancelled";
   const isCompleted = booking.status === "completed";
   const canRebook = Boolean(booking.creator?.username);
+  const nextPath = `/booking-access/${rawToken}`;
+  const isFanAccount = user?.role === "fan";
 
   async function handleCancel() {
     try {
@@ -159,6 +166,31 @@ export default function BookingAccessPage() {
     }
   }
 
+  async function handleClaimAndContinue() {
+    try {
+      setClaiming(true);
+      setError("");
+      const response = await fetch(`/api/public/booking-access/${rawToken}/claim`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? "Could not claim booking.");
+      }
+
+      if (booking.canJoinNow) {
+        router.push(`/room/${data.bookingId}`);
+        return;
+      }
+
+      router.push("/bookings");
+    } catch (claimError) {
+      setError(claimError instanceof Error ? claimError.message : "Could not claim booking.");
+    } finally {
+      setClaiming(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-brand-bg px-4 py-8 md:px-6 md:py-12">
       <div className="mx-auto max-w-2xl space-y-6">
@@ -178,7 +210,7 @@ export default function BookingAccessPage() {
               ? "You can use the link below to book a new call with this creator."
               : isCompleted
               ? "This session is finished. You can book a new call with this creator below."
-              : "This page lets you return later and join your call without creating a Friendsly account."}
+              : "You can still manage this booking here, but joining now requires a Friendsly fan account."}
           </p>
         </div>
 
@@ -191,14 +223,22 @@ export default function BookingAccessPage() {
               Cancel more than 24 hours before the call for a full refund. Cancel within 24 hours for a 50% refund.
             </p>
             <p className="text-sm text-amber-100">
-              Auto-cancel after 5 minutes: if neither participant joins, the booking is cancelled automatically and the fan gets a full refund.
+              Auto-cancel after 10 minutes: if neither participant joins, the booking is cancelled automatically and the fan gets a full refund.
             </p>
             <p className="text-sm text-amber-100">
-              Auto-cancel after 5 minutes: if only the creator joins, the fan gets a 50% refund. If only the fan joins, the fan gets a full refund.
+              If the creator does not join within 10 minutes, the fan gets a full refund. If the fan joins more than 5 minutes late, a 10% late fee is required before entering the room.
+            </p>
+            <p className="text-sm text-amber-100">
+              Guest bookings must be claimed into a Friendsly fan account before joining. If you do not want to create an account, you can cancel and receive the refund that applies under this policy.
             </p>
             <p className="text-sm text-amber-200/90">
               If you cancel now, your refund will be {formatCurrency(booking.refundAmount)}.
             </p>
+            {booking.lateFeeRequired && (
+              <p className="text-sm text-amber-200/90">
+                A late fee of {formatCurrency(booking.lateFeeAmount)} is now required before joining.
+              </p>
+            )}
           </div>
         )}
 
@@ -236,9 +276,11 @@ export default function BookingAccessPage() {
                   ? "This call was cancelled, so the join link is no longer active."
                   : isCompleted
                   ? "This call has ended, so the join link is no longer active."
-                  : booking.canJoinNow
-                  ? "Your room is open now."
-                  : `Join opens at ${joinOpensAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}.`}
+                  : isFanAccount
+                  ? booking.canJoinNow
+                    ? "Claim this booking into your fan account to join now."
+                    : "Claim this booking into your fan account so you're ready when join opens."
+                  : `Create or sign in to a fan account before ${joinOpensAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} to join on time.`}
               </p>
             </div>
           </div>
@@ -266,15 +308,44 @@ export default function BookingAccessPage() {
             ) : (
               <>
                 <div className="flex flex-1 flex-col gap-3">
-                  <Button
-                    variant="gold"
-                    className="w-full"
-                    disabled={!booking.canJoinNow}
-                    onClick={() => router.push(`/guest-room/${rawToken}`)}
-                  >
-                    <Video className="w-4 h-4" />
-                    {booking.canJoinNow ? "Join call" : "Join not open yet"}
-                  </Button>
+                  {isFanAccount ? (
+                    <Button
+                      variant="gold"
+                      className="w-full"
+                      disabled={claiming}
+                      onClick={() => void handleClaimAndContinue()}
+                    >
+                      <Video className="w-4 h-4" />
+                      {claiming
+                        ? "Claiming..."
+                        : booking.canJoinNow
+                        ? booking.lateFeeRequired
+                          ? `Claim booking and pay ${formatCurrency(booking.lateFeeAmount)} to join`
+                          : "Claim booking and join"
+                        : "Claim booking to my account"}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="gold"
+                        className="w-full"
+                        disabled={authLoading}
+                        onClick={() => router.push(`/?tab=signin&next=${encodeURIComponent(nextPath)}`)}
+                      >
+                        <Lock className="w-4 h-4" />
+                        Sign in to join
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        disabled={authLoading}
+                        onClick={() => router.push(`/?tab=signup&next=${encodeURIComponent(nextPath)}`)}
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        Create account to join
+                      </Button>
+                    </>
+                  )}
                   {booking.canCancel && (
                     <Button
                       variant="outline"

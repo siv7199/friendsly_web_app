@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getBookingWindow, hasBookingEnded, shouldAutoCancelBooking } from "@/lib/bookings";
-import { cancelBookingWithRefund, inferAutoCancellationReason } from "@/lib/server/bookings";
+import { cancelBookingWithRefund, getLateFeeAmountForPrice, inferAutoCancellationReason, isLateFeeRequired } from "@/lib/server/bookings";
 
 export async function POST(
   req: Request,
@@ -55,8 +55,19 @@ export async function POST(
       });
 
       return NextResponse.json(
-        { error: "This booking was auto-cancelled because both participants were not in the call 5 minutes after the scheduled start time." },
+        { error: "This booking was auto-cancelled because both participants were not in the call 10 minutes after the scheduled start time." },
         { status: 400 }
+      );
+    }
+
+    if (isFan && isLateFeeRequired({ scheduledAt: booking.scheduled_at, lateFeePaidAt: booking.late_fee_paid_at })) {
+      return NextResponse.json(
+        {
+          error: "Joining more than 5 minutes after the booking start requires a 10% late fee before entry.",
+          requiresLateFee: true,
+          lateFeeAmount: getLateFeeAmountForPrice(Number(booking.price ?? 0)),
+        },
+        { status: 402 }
       );
     }
 

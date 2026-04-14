@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { deriveBookingStatus } from "@/lib/bookings";
+import { deriveBookingStatus, getBookingGrossAmount } from "@/lib/bookings";
 import { stripe } from "@/lib/server/stripe";
 import { getRetainedBookingAmount } from "@/lib/server/bookings";
 
@@ -159,7 +159,7 @@ export async function getCreatorPayoutSummary(userId: string): Promise<CreatorPa
   const [bookingsRes, payoutsRes, liveRes, stripeAvailable] = await Promise.all([
     supabase
       .from("bookings")
-      .select("id, price, scheduled_at, duration, status, creator_present, fan_present, refund_amount")
+      .select("id, price, scheduled_at, duration, status, creator_present, fan_present, refund_amount, late_fee_amount, late_fee_paid_at")
       .eq("creator_id", userId),
     supabase
       .from("payouts")
@@ -178,6 +178,11 @@ export async function getCreatorPayoutSummary(userId: string): Promise<CreatorPa
   const now = new Date();
 
   (bookingsRes.data || []).forEach((booking: any) => {
+    const grossBookingAmount = getBookingGrossAmount(
+      Number(booking.price),
+      booking.late_fee_amount,
+      booking.late_fee_paid_at
+    );
     const normalizedStatus = deriveBookingStatus(
       booking.status,
       booking.scheduled_at,
@@ -188,14 +193,14 @@ export async function getCreatorPayoutSummary(userId: string): Promise<CreatorPa
     );
 
     if (normalizedStatus === "upcoming" || normalizedStatus === "live") {
-      pendingEarnings += Number(booking.price) * 0.85;
+      pendingEarnings += grossBookingAmount * 0.85;
       return;
     }
 
     const grossRetained = normalizedStatus === "completed"
-      ? Number(booking.price)
+      ? grossBookingAmount
       : normalizedStatus === "cancelled"
-      ? getRetainedBookingAmount(Number(booking.price), booking.refund_amount)
+      ? getRetainedBookingAmount(grossBookingAmount, booking.refund_amount)
       : 0;
 
     if (grossRetained <= 0) return;

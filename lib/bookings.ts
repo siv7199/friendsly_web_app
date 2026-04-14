@@ -1,17 +1,39 @@
 export const BOOKING_EARLY_JOIN_MINUTES = 5;
-export const BOOKING_NO_SHOW_GRACE_MINUTES = 5;
+export const BOOKING_FAN_LATE_FEE_MINUTES = 5;
+export const BOOKING_NO_SHOW_GRACE_MINUTES = 10;
 
 function toDate(value: string | Date): Date {
   return value instanceof Date ? value : new Date(value);
 }
 
+function roundCurrency(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 export function getBookingWindow(scheduledAt: string | Date, durationMinutes: number) {
   const start = toDate(scheduledAt);
   const joinOpensAt = new Date(start.getTime() - BOOKING_EARLY_JOIN_MINUTES * 60 * 1000);
+  const fanLateFeeStartsAt = new Date(start.getTime() + BOOKING_FAN_LATE_FEE_MINUTES * 60 * 1000);
   const noShowDeadline = new Date(start.getTime() + BOOKING_NO_SHOW_GRACE_MINUTES * 60 * 1000);
   const endsAt = new Date(start.getTime() + durationMinutes * 60 * 1000);
 
-  return { start, joinOpensAt, noShowDeadline, endsAt };
+  return { start, joinOpensAt, fanLateFeeStartsAt, noShowDeadline, endsAt };
+}
+
+export function isFanLateForBookingJoin(
+  scheduledAt: string | Date,
+  now: Date = new Date()
+) {
+  const { fanLateFeeStartsAt } = getBookingWindow(scheduledAt, 0);
+  return now.getTime() >= fanLateFeeStartsAt.getTime();
+}
+
+export function getBookingGrossAmount(
+  price: number,
+  lateFeeAmount: number | null | undefined = 0,
+  lateFeePaidAt?: string | null
+) {
+  return roundCurrency(price + (lateFeePaidAt ? Number(lateFeeAmount ?? 0) : 0));
 }
 
 export function isBookingJoinable(
@@ -85,8 +107,8 @@ export function getNextBookingRefreshDelay(
   for (const booking of bookings) {
     if (booking.status === "completed" || booking.status === "cancelled") continue;
 
-    const { joinOpensAt, noShowDeadline, endsAt } = getBookingWindow(booking.scheduledAt, booking.duration);
-    const candidateTimes = [joinOpensAt.getTime(), noShowDeadline.getTime(), endsAt.getTime()];
+    const { joinOpensAt, fanLateFeeStartsAt, noShowDeadline, endsAt } = getBookingWindow(booking.scheduledAt, booking.duration);
+    const candidateTimes = [joinOpensAt.getTime(), fanLateFeeStartsAt.getTime(), noShowDeadline.getTime(), endsAt.getTime()];
 
     for (const candidateMs of candidateTimes) {
       if (candidateMs <= nowMs) continue;

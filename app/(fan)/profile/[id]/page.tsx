@@ -11,7 +11,6 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookingModal } from "@/components/fan/BookingModal";
-import { LiveJoinModal } from "@/components/fan/LiveJoinModal";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import type { Creator, CallPackage } from "@/types";
@@ -195,7 +194,7 @@ async function fetchCreatorData(id: string): Promise<{
     nextAvailable: minPrice > 0 ? "Available this week" : "No packages yet",
     totalCalls: (completedBookingsCount ?? 0) + (completedLiveQueueCount ?? 0),
       responseTime: cp?.response_time ?? "~5 min",
-      liveRatePerMinute: cp?.live_rate_per_minute ? Number(cp.live_rate_per_minute) : undefined,
+      liveJoinFee: cp?.live_join_fee ? Number(cp.live_join_fee) : undefined,
       scheduledLiveAt: cp?.scheduled_live_at ?? undefined,
       scheduledLiveTimeZone: cp?.scheduled_live_timezone ?? cp?.timezone ?? undefined,
       timeZone: cp?.timezone ?? "America/New_York",
@@ -238,7 +237,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
 
   const [showBooking, setShowBooking] = useState(false);
-  const [showLiveJoin, setShowLiveJoin] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
   const [availabilityPackageId, setAvailabilityPackageId] = useState<string>("all");
 
@@ -342,9 +340,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         currentLiveSessionId: payload.new?.current_live_session_id ?? undefined,
                         scheduledLiveAt: payload.new?.scheduled_live_at ?? undefined,
                         scheduledLiveTimeZone: payload.new?.scheduled_live_timezone ?? prev.scheduledLiveTimeZone,
-                        liveRatePerMinute: payload.new?.live_rate_per_minute != null
-                          ? Number(payload.new.live_rate_per_minute)
-                    : prev.liveRatePerMinute,
+                        liveJoinFee: payload.new?.live_join_fee != null
+                          ? Number(payload.new.live_join_fee)
+                    : prev.liveJoinFee,
                 }
               : prev
           );
@@ -452,7 +450,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   if (!creator) return notFound();
 
   const hasPackages   = activePackages.length > 0;
-  const hasLiveRate   = Boolean(creator.liveRatePerMinute && creator.liveRatePerMinute > 0);
+  const hasLiveRate   = Boolean(creator.liveJoinFee && creator.liveJoinFee > 0);
   const weekDates     = getWeekDates(weekOffset);
   const today         = new Date();
   const viewerTimeZone = getBrowserTimeZone();
@@ -619,9 +617,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-live/10 border border-brand-live/30">
                   <Zap className="w-4 h-4 text-brand-live" />
                   <span className="text-sm font-bold text-brand-live">
-                    {formatCurrency(creator.liveRatePerMinute!)}/min
+                    {formatCurrency(creator.liveJoinFee!)}
                   </span>
-                  <span className="text-xs text-slate-400">live queue</span>
+                  <span className="text-xs text-slate-400">to join live for 30s</span>
                 </div>
               )}
               {hasPackages && (
@@ -649,7 +647,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               {!hasPackages ? (
                 <div className="p-4 rounded-xl border border-brand-border bg-brand-elevated text-center py-8">
                   <p className="text-slate-400 text-sm">No booking packages available yet.</p>
-                  <p className="text-slate-500 text-xs mt-1">Check back soon or join their live queue.</p>
+                  <p className="text-slate-500 text-xs mt-1">Check back soon or watch their public live.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -814,10 +812,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     <span className="text-xs font-bold text-brand-live uppercase tracking-wider">Live Right Now</span>
                   </div>
                   <p className="text-xl font-black text-brand-live">
-                    {formatCurrency(creator.liveRatePerMinute!)}/min
+                    {formatCurrency(creator.liveJoinFee!)}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    {creator.queueCount > 0 ? `${creator.queueCount} in queue` : "No wait — join now!"}
+                    {creator.queueCount > 0 ? `${creator.queueCount} in queue` : "Watch now and request a turn"}
                   </p>
                 </div>
               )}
@@ -848,7 +846,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 {hasLiveRate && (
                   <div className="flex items-center gap-2 text-slate-400">
                     <CheckCircle2 className="w-4 h-4 text-brand-live shrink-0" />
-                    <span>Live: pay only for time used</span>
+                    <span>Live: free to watch, paid 30-second guest turns</span>
                   </div>
                 )}
               </div>
@@ -867,12 +865,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   </Button>
                 )}
 
-                {/* 2. Join Queue Button (Always visible, disabled if not live) */}
+                {/* 2. Watch Live Button */}
                 {creator.isLive && hasLiveRate ? (
-                  <Button variant="live" size="lg" className="w-full gap-2" onClick={() => setShowLiveJoin(true)}>
-                    <Zap className="w-4 h-4" />
-                    Join Queue — {creator.queueCount} ahead
-                  </Button>
+                  <Link href={`/waiting-room/${creator.id}`}>
+                    <Button variant="live" size="lg" className="w-full gap-2">
+                      <Zap className="w-4 h-4" />
+                      Watch Live {creator.queueCount > 0 ? `• ${creator.queueCount} waiting` : ""}
+                    </Button>
+                  </Link>
                 ) : hasLiveRate ? (
                   <Button variant="outline" size="lg" disabled className="w-full gap-2 opacity-50 cursor-not-allowed">
                     <Zap className="w-4 h-4 text-slate-500" />
@@ -1060,14 +1060,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           availability={availability}
           initialPackageId={availabilityPackageId === "all" ? undefined : availabilityPackageId}
         />
-
-      {creator.liveRatePerMinute && (
-        <LiveJoinModal
-          creator={creator}
-          open={showLiveJoin}
-          onClose={() => setShowLiveJoin(false)}
-        />
-      )}
     </>
   );
 }

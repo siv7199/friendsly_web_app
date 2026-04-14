@@ -71,7 +71,6 @@ export default function BookingsPage() {
       if (data) {
         const now = new Date();
         const expiredIds: string[] = [];
-        const cancelledIds: string[] = [];
 
         setBookings(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,14 +89,6 @@ export default function BookingsPage() {
             if (nextStatus === "completed" && b.status !== "completed" && hasBookingEnded(b.scheduled_at, b.duration, now)) {
               expiredIds.push(b.id);
             }
-            if (
-              nextStatus === "cancelled" &&
-              b.status !== "cancelled" &&
-              shouldAutoCancelBooking(b.status, b.scheduled_at, b.creator_present, b.fan_present, now)
-            ) {
-              cancelledIds.push(b.id);
-            }
-
             return {
               id: b.id,
               creatorId: (creator as { id: string })?.id ?? "",
@@ -138,18 +129,6 @@ export default function BookingsPage() {
             .update({ status: "completed" })
             .in("id", expiredIds);
         }
-        if (cancelledIds.length > 0) {
-          await supabase
-            .from("bookings")
-            .update({
-              status: "cancelled",
-              creator_present: false,
-              fan_present: false,
-              auto_cancelled_at: now.toISOString(),
-            })
-            .in("id", cancelledIds);
-        }
-
         if (nextDelay) {
           refreshTimer = window.setTimeout(() => {
             void loadBookings();
@@ -239,7 +218,7 @@ export default function BookingsPage() {
           Refund policy: cancel more than 24 hours before the call for a full refund. Cancel within 24 hours for a 50% refund.
         </p>
         <p className="text-xs text-slate-500 mt-1">
-          Auto-cancel after 5 minutes: if nobody joins, you get a full refund. If only the creator joins, you get a 50% refund. If only you join, you get a full refund.
+          Auto-cancel after 10 minutes: if the creator still has not joined, you get a full refund. Joining more than 5 minutes late requires a 10% late fee before entering.
         </p>
       </div>
 
@@ -432,7 +411,7 @@ export default function BookingsPage() {
                               Full refund until 24h before. 50% refund after that.
                             </p>
                             <p className="text-[11px] text-slate-500">
-                              Auto-cancel after 5 minutes: nobody joins = full refund, creator no-show = full refund, fan no-show = 50% refund.
+                              Auto-cancel after 10 minutes if the creator still has not joined. Joining more than 5 minutes late requires a 10% late fee before entering.
                             </p>
                           </div>
                         )}

@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.creator_profiles (
   bio                     TEXT DEFAULT '',
   category                TEXT DEFAULT '',
   tags                    TEXT[] DEFAULT '{}',
-  live_rate_per_minute    DECIMAL(10,2) DEFAULT NULL,  -- $/min for public live queue
+  live_join_fee           DECIMAL(10,2) DEFAULT NULL,  -- one-time fee for a 30-second public live guest turn
   is_live                 BOOLEAN DEFAULT FALSE,
   current_live_session_id UUID DEFAULT NULL,
   followers_count         INTEGER DEFAULT 0,
@@ -77,18 +77,18 @@ CREATE TABLE IF NOT EXISTS public.bookings (
 );
 
 -- ── live_sessions ─────────────────────────────────────────────────────────────
--- A creator's public live event. Fans join the queue and pay per minute.
+-- A creator's public live event. Fans join the queue and pay a fixed fee for a 30-second guest turn.
 CREATE TABLE IF NOT EXISTS public.live_sessions (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   creator_id       UUID NOT NULL REFERENCES public.profiles(id),
-  rate_per_minute  DECIMAL(10,2) NOT NULL,
+  join_fee         DECIMAL(10,2) NOT NULL,
   started_at       TIMESTAMPTZ DEFAULT NOW(),
   ended_at         TIMESTAMPTZ,
   is_active        BOOLEAN DEFAULT TRUE
 );
 
 -- ── live_queue_entries ────────────────────────────────────────────────────────
--- Each fan in a live queue. Tracks billing from pre-auth to final charge.
+-- Each fan in a live queue. Tracks billing and 30-second guest turns.
 CREATE TABLE IF NOT EXISTS public.live_queue_entries (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id            UUID NOT NULL REFERENCES public.live_sessions(id) ON DELETE CASCADE,

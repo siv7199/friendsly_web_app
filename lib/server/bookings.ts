@@ -1,4 +1,4 @@
-import { getBookingWindow } from "@/lib/bookings";
+import { getBookingWindow, getBookingGrossAmount, isFanLateForBookingJoin } from "@/lib/bookings";
 import { getTimeZoneParts } from "@/lib/timezones";
 import { createServiceClient } from "@/lib/supabase/server";
 import { refundPaymentIntent } from "@/lib/server/stripe";
@@ -13,6 +13,10 @@ export type BookingCancellationReason =
   | "auto_cancel_both_absent"
   | "auto_cancel_creator_no_show"
   | "auto_cancel_fan_no_show";
+
+function roundCurrency(value: number) {
+  return Math.round(value * 100) / 100;
+}
 
 function compareDateParts(
   left: { year: number; month: number; day: number },
@@ -37,17 +41,43 @@ export function inferAutoCancellationReason(
   return "auto_cancel_both_absent";
 }
 
-export function getRefundAmountForReason(price: number, reason: BookingCancellationReason) {
-  if (reason === "fan_cancelled_late" || reason === "auto_cancel_fan_no_show") {
-    return Math.round((price * 0.5) * 100) / 100;
+export function getLateFeeAmountForPrice(price: number) {
+  return roundCurrency(price * 0.1);
+}
+
+export function isLateFeeRequired(params: {
+  scheduledAt: string | Date;
+  lateFeePaidAt?: string | null;
+  now?: Date;
+}) {
+  const { scheduledAt, lateFeePaidAt, now = new Date() } = params;
+  return !lateFeePaidAt && isFanLateForBookingJoin(scheduledAt, now);
+}
+
+export function getRefundAmountForReason(
+  price: number,
+  reason: BookingCancellationReason,
+  lateFeeAmount: number = 0
+) {
+  if (reason === "fan_cancelled_late") {
+    return roundCurrency(price * 0.5);
   }
 
-  return Math.round(price * 100) / 100;
+  if (reason === "auto_cancel_fan_no_show") {
+    return 0;
+  }
+
+  if (reason === "auto_cancel_both_absent" || reason === "auto_cancel_creator_no_show") {
+    return roundCurrency(price + lateFeeAmount);
+  }
+
+  return roundCurrency(price);
 }
 
 export function getRetainedBookingAmount(price: number, refundAmount: number | null | undefined) {
-  return Math.max(0, Math.round((price - Number(refundAmount ?? 0)) * 100) / 100);
+  return Math.max(0, roundCurrency(price - Number(refundAmount ?? 0)));
 }
+
 
 export function getFanCancellationReason(
   scheduledAt: string | Date,
@@ -186,7 +216,7 @@ export async function cancelBookingWithRefund(params: {
   const supabase = createServiceClient();
   const { data: booking, error } = await supabase
     .from("bookings")
-    .select("id, status, price, stripe_payment_intent_id, refund_amount")
+    .select("id, status, price, stripe_payment_intent_id, refund_amount, late_fee_amount, late_fee_payment_intent_id, late_fee_paid_at")
     .eq("id", bookingId)
     .single();
 
@@ -198,17 +228,31 @@ export async function cancelBookingWithRefund(params: {
     return booking;
   }
 
-  const refundAmount = getRefundAmountForReason(Number(booking.price), reason);
+  const bookingPrice = Number(booking.price);
+  const lateFeeAmount = booking.late_fee_paid_at ? Number(booking.late_fee_amount ?? 0) : 0;
+  const refundAmount = getRefundAmountForReason(bookingPrice, reason, lateFeeAmount);
   let stripeRefundId: string | null = null;
+  let lateFeeRefundId: string | null = null;
   let refundedAt: string | null = null;
 
-  if (booking.stripe_payment_intent_id && refundAmount > 0) {
+  const bookingRefundAmount = Math.min(refundAmount, bookingPrice);
+  if (booking.stripe_payment_intent_id && bookingRefundAmount > 0) {
     const refund = await refundPaymentIntent({
       paymentIntentId: String(booking.stripe_payment_intent_id),
-      amountToRefundCents: Math.round(refundAmount * 100),
+      amountToRefundCents: Math.round(bookingRefundAmount * 100),
     });
     stripeRefundId = refund.refundId;
     refundedAt = new Date().toISOString();
+  }
+
+  const lateFeeRefundAmount = Math.max(0, roundCurrency(refundAmount - bookingRefundAmount));
+  if (booking.late_fee_payment_intent_id && lateFeeRefundAmount > 0) {
+    const refund = await refundPaymentIntent({
+      paymentIntentId: String(booking.late_fee_payment_intent_id),
+      amountToRefundCents: Math.round(lateFeeRefundAmount * 100),
+    });
+    lateFeeRefundId = refund.refundId;
+    refundedAt = refundedAt ?? new Date().toISOString();
   }
 
   const { data: updatedBooking, error: updateError } = await supabase
@@ -221,6 +265,7 @@ export async function cancelBookingWithRefund(params: {
       cancelled_by_user_id: actorUserId,
       refund_amount: refundAmount,
       stripe_refund_id: stripeRefundId,
+      late_fee_refund_id: lateFeeRefundId,
       refunded_at: refundedAt,
       auto_cancelled_at: autoCancelled ? new Date().toISOString() : null,
     })

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const { roomName, isOwner = false } = await req.json();
+    const { roomName, isOwner = false, userName } = await req.json();
 
     if (!roomName) {
       return NextResponse.json({ error: "roomName is required" }, { status: 400 });
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
         properties: {
           room_name: roomName,
           is_owner: isOwner,
+          user_name: userName || undefined,
         },
       }),
     });
