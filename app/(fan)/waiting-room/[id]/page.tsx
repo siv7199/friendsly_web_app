@@ -23,6 +23,15 @@ type CreatorState = {
   liveJoinFee?: number;
 };
 
+type ActiveFanState = {
+  fanId: string;
+  fanName: string;
+  avatarInitials: string;
+  avatarColor: string;
+  avatarUrl?: string;
+  admittedDailySessionId?: string;
+};
+
 export default function WaitingRoomPage({ params }: { params: { id: string } }) {
   const { user } = useAuthContext();
   const [creatorState, setCreatorState] = useState<CreatorState | null>(null);
@@ -32,6 +41,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   const [token, setToken] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [activeFanAdmittedAt, setActiveFanAdmittedAt] = useState<string | null>(null);
+  const [activeFan, setActiveFan] = useState<ActiveFanState | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [reportedDailySessionId, setReportedDailySessionId] = useState<string | null>(null);
@@ -78,6 +88,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       setRoomUrl(null);
       setQueue([]);
       setActiveFanAdmittedAt(null);
+      setActiveFan(null);
       setLoading(false);
       return;
     }
@@ -89,7 +100,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     const { data: entries } = await supabase
       .from("live_queue_entries")
       .select(`
-        id, fan_id, topic, joined_at, admitted_at, status,
+        id, fan_id, topic, joined_at, admitted_at, admitted_daily_session_id, status,
         fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
       `)
       .eq("session_id", session.id)
@@ -98,6 +109,18 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
 
     const activeEntry = (entries ?? []).find((entry: any) => entry.status === "active");
     setActiveFanAdmittedAt(activeEntry?.admitted_at ?? null);
+    setActiveFan(
+      activeEntry
+        ? {
+            fanId: activeEntry.fan_id,
+            fanName: activeEntry.fan.full_name,
+            avatarInitials: activeEntry.fan.avatar_initials,
+            avatarColor: activeEntry.fan.avatar_color,
+            avatarUrl: activeEntry.fan.avatar_url ?? undefined,
+            admittedDailySessionId: activeEntry.admitted_daily_session_id ?? undefined,
+          }
+        : null
+    );
 
     const waitingEntries = (entries ?? []).filter((entry: any) => entry.status === "waiting");
     const activeRemainingSeconds = activeEntry?.admitted_at
@@ -250,7 +273,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
 
   return (
     <>
-      <div className="px-4 md:px-6 py-5 max-w-7xl mx-auto h-[calc(100vh-1rem)] flex flex-col gap-4">
+      <div className="px-4 md:px-6 py-4 md:py-5 h-[100dvh] overflow-hidden flex flex-col gap-4">
         <Link href={`/profile/${creatorState.id}`} className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-100 transition-colors shrink-0">
           <ArrowLeft className="w-4 h-4" />
           Back to {creatorState.name}&apos;s profile
@@ -267,12 +290,16 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
                 creatorInitials={creatorState.avatarInitials}
                 creatorColor={creatorState.avatarColor}
                 creatorAvatarUrl={creatorState.avatarUrl}
+                viewerInitials={user?.avatar_initials ?? "YO"}
+                viewerColor={user?.avatar_color ?? "bg-brand-primary"}
+                viewerAvatarUrl={user?.avatar_url ?? undefined}
                 isAdmitted={Boolean(myActiveEntry)}
                 secondsRemaining={secondsRemaining}
                 onJoinQueue={() => setShowJoinModal(true)}
                 joinDisabled={Boolean(myWaitingEntry || myActiveEntry)}
                 queueCount={queue.filter((entry) => entry.status === "waiting").length}
                 onStageSessionReady={reportActiveJoin}
+                activeFan={myActiveEntry ? null : activeFan}
               />
             ) : (
               <div className="rounded-[28px] border border-brand-border bg-brand-surface h-full flex items-center justify-center p-10 text-center">

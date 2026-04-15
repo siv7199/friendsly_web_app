@@ -1,5 +1,5 @@
-import { LiveLayoutPreviewGallery } from "@/components/concepts/LiveLayoutPreviewGallery";
+import { CreatorLiveConcept } from "@/components/concepts/CreatorLiveConcept";
 
 export default function LiveUiConceptPage() {
-  return <LiveLayoutPreviewGallery />;
+  return <CreatorLiveConcept />;
 }

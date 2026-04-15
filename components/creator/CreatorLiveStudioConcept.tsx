@@ -21,10 +21,10 @@ const CHAT = [
 
 export function CreatorLiveStudioConcept() {
   return (
-    <div className="min-h-screen bg-[#090612] text-white overflow-hidden">
+    <div className="min-h-screen bg-[#090612] text-white overflow-hidden xl:h-[100dvh]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(40,140,255,0.16),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.14),transparent_28%)] pointer-events-none" />
 
-      <div className="relative px-5 md:px-8 py-6 max-w-[1600px] mx-auto h-screen flex flex-col gap-5">
+      <div className="relative px-5 md:px-8 py-6 max-w-[1600px] mx-auto h-full flex flex-col gap-5">
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
@@ -48,11 +48,11 @@ export function CreatorLiveStudioConcept() {
           </div>
         </div>
 
-        <div className="grid flex-1 min-h-0 gap-5 xl:grid-cols-[minmax(0,1.45fr)_390px]">
+        <div className="grid flex-1 min-h-0 gap-5 overflow-hidden xl:grid-cols-[minmax(0,1.45fr)_390px]">
           <div className="min-h-0 flex flex-col gap-5">
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_260px]">
               <div className="rounded-[30px] border border-white/10 bg-[#120d24] p-4 shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
-                <div className="relative min-h-[270px] rounded-[24px] overflow-hidden border border-white/10 bg-[linear-gradient(135deg,#2b1e5b,#17112f_45%,#0f0c1a)]">
+                <div className="relative min-h-[240px] rounded-[24px] overflow-hidden border border-white/10 bg-[linear-gradient(135deg,#2b1e5b,#17112f_45%,#0f0c1a)]">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_35%)]" />
                   <div className="absolute left-5 top-5 flex items-center gap-2">
                     <Badge variant="live">
@@ -91,7 +91,7 @@ export function CreatorLiveStudioConcept() {
                   <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Guest Window</p>
                   <p className="mt-1 text-sm text-slate-400">The admitted fan appears right under the queue flow.</p>
                 </div>
-                <div className="relative flex-1 min-h-[270px] rounded-[24px] overflow-hidden border border-white/10 bg-[linear-gradient(180deg,#1d1638,#0e0a19)] flex items-center justify-center">
+                <div className="relative flex-1 min-h-[240px] rounded-[24px] overflow-hidden border border-white/10 bg-[linear-gradient(180deg,#1d1638,#0e0a19)] flex items-center justify-center">
                   <Avatar initials="MY" color="bg-rose-500" size="xl" />
                   <div className="absolute left-4 bottom-4 rounded-2xl bg-black/35 px-4 py-3">
                     <p className="text-[10px] uppercase tracking-[0.25em] text-slate-300">Admitted Fan</p>
@@ -155,7 +155,7 @@ export function CreatorLiveStudioConcept() {
             </div>
           </div>
 
-          <div className="min-h-0 rounded-[30px] border border-white/10 bg-[#120d24] p-5 flex flex-col gap-4">
+          <div className="min-h-0 rounded-[30px] border border-white/10 bg-[#120d24] p-5 flex flex-col gap-4 overflow-hidden">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Chat</p>

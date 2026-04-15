@@ -29,6 +29,11 @@ type AuthMetadataShape = {
 
 export type OAuthProvider = "google" | "apple";
 
+function getSessionAvatarUrl(meta: Record<string, unknown>): string | undefined {
+  const candidates = [meta.avatar_url, meta.picture, meta.avatar];
+  return candidates.find((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
 // ── Build a minimal profile from JWT data (no DB call) ────────────────────────
 function profileFromSession(session: { user: { id: string; email?: string; user_metadata?: Record<string, unknown> } }): MockProfile {
   const meta = session.user.user_metadata ?? {};
@@ -42,7 +47,7 @@ function profileFromSession(session: { user: { id: string; email?: string; user_
     username: (meta.username as string) ?? "",
     avatar_initials: initials,
     avatar_color: (meta.avatar_color as string) ?? "bg-violet-600",
-    avatar_url: meta.avatar_url as string | undefined,
+    avatar_url: getSessionAvatarUrl(meta),
     created_at: "",
     role,
   } as MockProfile;
@@ -120,6 +125,32 @@ async function fetchProfile(userId: string): Promise<MockProfile | null> {
 
 // ── The Hook ──────────────────────────────────────────────────────────────────
 
+function mergeSessionAvatarIntoProfile(
+  profile: MockProfile,
+  session: { user: { user_metadata?: Record<string, unknown> } }
+): MockProfile {
+  if (profile.avatar_url) return profile;
+
+  const sessionAvatarUrl = getSessionAvatarUrl(session.user.user_metadata ?? {});
+  if (!sessionAvatarUrl) return profile;
+
+  return {
+    ...profile,
+    avatar_url: sessionAvatarUrl,
+  };
+}
+
+async function persistMissingProfileAvatar(userId: string, avatarUrl?: string) {
+  if (!avatarUrl) return;
+
+  const supabase = createClient();
+  await supabase
+    .from("profiles")
+    .update({ avatar_url: avatarUrl })
+    .eq("id", userId)
+    .is("avatar_url", null);
+}
+
 export function useAuth() {
   const [state, setState] = useState<AuthState>(INITIAL_STATE);
 
@@ -143,7 +174,14 @@ export function useAuth() {
 
         // Enrich with DB profile in background (non-blocking)
         fetchProfile(session.user.id).then((full) => {
-          if (mounted && full) setState((s) => ({ ...s, user: full, isAuthenticated: Boolean(full.role) }));
+          if (!full) return;
+
+          const merged = mergeSessionAvatarIntoProfile(full, session);
+          void persistMissingProfileAvatar(session.user.id, merged.avatar_url);
+
+          if (mounted) {
+            setState((s) => ({ ...s, user: merged, isAuthenticated: Boolean(merged.role) }));
+          }
         }).catch(() => {/* ignore */});
       } catch {
         if (mounted) setState({ ...INITIAL_STATE });
@@ -164,7 +202,14 @@ export function useAuth() {
 
       // Enrich with DB profile in background (non-blocking)
       fetchProfile(session.user.id).then((full) => {
-        if (mounted && full) setState((s) => ({ ...s, user: full, isAuthenticated: Boolean(full.role) }));
+        if (!full) return;
+
+        const merged = mergeSessionAvatarIntoProfile(full, session);
+        void persistMissingProfileAvatar(session.user.id, merged.avatar_url);
+
+        if (mounted) {
+          setState((s) => ({ ...s, user: merged, isAuthenticated: Boolean(merged.role) }));
+        }
       }).catch(() => {/* ignore */});
     });
 
@@ -226,20 +271,22 @@ export function useAuth() {
       fetchProfile(session.user.id)
         .then((full) => {
           if (full) {
+            const merged = mergeSessionAvatarIntoProfile(full, session);
+            void persistMissingProfileAvatar(session.user.id, merged.avatar_url);
             const hasOversizedMetadata = typeof session.user.user_metadata?.avatar_url === "string";
             if (hasOversizedMetadata || !sessionUser.role) {
               void supabase.auth.updateUser({
                 data: buildAuthMetadata({
-                  full_name: full.full_name,
-                  username: full.username,
-                  avatar_color: full.avatar_color,
-                  role: full.role,
+                  full_name: merged.full_name,
+                  username: merged.username,
+                  avatar_color: merged.avatar_color,
+                  role: merged.role,
                 }),
               });
             }
             setState({
-              user: full,
-              isAuthenticated: Boolean(full.role),
+              user: merged,
+              isAuthenticated: Boolean(merged.role),
               isLoading: false,
               error: null,
             });
