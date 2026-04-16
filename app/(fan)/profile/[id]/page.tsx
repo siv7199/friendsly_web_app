@@ -44,6 +44,12 @@ function isSessionFresh(session: {
   );
 }
 
+function getSessionExpiryDelay(lastHeartbeatAt?: string | null) {
+  if (!lastHeartbeatAt) return null;
+  const remainingMs = LIVE_SESSION_STALE_MS - (Date.now() - new Date(lastHeartbeatAt).getTime());
+  return Math.max(1000, remainingMs + 1000);
+}
+
 function getWeekDates(offset = 0): Date[] {
   const today = new Date();
   const monday = new Date(today);
@@ -187,7 +193,7 @@ async function fetchCreatorData(id: string): Promise<{
     avatarColor: profile.avatar_color,
     avatarUrl: profile.avatar_url ?? undefined,
     isLive: isActuallyLive,
-    currentLiveSessionId: activeSession?.id ?? cp?.current_live_session_id ?? undefined,
+    currentLiveSessionId: activeSession?.id ?? undefined,
     queueCount,
     callPrice: minPrice,
     callDuration: packages[0]?.duration ?? 15,
@@ -249,6 +255,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const [canReview, setCanReview] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const refreshTimeoutsRef = useRef<number[]>([]);
+  const liveExpiryTimeoutRef = useRef<number | null>(null);
   const lastLoadAtRef = useRef(0);
 
   const loadCreatorData = useCallback((supabase = createClient(), incrementProfileView = false) => {
@@ -280,6 +287,20 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         window.setTimeout(() => loadCreatorData(supabase), 500),
         window.setTimeout(() => loadCreatorData(supabase), 1800),
       ];
+    }
+
+    function clearLiveExpiry() {
+      if (liveExpiryTimeoutRef.current) {
+        window.clearTimeout(liveExpiryTimeoutRef.current);
+        liveExpiryTimeoutRef.current = null;
+      }
+    }
+
+    function scheduleLiveExpiry(lastHeartbeatAt?: string | null) {
+      clearLiveExpiry();
+      const delay = getSessionExpiryDelay(lastHeartbeatAt);
+      if (!delay) return;
+      liveExpiryTimeoutRef.current = window.setTimeout(() => loadCreatorData(supabase), delay);
     }
 
     loadCreatorData(supabase, !incrementedProfileView);
@@ -333,10 +354,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         "postgres_changes",
         { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${params.id}` },
         (payload: any) => {
+          if (payload.new?.is_live === false) {
+            clearLiveExpiry();
+          }
           setCreator((prev) =>
                 prev
                   ? {
                         ...prev,
+                        isLive: payload.new?.is_live ?? prev.isLive,
                         currentLiveSessionId: payload.new?.current_live_session_id ?? undefined,
                         scheduledLiveAt: payload.new?.scheduled_live_at ?? undefined,
                         scheduledLiveTimeZone: payload.new?.scheduled_live_timezone ?? prev.scheduledLiveTimeZone,
@@ -355,6 +380,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         (payload: any) => {
           const nextSession = payload.new ?? payload.old;
           const liveNow = payload.eventType !== "DELETE" && isSessionFresh(nextSession);
+          if (liveNow) {
+            scheduleLiveExpiry(nextSession?.last_heartbeat_at);
+          } else {
+            clearLiveExpiry();
+          }
 
           setCreator((prev) =>
             prev
@@ -389,6 +419,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
     return () => {
       refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      clearLiveExpiry();
       window.removeEventListener("focus", refreshIfStale);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(realtimeChannel);

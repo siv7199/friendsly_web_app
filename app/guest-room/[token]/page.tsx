@@ -278,7 +278,7 @@ export default function GuestRoomPage() {
         <LateFeeGate
           amount={lateFeeAmount}
           title="Late fee required before joining"
-          description="This booking is more than 5 minutes past the scheduled start. Pay the 10% late fee to enter the room."
+          description="The creator is already waiting and this booking is more than 5 minutes past its start time. Pay the 10% late fee to enter the room."
           backLabel="Back to booking"
           onBack={() => router.push(`/booking-access/${rawToken}`)}
           createIntent={async () => {

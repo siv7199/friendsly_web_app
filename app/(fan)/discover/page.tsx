@@ -43,6 +43,12 @@ function isSessionFresh(session: {
   );
 }
 
+function getSessionExpiryDelay(lastHeartbeatAt?: string | null) {
+  if (!lastHeartbeatAt) return null;
+  const remainingMs = LIVE_SESSION_STALE_MS - (Date.now() - new Date(lastHeartbeatAt).getTime());
+  return Math.max(1000, remainingMs + 1000);
+}
+
 // ── Fetch all creators from Supabase ──────────────────────────────────────────
 
 async function fetchCreators(): Promise<Creator[]> {
@@ -214,7 +220,7 @@ async function fetchCreators(): Promise<Creator[]> {
       avatarColor: profile.avatar_color,
       avatarUrl: profile.avatar_url ?? undefined,
       isLive: isActuallyLive,
-      currentLiveSessionId: activeSession?.id ?? cp?.current_live_session_id ?? undefined,
+      currentLiveSessionId: activeSession?.id ?? undefined,
       queueCount: queueCountByCreator[profile.id] ?? 0,
       callPrice: minPrice,
       callDuration: minDuration,
@@ -247,6 +253,7 @@ export default function DiscoverPage() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const refreshTimeoutsRef = useRef<number[]>([]);
+  const liveExpiryTimeoutsRef = useRef<Record<string, number>>({});
   const lastLoadAtRef = useRef(0);
 
   useEffect(() => {
@@ -266,6 +273,21 @@ export default function DiscoverPage() {
       ];
     }
 
+    function clearLiveExpiry(creatorId: string) {
+      const timeoutId = liveExpiryTimeoutsRef.current[creatorId];
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+        delete liveExpiryTimeoutsRef.current[creatorId];
+      }
+    }
+
+    function scheduleLiveExpiry(creatorId: string, lastHeartbeatAt?: string | null) {
+      clearLiveExpiry(creatorId);
+      const delay = getSessionExpiryDelay(lastHeartbeatAt);
+      if (!delay) return;
+      liveExpiryTimeoutsRef.current[creatorId] = window.setTimeout(load, delay);
+    }
+
     load();
 
     const supabase = createClient();
@@ -273,11 +295,15 @@ export default function DiscoverPage() {
       .channel("discover_realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles" }, (payload: any) => {
         if (payload.new?.id) {
+          if (payload.new.is_live === false) {
+            clearLiveExpiry(payload.new.id);
+          }
           setCreators((prev) =>
             prev.map((creator) =>
               creator.id === payload.new.id
                 ? {
                       ...creator,
+                      isLive: payload.new.is_live ?? creator.isLive,
                       currentLiveSessionId: payload.new.current_live_session_id ?? undefined,
                       scheduledLiveAt: payload.new.scheduled_live_at ?? undefined,
                       scheduledLiveTimeZone: payload.new.scheduled_live_timezone ?? creator.scheduledLiveTimeZone,
@@ -297,6 +323,11 @@ export default function DiscoverPage() {
 
         if (creatorId) {
           const liveNow = payload.eventType !== "DELETE" && isSessionFresh(nextSession);
+          if (liveNow) {
+            scheduleLiveExpiry(creatorId, nextSession?.last_heartbeat_at);
+          } else {
+            clearLiveExpiry(creatorId);
+          }
           setCreators((prev) =>
             prev.map((creator) =>
               creator.id === creatorId
@@ -332,6 +363,7 @@ export default function DiscoverPage() {
 
     return () => {
       refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      Object.values(liveExpiryTimeoutsRef.current).forEach((timeoutId) => window.clearTimeout(timeoutId));
       window.removeEventListener("focus", refreshIfStale);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(channels);

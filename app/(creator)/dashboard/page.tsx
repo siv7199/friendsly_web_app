@@ -161,36 +161,39 @@ export default function DashboardPage() {
         refreshTimer = null;
       }
 
-      // 1. Fetch bookings, live queue joins, profile views, and raw reviews
-      const [bookingsRes, liveRes, reviewsRes, analyticsSnapshot, packagesRes, availabilityRes] = await Promise.all([
-        supabase
-          .from("bookings")
-          .select(`
-            id, scheduled_at, duration, price, status, topic, creator_present, fan_present, late_fee_amount, late_fee_paid_at,
-            fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
-          `)
-          .eq("creator_id", userId)
-          .order("scheduled_at", { ascending: true }),
-        supabase
-          .from("live_sessions")
-          .select("id, live_queue_entries(id, status, amount_charged, ended_at)")
-          .eq("creator_id", userId),
-        supabase
-          .from("reviews")
-          .select("rating")
-          .eq("creator_id", userId),
-        getCreatorAnalyticsSnapshot(userId, "month"),
-        supabase
-          .from("call_packages")
-          .select("id", { count: "exact", head: true })
-          .eq("creator_id", userId)
-          .eq("is_active", true),
-        supabase
-          .from("creator_availability")
-          .select("id", { count: "exact", head: true })
-          .eq("creator_id", userId)
-          .eq("is_active", true),
-      ]);
+      try {
+        await fetch("/api/bookings/auto-cancel", { method: "POST" }).catch(() => null);
+
+        // 1. Fetch bookings, live queue joins, profile views, and raw reviews
+        const [bookingsRes, liveRes, reviewsRes, analyticsSnapshot, packagesRes, availabilityRes] = await Promise.all([
+          supabase
+            .from("bookings")
+            .select(`
+              id, scheduled_at, duration, price, status, topic, creator_present, fan_present, late_fee_amount, late_fee_paid_at,
+              fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
+            `)
+            .eq("creator_id", userId)
+            .order("scheduled_at", { ascending: true }),
+          supabase
+            .from("live_sessions")
+            .select("id, live_queue_entries(id, status, amount_charged, ended_at)")
+            .eq("creator_id", userId),
+          supabase
+            .from("reviews")
+            .select("rating")
+            .eq("creator_id", userId),
+          getCreatorAnalyticsSnapshot(userId, "month"),
+          supabase
+            .from("call_packages")
+            .select("id", { count: "exact", head: true })
+            .eq("creator_id", userId)
+            .eq("is_active", true),
+          supabase
+            .from("creator_availability")
+            .select("id", { count: "exact", head: true })
+            .eq("creator_id", userId)
+            .eq("is_active", true),
+        ]);
 
       const bookings = bookingsRes.data || [];
       const expiredBookingIds: string[] = [];
@@ -361,7 +364,13 @@ export default function DashboardPage() {
         );
       }
 
-      setLoadingDashboard(false);
+      } catch (error) {
+        console.error("Failed to load creator dashboard", error);
+        setUpcomingBookings([]);
+        setNextJoinableBooking(null);
+      } finally {
+        setLoadingDashboard(false);
+      }
     }
     loadDashboard();
 

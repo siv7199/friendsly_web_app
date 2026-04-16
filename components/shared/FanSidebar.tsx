@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -18,6 +18,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 
+const LIVE_SESSION_STALE_MS = 45000;
+
 const NAV_ITEMS = [
   { label: "Discover",    href: "/discover",   icon: Compass },
   { label: "My Bookings", href: "/bookings",   icon: BookOpen },
@@ -30,15 +32,21 @@ export function FanSidebar() {
   const router = useRouter();
   const { user, logout } = useAuthContext();
   const [liveCount, setLiveCount] = useState(0);
+  const liveExpiryTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
 
     async function getCount() {
-      const heartbeatCutoffIso = new Date(Date.now() - 45000).toISOString();
+      if (liveExpiryTimeoutRef.current) {
+        window.clearTimeout(liveExpiryTimeoutRef.current);
+        liveExpiryTimeoutRef.current = null;
+      }
+
+      const heartbeatCutoffIso = new Date(Date.now() - LIVE_SESSION_STALE_MS).toISOString();
       const { data } = await supabase
         .from("live_sessions")
-        .select("id, creator_id")
+        .select("id, creator_id, last_heartbeat_at")
         .eq("is_active", true)
         .not("daily_room_url", "is", null)
         .gte("last_heartbeat_at", heartbeatCutoffIso);
@@ -46,6 +54,20 @@ export function FanSidebar() {
       const uniqueLiveCreators = new Set((data ?? []).map((session: any) => session.creator_id));
 
       setLiveCount(uniqueLiveCreators.size);
+
+      const activeSessions = (data ?? []) as { last_heartbeat_at?: string | null }[];
+      const nextExpiryDelay = activeSessions.reduce<number | null>((soonestDelay, session) => {
+        if (!session.last_heartbeat_at) return soonestDelay;
+        const delay = Math.max(
+          1000,
+          LIVE_SESSION_STALE_MS - (Date.now() - new Date(session.last_heartbeat_at).getTime()) + 1000
+        );
+        return soonestDelay == null ? delay : Math.min(soonestDelay, delay);
+      }, null);
+
+      if (nextExpiryDelay != null) {
+        liveExpiryTimeoutRef.current = window.setTimeout(refreshIfVisible, nextExpiryDelay);
+      }
     }
 
     function refreshIfVisible() {
@@ -59,12 +81,14 @@ export function FanSidebar() {
     const channel = supabase
       .channel("fan-sidebar-live-count")
       .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, refreshIfVisible)
+      .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles" }, refreshIfVisible)
       .subscribe();
 
     window.addEventListener("focus", refreshIfVisible);
     document.addEventListener("visibilitychange", refreshIfVisible);
 
     return () => {
+      if (liveExpiryTimeoutRef.current) window.clearTimeout(liveExpiryTimeoutRef.current);
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
       supabase.removeChannel(channel);

@@ -10,6 +10,7 @@ function CallJoiner({
   startAudio,
   onJoin,
   onLeave,
+  onError,
 }: {
   url: string;
   token?: string;
@@ -17,20 +18,39 @@ function CallJoiner({
   startAudio: boolean;
   onJoin?: () => void;
   onLeave?: () => void;
+  onError?: (error: unknown) => void;
 }) {
   const daily = useDaily();
   // Track whether WE triggered the join so we never call it twice.
   const didJoin = useRef(false);
+  const hasJoinedMeeting = useRef(false);
+  const notifiedJoined = useRef(false);
+  const suppressNextLeave = useRef(false);
 
   useEffect(() => {
     if (!daily || !url) return;
     if (didJoin.current) return;
     didJoin.current = true;
+    let disposed = false;
 
-    const handleJoinedMeeting = () => {
+    const notifyJoined = () => {
+      if (disposed || notifiedJoined.current) return;
+      notifiedJoined.current = true;
+      hasJoinedMeeting.current = true;
       onJoin?.();
     };
+
+    const handleJoinedMeeting = () => {
+      notifyJoined();
+    };
     const handleLeftMeeting = () => {
+      if (suppressNextLeave.current) {
+        suppressNextLeave.current = false;
+        return;
+      }
+      if (!hasJoinedMeeting.current) return;
+      hasJoinedMeeting.current = false;
+      notifiedJoined.current = false;
       onLeave?.();
     };
 
@@ -42,18 +62,37 @@ function CallJoiner({
       const state = daily.meetingState();
       if (state === "joined-meeting" || state === "joining-meeting") {
         // Already in a call — leave it first before joining the new room
+        suppressNextLeave.current = true;
         try { await daily.leave(); } catch {}
       }
-      await daily.join({ url, token, startVideoOff: !startVideo, startAudioOff: !startAudio });
+      const joinPromise = daily.join({ url, token, startVideoOff: true, startAudioOff: true });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        window.setTimeout(() => reject(new Error("Daily join timed out.")), 15000);
+      });
+
+      // Join the room before acquiring devices. Camera/mic permissions can stall
+      // on some browsers, especially when testing two tabs against one webcam.
+      await Promise.race([joinPromise, timeoutPromise]);
+      notifyJoined();
     }
 
-    joinMeeting().catch((e: unknown) => console.error("Failed to join Daily call", e));
+    joinMeeting().catch((e: unknown) => {
+      console.error("Failed to join Daily call", e);
+      onError?.(e);
+    });
 
     return () => {
+      disposed = true;
+      const shouldLeave = hasJoinedMeeting.current;
       didJoin.current = false;
+      hasJoinedMeeting.current = false;
+      notifiedJoined.current = false;
+      suppressNextLeave.current = true;
       daily.off("joined-meeting", handleJoinedMeeting);
       daily.off("left-meeting", handleLeftMeeting);
-      daily.leave().catch(() => {});
+      if (shouldLeave) {
+        daily.leave().catch(() => {});
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [daily, url]);
@@ -67,6 +106,7 @@ export function CallContainer({
   children,
   onJoin,
   onLeave,
+  onError,
   startVideo = false,
   startAudio = false,
 }: {
@@ -75,6 +115,7 @@ export function CallContainer({
   children: React.ReactNode;
   onJoin?: () => void;
   onLeave?: () => void;
+  onError?: (error: unknown) => void;
   startVideo?: boolean;
   startAudio?: boolean;
 }) {
@@ -91,6 +132,7 @@ export function CallContainer({
         startAudio={startAudio}
         onJoin={onJoin}
         onLeave={onLeave}
+        onError={onError}
       />
       {children}
     </DailyProvider>

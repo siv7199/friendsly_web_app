@@ -838,7 +838,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                   Fans get a full refund when they cancel more than 24 hours before the call and a 50% refund within 24 hours.
                 </p>
                 <p className="mt-2 text-sm text-amber-100">
-                  If the creator does not join within 10 minutes, the fan gets a full refund. Joining more than 5 minutes late requires a 10% late fee before entering.
+                  If the creator does not join within 10 minutes, the fan gets a full refund. If the creator is waiting and the fan does not join within 10 minutes, the booking auto-cancels and the fan gets a 50% refund. A 10% late fee applies only when the creator is already waiting and the fan joins more than 5 minutes after the start time.
                 </p>
                 <p className="mt-2 text-sm text-amber-100">
                   Guests can book without an account, but they must create or sign in to a Friendsly fan account before joining the call.

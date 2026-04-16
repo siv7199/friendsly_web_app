@@ -179,13 +179,12 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     const supabase = createClient();
     const channel = supabase
       .channel(`public-live:${params.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${params.id}` }, () => { void loadLiveState(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, () => { void loadLiveState(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "live_queue_entries" }, () => { void loadLiveState(); })
       .subscribe();
 
-    const poll = window.setInterval(() => { void loadLiveState(); }, 15000);
     return () => {
-      window.clearInterval(poll);
       supabase.removeChannel(channel);
     };
   }, [loadLiveState, params.id]);
@@ -229,6 +228,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   const secondsRemaining = activeFanAdmittedAt
     ? Math.max(0, LIVE_STAGE_SECONDS - Math.floor((Date.now() - new Date(activeFanAdmittedAt).getTime()) / 1000))
     : LIVE_STAGE_SECONDS;
+  const waitingQueue = queue.filter((entry) => entry.status === "waiting");
 
   if (loading) {
     return (
@@ -297,7 +297,8 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
                 secondsRemaining={secondsRemaining}
                 onJoinQueue={() => setShowJoinModal(true)}
                 joinDisabled={Boolean(myWaitingEntry || myActiveEntry)}
-                queueCount={queue.filter((entry) => entry.status === "waiting").length}
+                queueCount={waitingQueue.length}
+                queuePreview={waitingQueue}
                 onStageSessionReady={reportActiveJoin}
                 activeFan={myActiveEntry ? null : activeFan}
               />
@@ -347,7 +348,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             avatarUrl: creatorState.avatarUrl,
             isLive: true,
             currentLiveSessionId: liveSessionId ?? undefined,
-            queueCount: queue.filter((entry) => entry.status === "waiting").length,
+            queueCount: waitingQueue.length,
             callPrice: 0,
             callDuration: 0,
             nextAvailable: "",

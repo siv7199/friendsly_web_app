@@ -25,7 +25,7 @@ export async function POST(
 
     const { data: booking, error } = await serviceSupabase
       .from("bookings")
-      .select("id, fan_id, status, scheduled_at, price, late_fee_paid_at, late_fee_amount")
+      .select("id, fan_id, status, scheduled_at, price, creator_present, creator_joined_at, late_fee_paid_at, late_fee_amount")
       .eq("id", bookingId)
       .single();
 
@@ -41,7 +41,12 @@ export async function POST(
       return NextResponse.json({ error: "This booking is no longer active." }, { status: 400 });
     }
 
-    if (!isLateFeeRequired({ scheduledAt: booking.scheduled_at, lateFeePaidAt: booking.late_fee_paid_at })) {
+    if (!isLateFeeRequired({
+      scheduledAt: booking.scheduled_at,
+      lateFeePaidAt: booking.late_fee_paid_at,
+      creatorPresent: booking.creator_present,
+      creatorJoinedAt: booking.creator_joined_at,
+    })) {
       return NextResponse.json({ error: "A late fee is not required for this booking." }, { status: 400 });
     }
 

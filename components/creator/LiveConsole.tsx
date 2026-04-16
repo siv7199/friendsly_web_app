@@ -109,11 +109,16 @@ function LiveVideoStage({
     __html: `
       .daily-stage-video,
       .daily-stage-video > div,
+      .daily-stage-video > div > div,
       .daily-stage-video video {
         width: 100% !important;
         height: 100% !important;
       }
+      .daily-stage-video {
+        position: relative;
+      }
       .daily-stage-video video {
+        display: block !important;
         object-fit: cover !important;
         transform: none !important;
       }
@@ -222,7 +227,7 @@ function LiveVideoStage({
           <div className="relative h-full rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center min-h-0">
             {localSessionId && camOn ? (
               <div className="daily-stage-video w-full h-full relative overflow-hidden">
-                <DailyVideo sessionId={localSessionId} type="video" className="w-full h-full z-10" />
+                <DailyVideo sessionId={localSessionId} type="video" className="w-full h-full object-cover z-10" />
                 <style dangerouslySetInnerHTML={dailyVideoFillStyles} />
               </div>
             ) : (
@@ -251,7 +256,7 @@ function LiveVideoStage({
             <div className="relative h-full rounded-[24px] border border-brand-border bg-brand-elevated overflow-hidden min-h-0">
               {fanSessionId && fanVideoActive ? (
                 <div className="daily-stage-video w-full h-full relative overflow-hidden">
-                  <DailyVideo sessionId={fanSessionId} type="video" className="w-full h-full z-10" />
+                  <DailyVideo sessionId={fanSessionId} type="video" className="w-full h-full object-cover z-10" />
                   <style dangerouslySetInnerHTML={dailyVideoFillStyles} />
                 </div>
               ) : (
@@ -263,7 +268,9 @@ function LiveVideoStage({
                     size="xl"
                   />
                   <p className="text-sm text-slate-400">
-                    Connecting {currentFan?.fanName ?? "fan"} to the stage...
+                    {fanSessionId
+                      ? `${currentFan?.fanName ?? "Fan"} is on stage, but their camera is off or unavailable.`
+                      : `Connecting ${currentFan?.fanName ?? "fan"} to the stage...`}
                   </p>
                 </div>
               )}
@@ -362,6 +369,7 @@ export function LiveConsole() {
   const [scheduledLiveAt, setScheduledLiveAt] = useState("");
   const [scheduledLiveTimeZone, setScheduledLiveTimeZone] = useState(getBrowserTimeZone());
   const [savingScheduledLive, setSavingScheduledLive] = useState(false);
+  const [creatorProfileAvatarUrl, setCreatorProfileAvatarUrl] = useState<string | undefined>();
   const finishingFanRef = useRef(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const previewStreamRef = useRef<MediaStream | null>(null);
@@ -372,7 +380,7 @@ export function LiveConsole() {
   const creatorName = user?.full_name ?? "You";
   const creatorInitials = user?.avatar_initials ?? "??";
   const creatorColor = user?.avatar_color ?? "bg-violet-600";
-  const creatorAvatarUrl = user?.avatar_url ?? undefined;
+  const creatorAvatarUrl = creatorProfileAvatarUrl ?? user?.avatar_url ?? undefined;
   const activeFanRemainingSeconds = currentFan?.admittedAt
     ? Math.max(0, LIVE_STAGE_SECONDS - Math.floor((currentTime - new Date(currentFan.admittedAt).getTime()) / 1000))
     : LIVE_STAGE_SECONDS;
@@ -398,6 +406,13 @@ export function LiveConsole() {
       .select("live_join_fee, scheduled_live_at, scheduled_live_timezone, timezone")
       .eq("id", userId)
       .maybeSingle();
+    const { data: publicProfile } = await supabase
+      .from("profiles")
+      .select("avatar_url")
+      .eq("id", userId)
+      .maybeSingle();
+
+    setCreatorProfileAvatarUrl(publicProfile?.avatar_url ?? undefined);
 
     const parsedRate = profile?.live_join_fee != null
       ? Number(profile.live_join_fee)
@@ -641,27 +656,22 @@ export function LiveConsole() {
       const data = await res.json();
       if (data.url && data.token) {
         const supabase = createClient();
-        let sid = sessionId;
 
-        await supabase.from("live_sessions").update({ is_active: false }).eq("creator_id", user.id).eq("is_active", true);
-        if (sid) {
-          await supabase
-            .from("live_sessions")
-            .update({ daily_room_url: data.url, is_active: false, ended_at: null, last_heartbeat_at: null })
-            .eq("id", sid);
-        } else {
-          const { data: newSession } = await supabase
-            .from("live_sessions")
-            .insert({ creator_id: user.id, join_fee: latestSettings.liveRate ?? 0, is_active: false, daily_room_url: data.url, last_heartbeat_at: null })
-            .select("id")
-            .single();
-          if (newSession) {
-            sid = newSession.id;
-            applySessionId(newSession.id);
-          }
-        }
+        await supabase
+          .from("live_sessions")
+          .update({ is_active: false, ended_at: new Date().toISOString(), last_heartbeat_at: null })
+          .eq("creator_id", user.id)
+          .eq("is_active", true);
 
-        if (sid) {
+        const { data: newSession } = await supabase
+          .from("live_sessions")
+          .insert({ creator_id: user.id, join_fee: latestSettings.liveRate ?? 0, is_active: false, daily_room_url: data.url, last_heartbeat_at: null })
+          .select("id")
+          .single();
+
+        if (newSession?.id) {
+          const sid = newSession.id;
+          applySessionId(sid);
           const heartbeatAt = new Date().toISOString();
           await supabase
             .from("live_sessions")
@@ -797,7 +807,7 @@ export function LiveConsole() {
         <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-brand-border bg-brand-surface p-6 md:p-8">
           <div className="mx-auto flex w-full max-w-sm flex-col items-center text-center">
           <div className="w-full aspect-video rounded-2xl bg-brand-elevated border border-brand-border mb-6 relative overflow-hidden flex items-center justify-center">
-            {camOn ? <video ref={previewVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full object-cover" /> : <Avatar initials={creatorInitials} color={creatorColor} size="lg" />}
+            {camOn ? <video ref={previewVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full object-cover" /> : <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="lg" />}
           </div>
           <div className="flex items-center gap-3 mb-6">
             <button onClick={() => setMicOn(!micOn)} className={cn("w-12 h-12 rounded-full border flex items-center justify-center", micOn ? "bg-brand-surface border-brand-border text-slate-300" : "bg-red-500/20 border-red-500/40 text-red-400")}>{micOn ? <Mic /> : <MicOff />}</button>
@@ -863,7 +873,7 @@ export function LiveConsole() {
                   creatorName={creatorName}
                   creatorInitials={creatorInitials}
                   creatorColor={creatorColor}
-                  creatorAvatarUrl={user?.avatar_url ?? undefined}
+                  creatorAvatarUrl={creatorAvatarUrl}
                   creatorId={user?.id ?? ""}
                   sessionId={sessionId ?? undefined}
                   showQueueTab={false}

@@ -48,10 +48,19 @@ export function getLateFeeAmountForPrice(price: number) {
 export function isLateFeeRequired(params: {
   scheduledAt: string | Date;
   lateFeePaidAt?: string | null;
+  creatorPresent?: boolean | null;
+  creatorJoinedAt?: string | Date | null;
   now?: Date;
 }) {
-  const { scheduledAt, lateFeePaidAt, now = new Date() } = params;
-  return !lateFeePaidAt && isFanLateForBookingJoin(scheduledAt, now);
+  const { scheduledAt, lateFeePaidAt, creatorPresent, creatorJoinedAt, now = new Date() } = params;
+  if (!creatorPresent || lateFeePaidAt || !creatorJoinedAt) return false;
+
+  const { fanLateFeeStartsAt } = getBookingWindow(scheduledAt, 0);
+  const creatorJoinedTime = creatorJoinedAt instanceof Date
+    ? creatorJoinedAt.getTime()
+    : new Date(creatorJoinedAt).getTime();
+
+  return creatorJoinedTime <= fanLateFeeStartsAt.getTime() && isFanLateForBookingJoin(scheduledAt, now);
 }
 
 export function getRefundAmountForReason(
@@ -64,7 +73,7 @@ export function getRefundAmountForReason(
   }
 
   if (reason === "auto_cancel_fan_no_show") {
-    return 0;
+    return roundCurrency(price * 0.5);
   }
 
   if (reason === "auto_cancel_both_absent" || reason === "auto_cancel_creator_no_show") {

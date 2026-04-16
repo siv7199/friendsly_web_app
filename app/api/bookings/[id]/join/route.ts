@@ -60,10 +60,15 @@ export async function POST(
       );
     }
 
-    if (isFan && isLateFeeRequired({ scheduledAt: booking.scheduled_at, lateFeePaidAt: booking.late_fee_paid_at })) {
+    if (isFan && isLateFeeRequired({
+      scheduledAt: booking.scheduled_at,
+      lateFeePaidAt: booking.late_fee_paid_at,
+      creatorPresent: booking.creator_present,
+      creatorJoinedAt: booking.creator_joined_at,
+    })) {
       return NextResponse.json(
         {
-          error: "Joining more than 5 minutes after the booking start requires a 10% late fee before entry.",
+          error: "Joining more than 5 minutes after the booking start requires a 10% late fee when the creator is already waiting.",
           requiresLateFee: true,
           lateFeeAmount: getLateFeeAmountForPrice(Number(booking.price ?? 0)),
         },

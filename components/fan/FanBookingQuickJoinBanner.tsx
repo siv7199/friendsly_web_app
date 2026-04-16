@@ -29,6 +29,13 @@ export function FanBookingQuickJoinBanner() {
     let refreshTimer: number | null = null;
 
     async function loadReadyBooking() {
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+        refreshTimer = null;
+      }
+
+      await fetch("/api/bookings/auto-cancel", { method: "POST" }).catch(() => null);
+
       const { data } = await supabase
         .from("bookings")
         .select("id, scheduled_at, duration, status, creator:profiles!creator_id(full_name)")
@@ -53,6 +60,13 @@ export function FanBookingQuickJoinBanner() {
           }
         }
         return;
+      }
+
+      const { noShowDeadline, endsAt } = getBookingWindow(match.scheduled_at, match.duration);
+      const nextRefreshAt = Date.now() < noShowDeadline.getTime() ? noShowDeadline : endsAt;
+      const delay = nextRefreshAt.getTime() - Date.now();
+      if (delay > 0) {
+        refreshTimer = window.setTimeout(loadReadyBooking, delay + 1000);
       }
 
       const creator = Array.isArray(match.creator) ? match.creator[0] : match.creator;

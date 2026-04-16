@@ -58,6 +58,8 @@ export default function BookingsPage() {
         refreshTimer = null;
       }
 
+      await fetch("/api/bookings/auto-cancel", { method: "POST" }).catch(() => null);
+
       const { data } = await supabase
         .from("bookings")
         .select(
@@ -218,7 +220,7 @@ export default function BookingsPage() {
           Refund policy: cancel more than 24 hours before the call for a full refund. Cancel within 24 hours for a 50% refund.
         </p>
         <p className="text-xs text-slate-500 mt-1">
-          Auto-cancel after 10 minutes: if the creator still has not joined, you get a full refund. Joining more than 5 minutes late requires a 10% late fee before entering.
+          Auto-cancel after 10 minutes: if the creator still has not joined, you get a full refund. If the creator is waiting and you do not join within 10 minutes, the booking auto-cancels and you get a 50% refund. A 10% late fee applies only when the creator is already waiting and you join more than 5 minutes after the start time.
         </p>
       </div>
 
@@ -411,7 +413,7 @@ export default function BookingsPage() {
                               Full refund until 24h before. 50% refund after that.
                             </p>
                             <p className="text-[11px] text-slate-500">
-                              Auto-cancel after 10 minutes if the creator still has not joined. Joining more than 5 minutes late requires a 10% late fee before entering.
+                              Auto-cancel after 10 minutes if the creator still has not joined. If the creator is waiting and you do not join within 10 minutes, the booking auto-cancels and you get a 50% refund. Late fee applies only if the creator is waiting and you join more than 5 minutes after start.
                             </p>
                           </div>
                         )}

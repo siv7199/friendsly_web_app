@@ -68,6 +68,8 @@ export default function CalendarPage() {
         refreshTimer = null;
       }
 
+      await fetch("/api/bookings/auto-cancel", { method: "POST" }).catch(() => null);
+
       const { data: packageData } = await supabase
         .from("call_packages")
         .select("id, name, duration, price, description, is_active, bookings_count")

@@ -226,7 +226,7 @@ export default function BookingAccessPage() {
               Auto-cancel after 10 minutes: if neither participant joins, the booking is cancelled automatically and the fan gets a full refund.
             </p>
             <p className="text-sm text-amber-100">
-              If the creator does not join within 10 minutes, the fan gets a full refund. If the fan joins more than 5 minutes late, a 10% late fee is required before entering the room.
+              If the creator does not join within 10 minutes, the fan gets a full refund. If the creator is waiting and the fan does not join within 10 minutes, the booking auto-cancels and the fan gets a 50% refund. A 10% late fee is required only when the creator is already waiting and the fan joins more than 5 minutes after the start time.
             </p>
             <p className="text-sm text-amber-100">
               Guest bookings must be claimed into a Friendsly fan account before joining. If you do not want to create an account, you can cancel and receive the refund that applies under this policy.
@@ -236,7 +236,7 @@ export default function BookingAccessPage() {
             </p>
             {booking.lateFeeRequired && (
               <p className="text-sm text-amber-200/90">
-                A late fee of {formatCurrency(booking.lateFeeAmount)} is now required before joining.
+                A late fee of {formatCurrency(booking.lateFeeAmount)} is required because the creator is already waiting and this booking is more than 5 minutes past its start time.
               </p>
             )}
           </div>

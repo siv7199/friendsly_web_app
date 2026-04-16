@@ -31,6 +31,8 @@ export async function GET(
           duration,
           price,
           topic,
+          creator_present,
+          creator_joined_at,
           late_fee_amount,
           late_fee_paid_at,
           guest_name_snapshot,
@@ -58,6 +60,8 @@ export async function GET(
     const lateFeeRequired = isLateFeeRequired({
       scheduledAt: booking.scheduled_at,
       lateFeePaidAt: booking.late_fee_paid_at,
+      creatorPresent: booking.creator_present,
+      creatorJoinedAt: booking.creator_joined_at,
     });
 
     return NextResponse.json({

@@ -10,6 +10,14 @@ import { cn } from "@/lib/utils";
 import { LIVE_STAGE_SECONDS } from "@/lib/live";
 import { DailyVideo, useDaily, useLocalSessionId } from "@daily-co/daily-react";
 
+type QueuePreviewEntry = {
+  id: string;
+  fanName: string;
+  avatarInitials?: string;
+  avatarColor?: string;
+  avatarUrl?: string;
+};
+
 function getBestRemoteParticipantSessionId(params: {
   participants: any[];
   preferredUserName?: string | null;
@@ -73,6 +81,7 @@ function LiveStage({
   onJoinQueue,
   joinDisabled,
   queueCount,
+  queuePreview,
   onStageSessionReady,
 }: {
   creatorId: string;
@@ -96,6 +105,7 @@ function LiveStage({
   onJoinQueue: () => void;
   joinDisabled: boolean;
   queueCount: number;
+  queuePreview?: QueuePreviewEntry[];
   onStageSessionReady?: (dailySessionId: string) => void;
 }) {
   const daily = useDaily();
@@ -104,6 +114,7 @@ function LiveStage({
   const [creatorVideoActive, setCreatorVideoActive] = useState(false);
   const [activeFanSessionId, setActiveFanSessionId] = useState<string | null>(null);
   const [activeFanVideoActive, setActiveFanVideoActive] = useState(false);
+  const [localVideoActive, setLocalVideoActive] = useState(false);
   const [audienceCount, setAudienceCount] = useState(0);
   const [micOn, setMicOn] = useState(isAdmitted);
   const [camOn, setCamOn] = useState(isAdmitted);
@@ -112,11 +123,16 @@ function LiveStage({
     __html: `
       .daily-stage-video,
       .daily-stage-video > div,
+      .daily-stage-video > div > div,
       .daily-stage-video video {
         width: 100% !important;
         height: 100% !important;
       }
+      .daily-stage-video {
+        position: relative;
+      }
       .daily-stage-video video {
+        display: block !important;
         object-fit: cover !important;
         transform: none !important;
       }
@@ -147,7 +163,16 @@ function LiveStage({
   useEffect(() => {
     setMicOn(isAdmitted);
     setCamOn(isAdmitted);
-  }, [isAdmitted]);
+
+    if (isAdmitted) {
+      void enableStageMedia({ audio: true, video: true });
+    } else if (daily) {
+      try {
+        daily.setLocalAudio(false);
+        daily.setLocalVideo(false);
+      } catch {}
+    }
+  }, [daily, isAdmitted]);
 
   useEffect(() => {
     if (!isAdmitted || !localSessionId || !onStageSessionReady) return;
@@ -159,6 +184,11 @@ function LiveStage({
 
     const syncParticipants = () => {
       const participants = Object.values(daily.participants() ?? {});
+      const localParticipant = participants.find(
+        (participant: any) => participant?.local || participant?.session_id === localSessionId
+      );
+      setLocalVideoActive(isParticipantVideoActive(localParticipant));
+
       const resolvedCreatorParticipant = resolveRemoteParticipant({
         participants,
         preferredUserName: creatorId,
@@ -192,14 +222,23 @@ function LiveStage({
       daily.off("participant-updated", syncParticipants);
       daily.off("participant-left", syncParticipants);
     };
-  }, [activeFan?.admittedDailySessionId, activeFan?.fanId, creatorId, daily, isAdmitted]);
+  }, [activeFan?.admittedDailySessionId, activeFan?.fanId, creatorId, daily, isAdmitted, localSessionId]);
 
   useEffect(() => {
-    if (!daily) return;
-    void enableStageMedia({
-      audio: isAdmitted && micOn,
-      video: isAdmitted && camOn,
-    });
+    if (!daily || !isAdmitted) return;
+
+    const syncStageMedia = () => {
+      void enableStageMedia({
+        audio: micOn,
+        video: camOn,
+      });
+    };
+
+    syncStageMedia();
+    daily.on("joined-meeting", syncStageMedia);
+    return () => {
+      daily.off("joined-meeting", syncStageMedia);
+    };
   }, [camOn, daily, isAdmitted, micOn]);
 
   const stageLabel = useMemo(() => {
@@ -244,7 +283,7 @@ function LiveStage({
         <div className="relative h-full min-h-[240px] md:min-h-0 rounded-[24px] overflow-hidden border border-brand-border bg-brand-elevated">
           {creatorSessionId && creatorVideoActive ? (
             <div className="daily-stage-video h-full w-full overflow-hidden">
-              <DailyVideo sessionId={creatorSessionId} type="video" className="h-full w-full" />
+              <DailyVideo sessionId={creatorSessionId} type="video" className="h-full w-full object-cover" />
               <style dangerouslySetInnerHTML={dailyVideoFillStyles} />
             </div>
           ) : (
@@ -261,25 +300,25 @@ function LiveStage({
         </div>
 
         {isAdmitted ? (
-          <div className="h-full rounded-[24px] border border-brand-border bg-brand-elevated p-4 min-h-[240px] md:min-h-0 overflow-hidden">
-            {localSessionId && camOn ? (
-              <div className="relative h-full rounded-2xl overflow-hidden bg-black/30">
+          <div className="relative h-full rounded-[24px] border border-brand-border bg-brand-elevated min-h-[240px] md:min-h-0 overflow-hidden">
+            {localSessionId && camOn && localVideoActive ? (
+              <div className="relative h-full w-full overflow-hidden bg-black/30">
                 <div className="daily-stage-video h-full w-full overflow-hidden">
-                  <DailyVideo sessionId={localSessionId} type="video" mirror className="h-full w-full" />
+                  <DailyVideo sessionId={localSessionId} type="video" mirror className="h-full w-full object-cover" />
                   <style dangerouslySetInnerHTML={dailyVideoFillStyles} />
                 </div>
-                <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] text-slate-300">
+                <div className="absolute left-4 top-4 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] text-slate-300">
                   You
                 </div>
-                <div className="absolute left-3 bottom-3 rounded-lg bg-black/45 px-2 py-1 text-xs font-semibold text-white">
+                <div className="absolute left-4 bottom-4 rounded-xl bg-black/45 px-3 py-1.5 text-sm font-semibold text-white">
                   On Stage
                 </div>
               </div>
             ) : (
-              <div className="h-full w-full rounded-2xl bg-[radial-gradient(circle_at_top,#1d4ed833,transparent_55%)] flex flex-col items-center justify-center gap-4 text-center">
+              <div className="h-full w-full bg-[radial-gradient(circle_at_top,#1d4ed833,transparent_55%)] flex flex-col items-center justify-center gap-4 text-center">
                 <Avatar initials={viewerInitials} color={viewerColor} imageUrl={viewerAvatarUrl} size="xl" />
                 <p className="text-sm text-slate-400">
-                  {camOn ? "Connecting your camera..." : "Your camera is off"}
+                  {camOn ? "Camera unavailable or already in use" : "Your camera is off"}
                 </p>
               </div>
             )}
@@ -289,7 +328,7 @@ function LiveStage({
             <div className="relative h-full w-full overflow-hidden">
               {activeFanSessionId && activeFanVideoActive ? (
                 <div className="daily-stage-video h-full w-full overflow-hidden">
-                  <DailyVideo sessionId={activeFanSessionId} type="video" className="h-full w-full" />
+                  <DailyVideo sessionId={activeFanSessionId} type="video" className="h-full w-full object-cover" />
                   <style dangerouslySetInnerHTML={dailyVideoFillStyles} />
                 </div>
               ) : (
@@ -301,7 +340,9 @@ function LiveStage({
                     size="xl"
                   />
                   <p className="text-sm text-slate-400">
-                    Connecting {activeFan?.fanName ?? "fan"} to the stage...
+                    {activeFanSessionId
+                      ? `${activeFan?.fanName ?? "Fan"} is on stage, but their camera is off or unavailable.`
+                      : `Connecting ${activeFan?.fanName ?? "fan"} to the stage...`}
                   </p>
                 </div>
               )}
@@ -324,21 +365,36 @@ function LiveStage({
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {queueCount > 0 ? (
-              Array.from({ length: queueCount }).slice(0, 5).map((_, index) => (
+              (queuePreview?.length
+                ? queuePreview
+                : Array.from({ length: queueCount }).map((_, index): QueuePreviewEntry => ({
+                    id: `placeholder-${index}`,
+                    fanName: index === 0 ? "Up next" : `Waiting ${index + 1}`,
+                  }))
+              ).slice(0, 5).map((entry, index) => (
                 <div
-                  key={index}
+                  key={entry.id}
                   className={cn(
                     "flex items-center gap-2 rounded-[14px] border px-2.5 py-1.5",
                     index === 0 ? "border-brand-live/30 bg-brand-live/10" : "border-brand-border bg-brand-surface"
                   )}
                 >
-                  <div className={cn(
-                    "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black",
-                    index === 0 ? "bg-brand-live/20 text-brand-live" : "bg-brand-elevated text-slate-300"
-                  )}>
-                    {index + 1}
-                  </div>
-                  <span className="text-xs font-semibold text-slate-100">{index === 0 ? "Up next" : `Waiting ${index + 1}`}</span>
+                  {entry.avatarInitials ? (
+                    <Avatar
+                      initials={entry.avatarInitials}
+                      color={entry.avatarColor ?? "bg-brand-primary"}
+                      imageUrl={entry.avatarUrl}
+                      size="xs"
+                    />
+                  ) : (
+                    <div className={cn(
+                      "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black",
+                      index === 0 ? "bg-brand-live/20 text-brand-live" : "bg-brand-elevated text-slate-300"
+                    )}>
+                      {index + 1}
+                    </div>
+                  )}
+                  <span className="text-xs font-semibold text-slate-100">{index === 0 ? "Up next" : entry.fanName}</span>
                 </div>
               ))
             ) : (
@@ -412,6 +468,7 @@ export function PublicLiveRoom({
   onJoinQueue,
   joinDisabled,
   queueCount,
+  queuePreview,
   onStageSessionReady,
 }: {
   roomUrl: string;
@@ -437,6 +494,7 @@ export function PublicLiveRoom({
   onJoinQueue: () => void;
   joinDisabled: boolean;
   queueCount: number;
+  queuePreview?: QueuePreviewEntry[];
   onStageSessionReady?: (dailySessionId: string) => void;
 }) {
   return (
@@ -456,6 +514,7 @@ export function PublicLiveRoom({
         onJoinQueue={onJoinQueue}
         joinDisabled={joinDisabled}
         queueCount={queueCount}
+        queuePreview={queuePreview}
         onStageSessionReady={onStageSessionReady}
       />
     </CallContainer>

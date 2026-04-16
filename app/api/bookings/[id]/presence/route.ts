@@ -23,7 +23,7 @@ export async function POST(
 
     const { data: booking, error } = await serviceSupabase
       .from("bookings")
-      .select("id, creator_id, fan_id, status")
+      .select("id, creator_id, fan_id, status, creator_joined_at, fan_joined_at")
       .eq("id", params.id)
       .single();
 
@@ -40,11 +40,11 @@ export async function POST(
     const updates = isCreator
       ? {
           creator_present: present,
-          creator_joined_at: present ? new Date().toISOString() : undefined,
+          creator_joined_at: present && !booking.creator_joined_at ? new Date().toISOString() : undefined,
         }
       : {
           fan_present: present,
-          fan_joined_at: present ? new Date().toISOString() : undefined,
+          fan_joined_at: present && !booking.fan_joined_at ? new Date().toISOString() : undefined,
         };
 
     const payload = Object.fromEntries(
