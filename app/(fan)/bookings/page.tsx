@@ -235,7 +235,7 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="px-4 md:px-8 py-3 max-w-4xl mx-auto space-y-4">
+    <div className="mx-auto max-w-4xl space-y-4 px-4 py-4 md:px-8">
       {/* Header */}
       <div>
         <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">My Bookings</h1>
@@ -243,22 +243,23 @@ export default function BookingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-xl bg-brand-surface border border-brand-border">
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-brand-border bg-brand-surface p-1 scrollbar-none">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={cn(
-              "flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
+              "min-w-0 flex-1 rounded-lg px-3 py-2.5 text-xs font-medium transition-all sm:px-4 sm:text-sm",
               activeTab === tab.key
                 ? "bg-brand-primary/20 text-brand-primary-light border border-brand-primary/20"
                 : "text-brand-ink-subtle hover:text-brand-ink border border-transparent"
             )}
           >
-            {tab.label}
+            <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+              <span className="truncate">{tab.label}</span>
             {tab.count > 0 && (
               <span className={cn(
-                "ml-2 text-xs px-1.5 py-0.5 rounded-full",
+                "shrink-0 rounded-full px-1.5 py-0.5 text-[11px]",
                 activeTab === tab.key
                   ? "bg-brand-primary/30 text-brand-primary-light"
                   : "bg-brand-elevated text-brand-ink-muted"
@@ -266,6 +267,7 @@ export default function BookingsPage() {
                 {tab.count}
               </span>
             )}
+            </span>
           </button>
         ))}
       </div>

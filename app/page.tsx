@@ -110,7 +110,7 @@ export default function AuthPage() {
                 <Input
                   label="Password" type={showPassword ? "text" : "password"} placeholder="Your password"
                   value={siPassword} onChange={(e) => setSiPassword(e.target.value)}
-                  icon={<Lock className="w-4 h-4" />} required autoComplete="current-password"
+                  icon={<Lock className="w-4 h-4" />} required autoComplete="current-password" className="pr-16"
                 />
                 <button
                   type="button"
@@ -150,7 +150,7 @@ export default function AuthPage() {
                 <Input
                   label="Password" type={showPassword ? "text" : "password"} placeholder="Create a password"
                   value={suPassword} onChange={(e) => setSuPassword(e.target.value)}
-                  icon={<Lock className="w-4 h-4" />} required autoComplete="new-password"
+                  icon={<Lock className="w-4 h-4" />} required autoComplete="new-password" className="pr-16"
                 />
                 <button
                   type="button"

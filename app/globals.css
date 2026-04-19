@@ -12,7 +12,10 @@
 /* ── Base ────────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
 
 body {
   background-color: #F7F5FB;
@@ -20,6 +23,7 @@ body {
   font-family: var(--font-sans, "Nunito Sans", system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 /* native password reveal controls suppressed */

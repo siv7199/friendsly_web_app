@@ -184,6 +184,7 @@ export default function CreatorRequestPage() {
                       icon={<Lock className="w-4 h-4" />}
                       required
                       autoComplete="new-password"
+                      className="pr-16"
                     />
                     <button
                       type="button"
@@ -202,6 +203,7 @@ export default function CreatorRequestPage() {
                     icon={<Lock className="w-4 h-4" />}
                     required
                     autoComplete="new-password"
+                    className="pr-16"
                   />
                 </>
               )}

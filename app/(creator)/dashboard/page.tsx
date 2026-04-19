@@ -438,16 +438,16 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="px-4 md:px-8 py-3 max-w-6xl mx-auto space-y-5">
+    <div className="mx-auto max-w-6xl space-y-5 px-4 py-4 md:px-8">
       {/* ── Status Banner ── */}
       {/* ── Header ── */}
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <p className="text-sm font-serif italic text-brand-ink-muted">Good afternoon,</p>
-          <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">{displayName} 👋</h1>
+          <h1 className="truncate text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">{displayName} 👋</h1>
         </div>
         <Link href="/live">
-          <Button variant="live" className="gap-2 shadow-glow-live">
+          <Button variant="live" className="w-full gap-2 shadow-glow-live sm:w-auto">
             <Radio className="w-4 h-4" />
             Go Live
           </Button>
@@ -455,14 +455,14 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Stats Grid ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatsCard
           title="Total Earnings"
           value={formatCurrency(stats.totalEarnings)}
           subtext="All time"
           icon={<DollarSign className="w-5 h-5" />}
           accent="gold"
-          className="col-span-2 xl:col-span-2"
+          className="sm:col-span-2 xl:col-span-2"
         />
         <StatsCard
           title="Calls This Month"

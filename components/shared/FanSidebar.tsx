@@ -138,8 +138,8 @@ export function FanSidebar() {
     };
   }, []);
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     router.push("/");
   }
 
@@ -208,7 +208,7 @@ export function FanSidebar() {
               <Settings className="w-3.5 h-3.5" />
             </Link>
             <button
-              onClick={handleLogout}
+              onClick={() => void handleLogout()}
               className="text-brand-ink-subtle hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50"
               title="Sign out"
             >
