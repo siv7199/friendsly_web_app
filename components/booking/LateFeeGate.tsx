@@ -16,9 +16,32 @@ const STRIPE_OPTIONS = {
       colorPrimary: "#7C3AED",
       colorBackground: "#1A1535",
       colorText: "#f1f5f9",
+      colorTextSecondary: "#c4b5fd",
+      colorTextPlaceholder: "#7c6fa0",
       colorDanger: "#f87171",
       fontFamily: "inherit",
       borderRadius: "12px",
+    },
+    rules: {
+      ".Label": {
+        color: "#c4b5fd",
+        fontWeight: "500",
+      },
+      ".Input": {
+        borderColor: "rgba(124,92,231,0.35)",
+        color: "#f1f5f9",
+      },
+      ".Input--focused": {
+        borderColor: "#7C3AED",
+        boxShadow: "0 0 0 2px rgba(124,92,231,0.2)",
+      },
+      ".Input--invalid": {
+        borderColor: "#f87171",
+        color: "#fca5a5",
+      },
+      ".Error": {
+        color: "#fca5a5",
+      },
     },
   },
 };
@@ -152,24 +175,24 @@ export function LateFeeGate({
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200">Late join fee</p>
-            <h1 className="mt-2 text-2xl font-black text-slate-100">{title}</h1>
-            <p className="mt-2 text-sm leading-relaxed text-slate-300">{description}</p>
-            <p className="mt-4 text-sm text-slate-400">
-              Amount due: <span className="font-semibold text-slate-100">{formatCurrency(amount)}</span>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Late join fee</p>
+            <h1 className="mt-2 text-2xl font-black text-brand-ink">{title}</h1>
+            <p className="mt-2 text-sm leading-relaxed text-brand-ink-subtle">{description}</p>
+            <p className="mt-4 text-sm text-brand-ink-subtle">
+              Amount due: <span className="font-semibold text-brand-ink">{formatCurrency(amount)}</span>
             </p>
           </div>
         </div>
 
         <div className="mt-6 rounded-2xl border border-brand-border bg-brand-elevated p-4">
           {error && (
-            <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
 
           {loadingIntent ? (
-            <div className="flex items-center justify-center gap-3 py-8 text-slate-400">
+            <div className="flex items-center justify-center gap-3 py-8 text-brand-ink-subtle">
               <Loader2 className="h-5 w-5 animate-spin" />
               <span className="text-sm">Loading payment form...</span>
             </div>
@@ -185,7 +208,7 @@ export function LateFeeGate({
             </Elements>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-slate-400">We couldn't load the payment form.</p>
+              <p className="text-sm text-brand-ink-subtle">We couldn't load the payment form.</p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={onBack}>
                   {backLabel}

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /**
  * Fan Saved Page  (route: /saved)
@@ -221,8 +221,8 @@ export default function SavedPage() {
     <div className="px-4 md:px-8 py-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-black text-slate-100">Saved Creators</h1>
-        <p className="text-slate-400 mt-1">
+        <h1 className="text-3xl font-black font-display text-brand-ink">Saved Creators</h1>
+        <p className="text-brand-ink-subtle mt-1">
           Creators you&apos;ve saved for quick access.
         </p>
       </div>
@@ -230,9 +230,9 @@ export default function SavedPage() {
       {/* Content */}
       {savedCreators.length === 0 ? (
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-12 text-center">
-          <Heart className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-slate-300">No saved creators yet</p>
-          <p className="text-sm text-slate-500 mt-1 mb-6">
+          <Heart className="w-12 h-12 text-brand-ink-subtle mx-auto mb-4" />
+          <p className="text-lg font-semibold text-brand-ink-muted">No saved creators yet</p>
+          <p className="text-sm text-brand-ink-subtle mt-1 mb-6">
             Heart a creator on their profile to save them here for later.
           </p>
           <Link href="/discover">
@@ -244,13 +244,13 @@ export default function SavedPage() {
         </div>
       ) : (
         <>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-brand-ink-subtle">
             {savedCreators.length} saved creator{savedCreators.length !== 1 ? "s" : ""}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {savedCreators.map((creator) => (
               <div key={creator.id} className="relative group/saved">
-                <InfluencerCard creator={creator} />
+                <InfluencerCard creator={creator} initialIsSaved={true} />
                 <button
                   onClick={() => handleUnsave(creator.id)}
                   className="absolute top-3 right-3 p-2 rounded-full bg-brand-surface/90 border border-brand-border text-red-400 opacity-0 group-hover/saved:opacity-100 hover:bg-red-500/20 hover:border-red-500/30 transition-all z-10"

@@ -197,8 +197,8 @@ export default function ManagementPage() {
       <div className="px-4 md:px-8 py-6 max-w-4xl mx-auto space-y-8">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-black text-slate-100">Manage Offerings</h1>
-            <p className="text-slate-400 mt-1">Set your call packages, pricing, and availability.</p>
+            <h1 className="text-3xl font-black font-display text-brand-ink">Manage Offerings</h1>
+            <p className="text-brand-ink-subtle mt-1">Set your call packages, pricing, and availability.</p>
           </div>
           <Button variant="primary" onClick={openNew} className="gap-2">
             <Plus className="w-4 h-4" />
@@ -216,20 +216,20 @@ export default function ManagementPage() {
             return (
               <div key={s.label} className="rounded-2xl border border-brand-border bg-brand-surface p-5">
                 <Icon className="w-5 h-5 text-brand-primary-light mb-3" />
-                <p className="text-2xl font-black text-slate-100">{s.value}</p>
-                <p className="text-xs text-slate-400 mt-1">{s.label}</p>
+                <p className="text-2xl font-black text-brand-ink">{s.value}</p>
+                <p className="text-xs text-brand-ink-subtle mt-1">{s.label}</p>
               </div>
             );
           })}
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-slate-100">Your Packages</h2>
+          <h2 className="text-lg font-bold text-brand-ink">Your Packages</h2>
           {packages.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-brand-border bg-brand-surface p-10 text-center">
-              <DollarSign className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400 font-medium">No packages yet</p>
-              <p className="text-slate-500 text-sm mt-1">Create your first call package to start accepting bookings.</p>
+              <DollarSign className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
+              <p className="text-brand-ink-subtle font-medium">No packages yet</p>
+              <p className="text-brand-ink-subtle text-sm mt-1">Create your first call package to start accepting bookings.</p>
             </div>
           ) : (
             packages.map((pkg) => (
@@ -248,18 +248,18 @@ export default function ManagementPage() {
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
           <div className="flex items-center gap-2 mb-1">
             <Zap className="w-5 h-5 text-brand-live" />
-            <h2 className="text-lg font-bold text-slate-100">Public Live Join Fee</h2>
+            <h2 className="text-lg font-bold text-brand-ink">Public Live Join Fee</h2>
           </div>
-          <p className="text-sm text-slate-400 mb-5">
+          <p className="text-sm text-brand-ink-subtle mb-5">
             Fans can watch and chat for free. This is the one-time fee they pay to request a 30-second on-stage spot during your live.
           </p>
           <div className="flex items-end gap-4">
             <div className="flex-1 max-w-xs">
-              <label className="text-sm font-medium text-slate-300 mb-2 block">
+              <label className="text-sm font-medium text-brand-ink-muted mb-2 block">
                 Join fee (USD, minimum $10)
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink-subtle text-sm">$</span>
                 <input
                   type="number"
                   min={String(LIVE_MIN_JOIN_FEE)}
@@ -267,7 +267,7 @@ export default function ManagementPage() {
                   placeholder={`Minimum ${LIVE_MIN_JOIN_FEE.toFixed(2)}`}
                   value={liveRate}
                   onChange={(e) => setLiveRate(e.target.value)}
-                  className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated pl-7 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                  className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated pl-7 pr-3 text-sm text-brand-ink placeholder:text-brand-ink-subtle focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
                 />
               </div>
               <p className="mt-2 text-xs text-amber-300">
@@ -297,8 +297,8 @@ export default function ManagementPage() {
 
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-6 flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-100">Weekly Availability</h2>
-            <p className="text-sm text-slate-400 mt-1">
+            <h2 className="text-lg font-bold text-brand-ink">Weekly Availability</h2>
+            <p className="text-sm text-brand-ink-subtle mt-1">
               Availability editing now lives on your calendar page.
             </p>
           </div>
@@ -338,13 +338,13 @@ export default function ManagementPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-300 mb-2 block">Description</label>
+              <label className="text-sm font-medium text-brand-ink-muted mb-2 block">Description</label>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 placeholder="What will fans get from this session?"
                 rows={3}
-                className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-subtle resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
               />
             </div>
             <div className="flex gap-3 pt-2">
@@ -373,26 +373,26 @@ function PackageCard({ pkg, onEdit, onToggle, onDelete }: {
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
-            <h3 className="text-base font-bold text-slate-100">{pkg.name}</h3>
+            <h3 className="text-base font-bold text-brand-ink">{pkg.name}</h3>
             <Badge variant={pkg.isActive ? "live" : "default"} className="text-[11px]">
               {pkg.isActive ? "Active" : "Inactive"}
             </Badge>
           </div>
-          <p className="text-sm text-slate-400 leading-relaxed">{pkg.description}</p>
-          <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
+          <p className="text-sm text-brand-ink-subtle leading-relaxed">{pkg.description}</p>
+          <div className="flex items-center gap-4 mt-3 text-xs text-brand-ink-subtle">
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{pkg.duration} min</span>
             <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" />{formatCurrency(pkg.price)} per session</span>
             <span>{pkg.bookingsCount} bookings</span>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <button onClick={onToggle} className="p-2 rounded-lg text-slate-400 hover:text-brand-primary-light hover:bg-brand-elevated transition-colors" title={pkg.isActive ? "Deactivate" : "Activate"}>
+          <button onClick={onToggle} className="p-2 rounded-lg text-brand-ink-subtle hover:text-brand-primary-light hover:bg-brand-elevated transition-colors" title={pkg.isActive ? "Deactivate" : "Activate"}>
             {pkg.isActive ? <ToggleRight className="w-5 h-5 text-brand-live" /> : <ToggleLeft className="w-5 h-5" />}
           </button>
-          <button onClick={onEdit} className="p-2 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-brand-elevated transition-colors">
+          <button onClick={onEdit} className="p-2 rounded-lg text-brand-ink-subtle hover:text-brand-ink hover:bg-brand-elevated transition-colors">
             <Edit2 className="w-4 h-4" />
           </button>
-          <button onClick={onDelete} className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+          <button onClick={onDelete} className="p-2 rounded-lg text-brand-ink-subtle hover:text-red-400 hover:bg-red-500/10 transition-colors">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>

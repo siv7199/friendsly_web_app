@@ -75,9 +75,9 @@ export function StatsCard({
         )}
       </div>
 
-      <p className="text-sm text-slate-400 mb-1">{title}</p>
-      <p className="text-2xl font-black text-slate-100">{value}</p>
-      {subtext && <p className="text-xs text-slate-500 mt-1">{subtext}</p>}
+      <p className="text-sm text-brand-ink-muted mb-1">{title}</p>
+      <p className="text-2xl font-black text-brand-ink">{value}</p>
+      {subtext && <p className="text-xs text-brand-ink-muted mt-1">{subtext}</p>}
     </div>
   );
 }

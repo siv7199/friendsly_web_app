@@ -63,6 +63,7 @@ export default function CreatorSetupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+  const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
 
   const [form, setForm] = useState<FormData>({
     full_name: user?.full_name ?? "",
@@ -97,6 +98,7 @@ export default function CreatorSetupPage() {
     try {
       const avatarUrl = await uploadAvatarFile(file);
       update("avatar_url", avatarUrl);
+      setAvatarVersion(Date.now());
     } catch (error) {
       setAvatarError(error instanceof Error ? error.message : "Could not upload avatar.");
     } finally {
@@ -154,10 +156,10 @@ export default function CreatorSetupPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-brand-surface border border-brand-border">
             <Sparkles className="w-3.5 h-3.5 text-brand-gold" />
-            <span className="text-xs text-slate-400 font-medium">Creator Setup — Step {step} of 3</span>
+            <span className="text-xs text-brand-ink-subtle font-medium">Creator Setup — Step {step} of 3</span>
           </div>
-          <h1 className="text-2xl font-black text-slate-100">Set up your creator profile</h1>
-          <p className="text-slate-500 text-sm mt-1">You&apos;ll set your call prices in your dashboard after signup.</p>
+          <h1 className="text-2xl font-black text-brand-ink">Set up your creator profile</h1>
+          <p className="text-brand-ink-muted text-sm mt-1">You&apos;ll set your call prices in your dashboard after signup.</p>
         </div>
 
         {/* Progress bar */}
@@ -168,7 +170,7 @@ export default function CreatorSetupPage() {
                 "h-1.5 w-full rounded-full transition-all duration-500",
                 n < step ? "bg-brand-gold" : n === step ? "bg-brand-primary" : "bg-brand-border"
               )} />
-              <span className={cn("text-[10px] font-medium", n === step ? "text-slate-300" : "text-slate-600")}>
+              <span className={cn("text-[10px] font-medium", n === step ? "text-brand-ink-subtle" : "text-brand-ink-muted")}>
                 {label}
               </span>
             </div>
@@ -188,7 +190,7 @@ export default function CreatorSetupPage() {
                     initials={initials}
                     color={form.avatar_color}
                     size="lg"
-                    imageUrl={form.avatar_url || undefined}
+                    imageUrl={form.avatar_url && user?.id ? `/api/public/avatar/${user.id}?v=${avatarVersion}` : undefined}
                   />
                   <label className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-brand-primary border-2 border-brand-surface flex items-center justify-center cursor-pointer hover:bg-brand-primary-hover transition-colors">
                     <Camera className="w-3.5 h-3.5 text-white" />
@@ -207,7 +209,7 @@ export default function CreatorSetupPage() {
                   <button
                     type="button"
                     onClick={() => void handleAvatarRemoved()}
-                    className="text-xs text-red-400 hover:text-red-300 -mt-1"
+                    className="text-xs text-red-600 hover:text-red-700 -mt-1"
                     disabled={uploadingAvatar}
                   >
                     Remove photo
@@ -217,9 +219,9 @@ export default function CreatorSetupPage() {
                   <p className="text-xs text-red-400 -mt-1">{avatarError}</p>
                 )}
                 {uploadingAvatar && (
-                  <p className="text-xs text-slate-400 -mt-1">Uploading photo...</p>
+                  <p className="text-xs text-brand-ink-subtle -mt-1">Uploading photo...</p>
                 )}
-                <p className="text-xs text-slate-500">Pick a background color</p>
+                <p className="text-xs text-brand-ink-muted">Pick a background color</p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {AVATAR_COLORS.map(({ cls, hex }) => (
                     <button
@@ -249,15 +251,15 @@ export default function CreatorSetupPage() {
               />
 
               <div>
-                <label className="text-sm font-medium text-slate-300 mb-1.5 block">Username</label>
+                <label className="text-sm font-medium text-brand-ink-subtle mb-1.5 block">Username</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm pointer-events-none">@</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink-muted text-sm pointer-events-none">@</span>
                   <input
                     type="text"
                     placeholder="lunavfit"
                     value={form.username}
                     onChange={(e) => update("username", e.target.value.replace(/\s+/g, "").toLowerCase())}
-                    className="w-full h-10 pl-7 pr-3 rounded-xl border border-brand-border bg-brand-elevated text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                    className="w-full h-10 pl-7 pr-3 rounded-xl border border-brand-border bg-brand-elevated text-sm text-brand-ink placeholder:text-brand-ink-muted focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
                   />
                 </div>
               </div>
@@ -268,9 +270,9 @@ export default function CreatorSetupPage() {
           {step === 2 && (
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-slate-300 mb-1.5 block">
+                <label className="text-sm font-medium text-brand-ink-subtle mb-1.5 block">
                   Bio
-                  <span className="ml-auto float-right text-xs text-slate-500 font-normal">
+                  <span className="ml-auto float-right text-xs text-brand-ink-muted font-normal">
                     {form.bio.length}/{MAX_BIO}
                   </span>
                 </label>
@@ -279,12 +281,12 @@ export default function CreatorSetupPage() {
                   onChange={(e) => update("bio", e.target.value.slice(0, MAX_BIO))}
                   placeholder="Tell fans what you do and what they'll get from a call with you..."
                   rows={4}
-                  className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                  className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-muted resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
                 />
               </div>
 
               <div>
-                <label className="text-sm font-medium text-slate-300 mb-2 block">Category</label>
+                <label className="text-sm font-medium text-brand-ink-subtle mb-2 block">Category</label>
                 <div className="grid grid-cols-2 gap-2">
                   {CREATOR_CATEGORIES.map((cat) => (
                     <button
@@ -295,7 +297,7 @@ export default function CreatorSetupPage() {
                         "px-3 py-2 rounded-xl border text-xs font-medium text-left transition-all",
                         form.category === cat
                           ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
-                          : "bg-brand-elevated border-brand-border text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
+                          : "bg-brand-elevated border-brand-border text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
                       )}
                     >
                       {cat}
@@ -304,9 +306,9 @@ export default function CreatorSetupPage() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-brand-gold/5 border border-brand-gold/20 text-xs text-slate-400 flex items-start gap-2">
+              <div className="p-3 rounded-xl bg-brand-gold/5 border border-brand-gold/20 text-xs text-brand-ink-subtle flex items-start gap-2">
                 <Sparkles className="w-3.5 h-3.5 text-brand-gold shrink-0 mt-0.5" />
-                <span>You&apos;ll set your call prices in <strong className="text-slate-300">Manage Offerings</strong> after your profile is live.</span>
+                <span>You&apos;ll set your call prices in <strong className="text-brand-ink-subtle">Manage Offerings</strong> after your profile is live.</span>
               </div>
             </div>
           )}
@@ -314,7 +316,7 @@ export default function CreatorSetupPage() {
           {/* ── Step 3: Review ── */}
           {step === 3 && (
             <div className="space-y-4">
-              <p className="text-sm text-slate-400">Here&apos;s how your profile will look on the discover page:</p>
+              <p className="text-sm text-brand-ink-subtle">Here&apos;s how your profile will look on the discover page:</p>
 
               <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
                 <div className="flex items-center gap-3 mb-3">
@@ -322,19 +324,19 @@ export default function CreatorSetupPage() {
                     initials={initials}
                     color={form.avatar_color}
                     size="md"
-                    imageUrl={form.avatar_url || undefined}
+                    imageUrl={form.avatar_url && user?.id ? `/api/public/avatar/${user.id}?v=${avatarVersion}` : undefined}
                   />
                   <div>
-                    <p className="font-bold text-slate-100">{form.full_name}</p>
-                    <p className="text-sm text-slate-500">@{form.username}</p>
+                    <p className="font-bold text-brand-ink">{form.full_name}</p>
+                    <p className="text-sm text-brand-ink-muted">@{form.username}</p>
                   </div>
                 </div>
                 <span className="text-xs px-2.5 py-1 rounded-full bg-brand-primary/10 border border-brand-primary/20 text-brand-primary-light">
                   {form.category}
                 </span>
-                <p className="mt-3 text-sm text-slate-300 leading-relaxed line-clamp-3">{form.bio}</p>
+                <p className="mt-3 text-sm text-brand-ink-subtle leading-relaxed line-clamp-3">{form.bio}</p>
                 <div className="mt-3 pt-3 border-t border-brand-border">
-                  <span className="text-xs text-slate-500">💡 Set call prices in Manage Offerings after launching</span>
+                  <span className="text-xs text-brand-ink-muted">💡 Set call prices in Manage Offerings after launching</span>
                 </div>
               </div>
 
@@ -345,7 +347,7 @@ export default function CreatorSetupPage() {
                   `Category: ${form.category}`,
                   "Pricing: Set up in Manage Offerings",
                 ].map((item) => (
-                  <div key={item} className="flex items-center gap-2 text-xs text-slate-400">
+                  <div key={item} className="flex items-center gap-2 text-xs text-brand-ink-subtle">
                     <CheckCircle2 className="w-3.5 h-3.5 text-brand-live shrink-0" />
                     {item}
                   </div>

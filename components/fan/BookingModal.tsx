@@ -48,11 +48,34 @@ const STRIPE_APPEARANCE = {
   theme: "night" as const,
   variables: {
     colorPrimary: "#7C3AED",
-    colorBackground: "#1A1535",
+    colorBackground: "#1e1b3a",
     colorText: "#f1f5f9",
+    colorTextSecondary: "#c4b5fd",
+    colorTextPlaceholder: "#7c6fa0",
     colorDanger: "#f87171",
     fontFamily: "inherit",
     borderRadius: "12px",
+  },
+  rules: {
+    ".Label": {
+      color: "#c4b5fd",
+      fontWeight: "500",
+    },
+    ".Input": {
+      borderColor: "rgba(124,92,231,0.35)",
+      color: "#f1f5f9",
+    },
+    ".Input--focused": {
+      borderColor: "#7C3AED",
+      boxShadow: "0 0 0 2px rgba(124,92,231,0.2)",
+    },
+    ".Input--invalid": {
+      borderColor: "#f87171",
+      color: "#fca5a5",
+    },
+    ".Error": {
+      color: "#fca5a5",
+    },
   },
 };
 
@@ -467,14 +490,14 @@ export function BookingModal({
               <CheckCircle2 className="w-8 h-8 text-brand-live" />
             </div>
             <div>
-              <p className="text-slate-300 text-sm leading-relaxed">
+              <p className="text-brand-ink-subtle text-sm leading-relaxed">
                 Payment confirmed! Your call with{" "}
-                <strong className="text-slate-100">{creator.name}</strong> is booked for{" "}
+                <strong className="text-brand-ink">{creator.name}</strong> is booked for{" "}
                 <strong className="text-brand-primary-light">
                   {selectedDate && formatShortDate(selectedDate)} at {selectedTime}
                 </strong>.
               </p>
-              <p className="text-slate-500 text-xs mt-2">
+              <p className="text-brand-ink-muted text-xs mt-2">
                 You'll receive a confirmation and a link to your session.
               </p>
             </div>
@@ -500,13 +523,13 @@ export function BookingModal({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-bold text-slate-100">{pkg.name}</p>
-                    <p className="text-xs text-slate-400 mt-1">{pkg.description}</p>
-                    <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
+                    <p className="font-bold text-brand-ink">{pkg.name}</p>
+                    <p className="text-xs text-brand-ink-subtle mt-1">{pkg.description}</p>
+                    <p className="text-xs text-brand-ink-muted mt-1.5 flex items-center gap-1">
                       <Clock className="w-3 h-3" />{pkg.duration} min
                     </p>
                   </div>
-                  <p className="text-lg font-black text-gradient-gold shrink-0">
+                  <p className="text-lg font-black text-brand-gold shrink-0">
                     {formatCurrency(pkg.price)}
                   </p>
                 </div>
@@ -521,8 +544,8 @@ export function BookingModal({
             <div className="flex items-center gap-3 p-3 rounded-xl bg-brand-surface border border-brand-border">
               <Avatar initials={creator.avatarInitials} color={creator.avatarColor} imageUrl={creator.avatarUrl} size="sm" />
               <div>
-                <p className="text-sm font-semibold text-slate-100">{creator.name}</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-sm font-semibold text-brand-ink">{creator.name}</p>
+                <p className="text-xs text-brand-ink-muted">
                   {selectedPackage ? `${selectedPackage.name} · ` : ""}
                   {sessionDuration} min · {formatCurrency(sessionPrice)}
                 </p>
@@ -530,32 +553,32 @@ export function BookingModal({
             </div>
 
             <div>
-              <p className="text-xs text-slate-500 mb-3">
+              <p className="text-xs text-brand-ink-muted mb-3">
                 Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}).
               </p>
-              <p className="text-xs text-slate-500 mb-3 -mt-1">
+              <p className="text-xs text-brand-ink-muted mb-3 -mt-1">
                 Booking starts are offered every {bookingIntervalMinutes} minutes.
               </p>
               <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                <label className="text-sm font-medium text-brand-ink-subtle flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-brand-primary-light" />
                   Select Date
                 </label>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mr-1">
+                  <span className="text-[10px] text-brand-ink-muted font-medium uppercase tracking-wider mr-1">
                     {weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : `+${weekOffset} weeks`}
                   </span>
                   <button
                     onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
                     disabled={weekOffset === 0}
-                    className="p-1 rounded-md bg-brand-elevated border border-brand-border text-slate-400 hover:text-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="p-1 rounded-md bg-brand-elevated border border-brand-border text-brand-ink-subtle hover:text-brand-ink disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setWeekOffset((w) => Math.min(3, w + 1))}
                     disabled={weekOffset >= 3}
-                    className="p-1 rounded-md bg-brand-elevated border border-brand-border text-slate-400 hover:text-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="p-1 rounded-md bg-brand-elevated border border-brand-border text-brand-ink-subtle hover:text-brand-ink disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -576,10 +599,10 @@ export function BookingModal({
                       className={cn(
                         "flex flex-col items-center p-2 rounded-xl border text-xs font-medium transition-all",
                         isSelected
-                          ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
+                          ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light ring-1 ring-brand-primary/30"
                           : hasTimes
-                          ? "border-brand-border bg-brand-elevated text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
-                          : "border-brand-border bg-brand-elevated text-slate-600 opacity-50 cursor-not-allowed"
+                          ? "border-brand-primary/40 bg-white text-brand-ink font-semibold shadow-sm hover:border-brand-primary hover:bg-brand-primary/5"
+                          : "border-brand-border/40 bg-brand-elevated/40 text-brand-ink-muted opacity-35 cursor-not-allowed"
                       )}
                     >
                       <span className="text-[10px] uppercase opacity-70">
@@ -594,12 +617,12 @@ export function BookingModal({
 
             {selectedDate && (
               <div>
-                <label className="text-sm font-medium text-slate-300 flex items-center gap-2 mb-3">
+                <label className="text-sm font-medium text-brand-ink-subtle flex items-center gap-2 mb-3">
                   <Clock className="w-4 h-4 text-brand-primary-light" />
                   Select Time
                 </label>
                 {availableTimeSlots.length === 0 ? (
-                  <p className="text-sm text-slate-500 rounded-xl border border-brand-border bg-brand-elevated px-4 py-3">
+                  <p className="text-sm text-brand-ink-muted rounded-xl border border-brand-border bg-brand-elevated px-4 py-3">
                     {loadingExistingBookings
                       ? "Checking booked times..."
                       : "No times available for this offering on that date."}
@@ -614,7 +637,7 @@ export function BookingModal({
                           "py-2 px-3 rounded-xl border text-xs font-medium transition-all",
                           selectedTime === slot
                             ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
-                            : "border-brand-border bg-brand-elevated text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
+                            : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
                         )}
                       >
                         {slot}
@@ -646,23 +669,23 @@ export function BookingModal({
         {/* ── STEP 2: Topic / Message ── */}
         {step === "details" && (
           <div className="space-y-5">
-            <div className="p-3 rounded-xl bg-brand-surface border border-brand-border text-sm text-slate-300">
-              <span className="text-slate-500">Booked for: </span>
+            <div className="p-3 rounded-xl bg-brand-surface border border-brand-border text-sm text-brand-ink-subtle">
+              <span className="text-brand-ink-muted">Booked for: </span>
               {selectedDate && formatShortDate(selectedDate)} at {selectedTime}
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-300 flex items-center gap-2 mb-2">
+              <label className="text-sm font-medium text-brand-ink-subtle flex items-center gap-2 mb-2">
                 <MessageSquare className="w-4 h-4 text-brand-primary-light" />
                 What do you want to cover?{" "}
-                <span className="text-slate-500 font-normal">(optional)</span>
+                <span className="text-brand-ink-muted font-normal">(optional)</span>
               </label>
               <textarea
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder={`Give ${creator.name.split(" ")[0]} a heads-up so they can prepare...`}
                 rows={3}
-                className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-muted resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
               />
             </div>
 
@@ -685,8 +708,8 @@ export function BookingModal({
               <div className="flex items-center gap-3">
                 <Avatar initials={creator.avatarInitials} color={creator.avatarColor} imageUrl={creator.avatarUrl} size="sm" />
                 <div>
-                  <p className="text-sm font-semibold text-slate-100">{creator.name}</p>
-                  <p className="text-xs text-slate-500">{creator.category}</p>
+                  <p className="text-sm font-semibold text-brand-ink">{creator.name}</p>
+                  <p className="text-xs text-brand-ink-muted">{creator.category}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-brand-border">
@@ -698,8 +721,8 @@ export function BookingModal({
                   ...(topic ? [["Topic", topic]] : []),
                 ].map(([k, v]) => (
                   <div key={k}>
-                    <p className="text-[11px] text-slate-500 uppercase tracking-wider">{k}</p>
-                    <p className="text-sm text-slate-200 font-medium mt-0.5 truncate">{v}</p>
+                    <p className="text-[11px] text-brand-ink-muted uppercase tracking-wider">{k}</p>
+                    <p className="text-sm text-brand-ink font-medium mt-0.5 truncate">{v}</p>
                   </div>
                 ))}
               </div>
@@ -708,28 +731,28 @@ export function BookingModal({
             {/* Price */}
             <div className="rounded-xl border border-brand-border bg-brand-elevated p-4">
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-slate-400">Session fee</span>
-                <span className="text-slate-200">{formatCurrency(sessionPrice)}</span>
+                <span className="text-brand-ink-subtle">Session fee</span>
+                <span className="text-brand-ink">{formatCurrency(sessionPrice)}</span>
               </div>
               <div className="flex justify-between text-sm mb-3">
-                <span className="text-slate-400">Platform fee (2.5%)</span>
-                <span className="text-slate-200">{formatCurrency(platformFeeAmount)}</span>
+                <span className="text-brand-ink-subtle">Platform fee (2.5%)</span>
+                <span className="text-brand-ink">{formatCurrency(platformFeeAmount)}</span>
               </div>
               <div className="flex justify-between font-bold text-base border-t border-brand-border pt-3">
-                <span className="text-slate-100">Total</span>
-                <span className="text-gradient-gold">{formatCurrency(sessionGrossPrice)}</span>
+                <span className="text-brand-ink">Total</span>
+                <span className="text-brand-gold">{formatCurrency(sessionGrossPrice)}</span>
               </div>
             </div>
 
             {/* Saved payments */}
             {loadingSavedPaymentMethods ? (
-              <div className="flex items-center justify-center py-4 gap-2 text-slate-400 text-sm">
+              <div className="flex items-center justify-center py-4 gap-2 text-brand-ink-subtle text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Loading saved payments...
               </div>
             ) : savedPaymentMethods.length > 0 ? (
               <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Saved Payments</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand-ink-muted">Saved Payments</p>
                 <div className="space-y-2">
                   {savedPaymentMethods.map((paymentMethod) => (
                     <label
@@ -747,10 +770,10 @@ export function BookingModal({
                         checked={selectedPaymentMethodId === paymentMethod.id}
                         onChange={() => setSelectedPaymentMethodId(paymentMethod.id)}
                       />
-                      <div className="text-sm text-slate-200 capitalize">
+                      <div className="text-sm text-brand-ink capitalize">
                         {paymentMethod.brand} ending in {paymentMethod.last4}
                       </div>
-                      <div className="ml-auto text-xs text-slate-500">
+                      <div className="ml-auto text-xs text-brand-ink-muted">
                         {String(paymentMethod.expMonth).padStart(2, "0")}/{paymentMethod.expYear}
                       </div>
                     </label>
@@ -779,7 +802,7 @@ export function BookingModal({
 
             {/* Stripe Elements */}
             {selectedPaymentMethodId ? null : fetchingIntent ? (
-              <div className="flex items-center justify-center py-8 gap-3 text-slate-400">
+              <div className="flex items-center justify-center py-8 gap-3 text-brand-ink-subtle">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span className="text-sm">Loading payment form...</span>
               </div>
@@ -798,7 +821,7 @@ export function BookingModal({
                   stripe={stripePromise}
                   options={{ ...STRIPE_OPTIONS, clientSecret }}
                 >
-                  <label className="flex items-center gap-2 text-xs text-slate-400 mb-3">
+                  <label className="flex items-center gap-2 text-xs text-brand-ink-subtle mb-3">
                     <input
                       type="checkbox"
                       checked={saveNewCard}

@@ -191,7 +191,7 @@ async function fetchCreatorData(id: string): Promise<{
     reviewCount: reviewCount ?? 0,
     avatarInitials: profile.avatar_initials,
     avatarColor: profile.avatar_color,
-    avatarUrl: profile.avatar_url ?? undefined,
+    avatarUrl: profile.avatar_url ? `/api/public/avatar/${profile.id}` : undefined,
     isLive: isActuallyLive,
     currentLiveSessionId: activeSession?.id ?? undefined,
     queueCount,
@@ -559,7 +559,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         {/* ── Back ── */}
         <Link
           href="/discover"
-          className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-100 transition-colors"
+          className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Discover
@@ -586,21 +586,21 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            <h1 className="text-2xl font-black text-slate-100">{creator.name}</h1>
-            <p className="text-slate-400 text-sm">{creator.username}</p>
+            <h1 className="text-2xl font-black text-brand-ink">{creator.name}</h1>
+            <p className="text-brand-ink-subtle text-sm">{creator.username}</p>
 
             <div className="flex flex-wrap items-center gap-4 mt-3">
               {creator.rating > 0 && (
                 <div className="flex items-center gap-1.5">
                   <Star className="w-4 h-4 fill-brand-gold text-brand-gold" />
                   <span className="font-bold text-brand-gold">{creator.rating}</span>
-                  <span className="text-sm text-slate-500">({creator.reviewCount} reviews)</span>
+                  <span className="text-sm text-brand-ink-subtle">({creator.reviewCount} reviews)</span>
                 </div>
               )}
             </div>
 
             {creator.bio && (
-              <p className="mt-4 text-slate-300 leading-relaxed">{creator.bio}</p>
+              <p className="mt-4 text-brand-ink-muted leading-relaxed">{creator.bio}</p>
             )}
 
             {socialLinks.length > 0 && (
@@ -611,7 +611,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     href={href}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-brand-elevated px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-brand-primary/50 hover:text-slate-100"
+                    className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-brand-elevated px-3 py-1.5 text-xs font-medium text-brand-ink-muted transition-colors hover:border-brand-primary/50 hover:text-brand-ink"
                   >
                     <Icon className="h-3.5 w-3.5" />
                     <span>{getSocialHandleLabel(href) || label}</span>
@@ -624,7 +624,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               {creator.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="text-xs px-3 py-1.5 rounded-full bg-brand-elevated border border-brand-border text-slate-400"
+                  className="text-xs px-3 py-1.5 rounded-full bg-brand-elevated border border-brand-border text-brand-ink-subtle"
                 >
                   {tag}
                 </span>
@@ -639,7 +639,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     <span className="text-sm font-bold text-brand-info">
                       {scheduledLiveCountdown}
                       {scheduledLiveLabel ? (
-                        <span className="block text-xs font-medium text-slate-300 mt-0.5">{scheduledLiveLabel}</span>
+                        <span className="block text-xs font-medium text-brand-ink-muted mt-0.5">{scheduledLiveLabel}</span>
                       ) : null}
                     </span>
                   </div>
@@ -650,7 +650,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <span className="text-sm font-bold text-brand-live">
                     {formatCurrency(creator.liveJoinFee!)}
                   </span>
-                  <span className="text-xs text-slate-400">to join live for 30s</span>
+                  <span className="text-xs text-brand-ink-subtle">to join live for 30s</span>
                 </div>
               )}
               {hasPackages && (
@@ -659,7 +659,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <span className="text-sm font-bold text-brand-primary-light">
                     Starts at {formatCurrency(creator.callPrice)}
                   </span>
-                  <span className="text-xs text-slate-400">per session</span>
+                  <span className="text-xs text-brand-ink-subtle">per session</span>
                 </div>
               )}
             </div>
@@ -674,11 +674,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
             {/* Available sessions */}
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
-              <h2 className="text-lg font-bold text-slate-100 mb-4">Book a Session</h2>
+              <h2 className="text-lg font-bold text-brand-ink mb-4">Book a Session</h2>
               {!hasPackages ? (
                 <div className="p-4 rounded-xl border border-brand-border bg-brand-elevated text-center py-8">
-                  <p className="text-slate-400 text-sm">No booking packages available yet.</p>
-                  <p className="text-slate-500 text-xs mt-1">Check back soon or watch their public live.</p>
+                  <p className="text-brand-ink-subtle text-sm">No booking packages available yet.</p>
+                  <p className="text-brand-ink-subtle text-xs mt-1">Check back soon or watch their public live.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -693,9 +693,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     >
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="font-bold text-slate-100">{pkg.name}</p>
-                          <p className="text-sm text-slate-400 mt-1">{pkg.description}</p>
-                          <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                          <p className="font-bold text-brand-ink">{pkg.name}</p>
+                          <p className="text-sm text-brand-ink-subtle mt-1">{pkg.description}</p>
+                          <div className="flex items-center gap-3 mt-2 text-xs text-brand-ink-subtle">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />{pkg.duration} min
                             </span>
@@ -703,7 +703,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         </div>
                         <div className="text-right shrink-0 ml-4">
                           <p className="text-xl font-black text-gradient-gold">{formatCurrency(pkg.price)}</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">per session</p>
+                          <p className="text-[11px] text-brand-ink-subtle mt-0.5">per session</p>
                         </div>
                       </div>
                     </div>
@@ -715,7 +715,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             {/* Availability Calendar */}
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <h2 className="text-lg font-bold text-brand-ink flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-brand-primary-light" />
                   Availability
                 </h2>
@@ -723,7 +723,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <button
                     onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
                     disabled={weekOffset === 0}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-elevated text-xs font-medium text-slate-300 hover:text-slate-100 hover:border-brand-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-elevated text-xs font-medium text-brand-ink-muted hover:text-brand-ink hover:border-brand-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" /> Prev
                   </button>
@@ -733,7 +733,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <button
                     onClick={() => setWeekOffset((w) => Math.min(3, w + 1))}
                     disabled={weekOffset >= 3}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-elevated text-xs font-medium text-slate-300 hover:text-slate-100 hover:border-brand-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-elevated text-xs font-medium text-brand-ink-muted hover:text-brand-ink hover:border-brand-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
                     Next <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -748,7 +748,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
                       availabilityPackageId === "all"
                         ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light"
-                        : "border-brand-border bg-brand-elevated text-slate-400 hover:text-slate-200"
+                        : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink"
                     )}
                   >
                     All offerings
@@ -761,7 +761,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
                         availabilityPackageId === pkg.id
                           ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light"
-                          : "border-brand-border bg-brand-elevated text-slate-400 hover:text-slate-200"
+                          : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink"
                       )}
                     >
                       {pkg.name}
@@ -770,12 +770,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </div>
               )}
 
-              <p className="text-xs text-slate-500 mb-4">
+              <p className="text-xs text-brand-ink-subtle mb-4">
                 Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}). Creator schedules in {formatTimeZoneLabel(creator.timeZone ?? "America/New_York")}.
               </p>
 
               {filteredAvailability.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-6">
+                <p className="text-sm text-brand-ink-subtle text-center py-6">
                   No availability set for this offering yet.
                 </p>
               ) : (
@@ -799,12 +799,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                             : "border-brand-border bg-brand-elevated opacity-50"
                         )}
                       >
-                        <p className="text-[10px] uppercase text-slate-500 font-medium">
+                        <p className="text-[10px] uppercase text-brand-ink-subtle font-medium">
                           {DAY_NAMES[dow]}
                         </p>
                         <p className={cn(
                           "text-base font-bold mt-0.5",
-                          isToday ? "text-brand-primary-light" : hasSlots ? "text-slate-100" : "text-slate-600"
+                          isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-ink" : "text-brand-ink-subtle"
                         )}>
                           {date.getDate()}
                         </p>
@@ -814,11 +814,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                               <p key={i} className="text-[9px] text-brand-live leading-tight">{s}</p>
                             ))}
                             {slots.length > 2 && (
-                              <p className="text-[9px] text-slate-500">+{slots.length - 2} more</p>
+                              <p className="text-[9px] text-brand-ink-subtle">+{slots.length - 2} more</p>
                             )}
                           </div>
                         ) : (
-                          <p className="text-[9px] text-slate-600 mt-1">
+                          <p className="text-[9px] text-brand-ink-subtle mt-1">
                             {isPast ? "—" : "Off"}
                           </p>
                         )}
@@ -845,7 +845,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <p className="text-xl font-black text-brand-live">
                     {formatCurrency(creator.liveJoinFee!)}
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-brand-ink-subtle mt-1">
                     {creator.queueCount > 0 ? `${creator.queueCount} in queue` : "Watch now and request a turn"}
                   </p>
                 </div>
@@ -854,11 +854,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               {/* Booking price */}
               {hasPackages && (
                 <div className="text-center py-2">
-                  <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Starts at</p>
-                  <p className="text-4xl font-black text-slate-100">
+                  <p className="text-sm font-bold text-brand-ink-subtle uppercase tracking-wider mb-1">Starts at</p>
+                  <p className="text-4xl font-black text-brand-ink">
                     {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">per session</p>
+                  <p className="text-xs text-brand-ink-subtle mt-1">per session</p>
                 </div>
               )}
 
@@ -869,13 +869,13 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   "Instant booking confirmation",
                   "Cancel up to 24h before",
                 ].map((item) => (
-                  <div key={item} className="flex items-center gap-2 text-slate-400">
+                  <div key={item} className="flex items-center gap-2 text-brand-ink-subtle">
                     <CheckCircle2 className="w-4 h-4 text-brand-live shrink-0" />
                     <span>{item}</span>
                   </div>
                 ))}
                 {hasLiveRate && (
-                  <div className="flex items-center gap-2 text-slate-400">
+                  <div className="flex items-center gap-2 text-brand-ink-subtle">
                     <CheckCircle2 className="w-4 h-4 text-brand-live shrink-0" />
                     <span>Live: free to watch, paid 30-second guest turns</span>
                   </div>
@@ -906,30 +906,30 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   </Link>
                 ) : hasLiveRate ? (
                   <Button variant="outline" size="lg" disabled className="w-full gap-2 opacity-50 cursor-not-allowed">
-                    <Zap className="w-4 h-4 text-slate-500" />
+                    <Zap className="w-4 h-4 text-brand-ink-subtle" />
                     <span className="text-sm truncate">Queue Offline</span>
                   </Button>
                 ) : null}
               </div>
 
-              <p className="text-[11px] text-center text-slate-600">
+              <p className="text-[11px] text-center text-brand-ink-subtle">
                 Next available: {creator.nextAvailable}
               </p>
             </div>
 
             {false && (
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 space-y-3">
-              <h3 className="text-sm font-bold text-slate-300">Creator Stats</h3>
+              <h3 className="text-sm font-bold text-brand-ink-muted">Creator Stats</h3>
               {[
                 { icon: TrendingUp, label: "Total calls", value: "0" },
                 { icon: Shield, label: "Verified creator", value: "✓" },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 text-slate-400">
+                  <div className="flex items-center gap-2 text-brand-ink-subtle">
                     <Icon className="w-3.5 h-3.5" />
                     <span>{label}</span>
                   </div>
-                  <span className="font-semibold text-slate-200">{value}</span>
+                  <span className="font-semibold text-brand-ink">{value}</span>
                 </div>
               ))}
             </div>
@@ -940,9 +940,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         {/* ── Reviews ── */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-100">
+            <h2 className="text-lg font-bold text-brand-ink">
               Reviews{" "}
-              <span className="text-slate-500 font-normal">({creator.reviewCount})</span>
+              <span className="text-brand-ink-subtle font-normal">({creator.reviewCount})</span>
             </h2>
             {creator.rating > 0 && (
               <div className="flex items-center gap-1">
@@ -953,7 +953,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       "w-4 h-4",
                       n <= Math.round(creator.rating)
                         ? "fill-brand-gold text-brand-gold"
-                        : "text-slate-600"
+                        : "text-brand-ink-subtle"
                     )}
                   />
                 ))}
@@ -964,9 +964,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
           {reviews.length === 0 && !isFan ? (
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 text-center">
-              <Star className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400">No reviews yet.</p>
-              <p className="text-slate-500 text-sm mt-1">Be the first to book a call!</p>
+              <Star className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
+              <p className="text-brand-ink-subtle">No reviews yet.</p>
+              <p className="text-brand-ink-subtle text-sm mt-1">Be the first to book a call!</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -980,9 +980,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-sm font-semibold text-slate-200">Leave a review</p>
+                      <p className="text-sm font-semibold text-brand-ink">Leave a review</p>
                       {reviewError && (
-                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                        <div className="rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                           {reviewError}
                         </div>
                       )}
@@ -1002,7 +1002,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                                 "w-6 h-6 transition-colors",
                                 n <= (reviewHover || reviewRating)
                                   ? "fill-brand-gold text-brand-gold"
-                                  : "text-slate-600 hover:text-slate-400"
+                                  : "text-brand-ink-subtle hover:text-brand-ink-subtle"
                               )}
                             />
                           </button>
@@ -1019,10 +1019,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         onChange={(e) => setReviewComment(e.target.value.slice(0, 500))}
                         placeholder="How was your experience?"
                         rows={3}
-                        className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                        className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-subtle resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
                       />
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-500">{reviewComment.length}/500</span>
+                        <span className="text-xs text-brand-ink-subtle">{reviewComment.length}/500</span>
                         <Button
                           variant="primary"
                           size="sm"
@@ -1044,8 +1044,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
               {isFan && !isOwnProfile && !canReview && !reviewSubmitted && (
                 <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-                  <p className="text-sm font-semibold text-slate-200">Reviews unlocked after completed sessions</p>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="text-sm font-semibold text-brand-ink">Reviews unlocked after completed sessions</p>
+                  <p className="mt-1 text-sm text-brand-ink-subtle">
                     You can leave one review for each completed booking that you have not already reviewed.
                   </p>
                 </div>
@@ -1054,9 +1054,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               {/* Review list */}
               {reviews.length === 0 && (
                 <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 text-center">
-                  <Star className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-                  <p className="text-slate-400">No reviews yet.</p>
-                  <p className="text-slate-500 text-sm mt-1">Be the first to leave a review!</p>
+                  <Star className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
+                  <p className="text-brand-ink-subtle">No reviews yet.</p>
+                  <p className="text-brand-ink-subtle text-sm mt-1">Be the first to leave a review!</p>
                 </div>
               )}
               {reviews.map((review) => (
@@ -1065,15 +1065,15 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     <Avatar initials={review.initials} color={review.color} imageUrl={review.imageUrl} size="sm" />
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-slate-100">{review.fan}</p>
-                        <span className="text-xs text-slate-500">{review.date}</span>
+                        <p className="text-sm font-semibold text-brand-ink">{review.fan}</p>
+                        <span className="text-xs text-brand-ink-subtle">{review.date}</span>
                       </div>
                       <div className="flex items-center gap-0.5 mt-0.5 mb-2">
                         {Array.from({ length: review.rating }).map((_, i) => (
                           <Star key={i} className="w-3.5 h-3.5 fill-brand-gold text-brand-gold" />
                         ))}
                       </div>
-                      <p className="text-sm text-slate-300 leading-relaxed">{review.comment}</p>
+                      <p className="text-sm text-brand-ink-muted leading-relaxed">{review.comment}</p>
                     </div>
                   </div>
                 </div>

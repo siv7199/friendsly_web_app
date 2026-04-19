@@ -66,7 +66,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
         username: `@${profile.username}`,
         avatarInitials: profile.avatar_initials,
         avatarColor: profile.avatar_color,
-        avatarUrl: profile.avatar_url ?? undefined,
+        avatarUrl: profile.avatar_url ? `/api/public/avatar/${profile.id}` : undefined,
         liveJoinFee: creatorProfile?.live_join_fee != null
           ? Number(creatorProfile.live_join_fee)
           : undefined,
@@ -243,14 +243,14 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   if (sessionEnded) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-2rem)] space-y-6 text-center px-6">
-        <div className="w-20 h-20 rounded-full bg-brand-primary/10 flex items-center justify-center mb-2">
-          <CheckCircle2 className="w-10 h-10 text-brand-primary" />
+        <div className="w-20 h-20 rounded-full bg-brand-primary/25 flex items-center justify-center mb-2">
+          <CheckCircle2 className="w-10 h-10 text-brand-primary-light" />
         </div>
         <div>
-          <h1 className="text-3xl font-black text-slate-100 mb-2">
+          <h1 className="text-3xl font-black font-display text-white mb-2">
             {creatorState.name}&apos;s live has ended
           </h1>
-          <p className="text-slate-400 max-w-sm mx-auto">
+          <p className="text-white/60 max-w-sm mx-auto">
             Any paid queue spots that were never admitted are automatically refunded in full.
           </p>
         </div>
@@ -261,7 +261,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             </Button>
           </Link>
           <Link href="/discover">
-            <Button className="w-full h-12 text-base font-bold border-brand-border hover:bg-brand-elevated" variant="outline">
+            <Button className="w-full h-12 text-base font-bold border-white/20 text-white/80 hover:bg-white/10" variant="outline">
               <Home className="w-4 h-4 mr-2" />
               Discover Creators
             </Button>
@@ -274,7 +274,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   return (
     <>
       <div className="px-4 md:px-6 py-4 md:py-5 h-[100dvh] overflow-hidden flex flex-col gap-4">
-        <Link href={`/profile/${creatorState.id}`} className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-100 transition-colors shrink-0">
+        <Link href={`/profile/${creatorState.id}`} className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors shrink-0">
           <ArrowLeft className="w-4 h-4" />
           Back to {creatorState.name}&apos;s profile
         </Link>
@@ -305,8 +305,8 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             ) : (
               <div className="rounded-[28px] border border-brand-border bg-brand-surface h-full flex items-center justify-center p-10 text-center">
                 <div>
-                  <p className="text-2xl font-black text-slate-100">Waiting for the live to start</p>
-                  <p className="mt-2 text-sm text-slate-400">
+                  <p className="text-2xl font-black text-brand-ink">Waiting for the live to start</p>
+                  <p className="mt-2 text-sm text-brand-ink-subtle">
                     This page will update automatically when {creatorState.name} goes live.
                   </p>
                 </div>
@@ -326,6 +326,8 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
               sessionId={liveSessionId ?? undefined}
               showQueueTab={false}
               activeFanAdmittedAt={activeFanAdmittedAt}
+              queuePreview={waitingQueue.slice(0, 5).map((e) => ({ id: e.id, fanName: e.fanName, avatarInitials: e.avatarInitials, avatarColor: e.avatarColor, avatarUrl: e.avatarUrl }))}
+              totalQueueCount={waitingQueue.length}
             />
           </div>
         </div>

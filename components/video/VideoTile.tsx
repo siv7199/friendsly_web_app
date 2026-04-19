@@ -25,7 +25,7 @@ export function VideoTile({ sessionId, isLocal }: { sessionId: string; isLocal?:
   if (!videoState?.track) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-brand-elevated">
-        <span className="text-slate-500 text-sm">No video</span>
+        <span className="text-brand-ink-muted text-sm">No video</span>
       </div>
     );
   }

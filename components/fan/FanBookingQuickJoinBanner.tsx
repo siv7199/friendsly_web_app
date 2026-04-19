@@ -24,15 +24,11 @@ export function FanBookingQuickJoinBanner() {
   useEffect(() => {
     if (!user) return;
     const currentUser = user;
-
     const supabase = createClient();
     let refreshTimer: number | null = null;
 
     async function loadReadyBooking() {
-      if (refreshTimer) {
-        window.clearTimeout(refreshTimer);
-        refreshTimer = null;
-      }
+      if (refreshTimer) { window.clearTimeout(refreshTimer); refreshTimer = null; }
 
       await fetch("/api/bookings/auto-cancel", { method: "POST" }).catch(() => null);
 
@@ -55,9 +51,7 @@ export function FanBookingQuickJoinBanner() {
         if (nextUpcoming) {
           const { joinOpensAt } = getBookingWindow(nextUpcoming.scheduled_at, nextUpcoming.duration);
           const delay = joinOpensAt.getTime() - Date.now();
-          if (delay > 0) {
-            refreshTimer = window.setTimeout(loadReadyBooking, delay + 1000);
-          }
+          if (delay > 0) refreshTimer = window.setTimeout(loadReadyBooking, delay + 1000);
         }
         return;
       }
@@ -65,31 +59,20 @@ export function FanBookingQuickJoinBanner() {
       const { noShowDeadline, endsAt } = getBookingWindow(match.scheduled_at, match.duration);
       const nextRefreshAt = Date.now() < noShowDeadline.getTime() ? noShowDeadline : endsAt;
       const delay = nextRefreshAt.getTime() - Date.now();
-      if (delay > 0) {
-        refreshTimer = window.setTimeout(loadReadyBooking, delay + 1000);
-      }
+      if (delay > 0) refreshTimer = window.setTimeout(loadReadyBooking, delay + 1000);
 
       const creator = Array.isArray(match.creator) ? match.creator[0] : match.creator;
       setReadyBooking({
-        id: match.id,
-        scheduledAt: match.scheduled_at,
-        duration: match.duration,
-        creatorName: creator?.full_name ?? "your creator",
+        id: match.id, scheduledAt: match.scheduled_at,
+        duration: match.duration, creatorName: creator?.full_name ?? "your creator",
       });
     }
 
     loadReadyBooking();
 
-    const channel = supabase
-      .channel(`fan-bookings-banner-${currentUser.id}`)
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "bookings",
-        filter: `fan_id=eq.${currentUser.id}`,
-      }, () => {
-        loadReadyBooking();
-      })
+    const channel = supabase.channel(`fan-bookings-banner-${currentUser.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings", filter: `fan_id=eq.${currentUser.id}` },
+        () => { loadReadyBooking(); })
       .subscribe();
 
     return () => {
@@ -98,30 +81,27 @@ export function FanBookingQuickJoinBanner() {
     };
   }, [user]);
 
-  if (!readyBooking || pathname.startsWith("/room/")) {
-    return null;
-  }
+  if (!readyBooking || pathname.startsWith("/room/")) return null;
 
   const timeLabel = new Date(readyBooking.scheduledAt).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
+    hour: "numeric", minute: "2-digit",
   });
 
   return (
-    <div className="mx-4 md:mx-8 mt-4 rounded-2xl border border-brand-live/30 bg-brand-live/10 p-4 flex items-center justify-between gap-4">
+    <div className="mx-4 md:mx-6 mt-4 rounded-2xl border border-brand-live/25 bg-brand-live/8 px-5 py-4 flex items-center justify-between gap-4 animate-slide-up">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-live">Ready To Join</p>
-        <p className="mt-1 text-sm text-slate-100">
-          Your booking with {readyBooking.creatorName} is ready now.
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-live">Ready to Join</p>
+        <p className="mt-0.5 text-sm font-semibold text-brand-ink">
+          Booking with {readyBooking.creatorName}
         </p>
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-0.5 text-xs text-brand-ink-muted">
           {timeLabel} · {readyBooking.duration} min
         </p>
       </div>
       <Link href={`/room/${readyBooking.id}`}>
-        <Button variant="live" className="gap-2 shadow-glow-live">
-          <Video className="w-4 h-4" />
-          Quick Join
+        <Button variant="live" size="sm" className="gap-1.5 shrink-0">
+          <Video className="w-3.5 h-3.5" />
+          Join Now
         </Button>
       </Link>
     </div>

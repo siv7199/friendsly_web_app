@@ -1,7 +1,29 @@
 import type { Metadata, Viewport } from "next";
+import { Barlow, Nunito_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/lib/context/AuthContext";
 import { GlobalLiveStatusManager } from "@/components/shared/GlobalLiveStatusManager";
+
+const displayFont = Barlow({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+  weight: ["400", "500", "600", "700", "800", "900"],
+});
+
+const brandFont = localFont({
+  src: "../TAN-ASTORIA-Display.ttf",
+  variable: "--font-brand",
+  display: "swap",
+});
+
+const bodyFont = Nunito_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "Friendsly — Connect with Your Favorite Creators",
@@ -11,29 +33,17 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#080614",
+  themeColor: "#7468F2",
 };
 
-/**
- * Root Layout
- *
- * This is the outermost layout that wraps the ENTIRE application.
- * In Next.js App Router, every page is wrapped by the nearest layout.tsx
- * file above it in the folder tree. This one wraps everything.
- *
- * It sets up:
- * - The <html> and <body> tags (required — only one place should define these)
- * - Global CSS imports
- * - Any providers that need to wrap the whole app (auth, theme, etc.)
- */
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-brand-bg text-slate-100 antialiased min-h-screen">
+    <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${brandFont.variable}`}>
+      <body className="bg-brand-bg text-brand-ink antialiased min-h-screen font-sans">
         <AuthProvider>
           <GlobalLiveStatusManager />
           {children}

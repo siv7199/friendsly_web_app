@@ -22,13 +22,13 @@ export function BookingList({ bookings, title, onClickJoin, onClickCancel, cance
     <div className="rounded-2xl border border-brand-border bg-brand-surface overflow-hidden">
       {title && (
         <div className="px-5 py-4 border-b border-brand-border">
-          <h3 className="font-semibold text-slate-100">{title}</h3>
+          <h3 className="font-semibold text-brand-ink">{title}</h3>
         </div>
       )}
 
       {bookings.length === 0 ? (
         <div className="px-5 py-10 text-center">
-          <p className="text-slate-500 text-sm">No bookings yet.</p>
+          <p className="text-brand-ink-subtle text-sm">No bookings yet.</p>
         </div>
       ) : (
         <div className="divide-y divide-brand-border">
@@ -80,7 +80,7 @@ function BookingRow({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold text-slate-100 truncate">{booking.fanName}</p>
+          <p className="text-sm font-semibold text-brand-ink truncate">{booking.fanName}</p>
           {booking.rating && (
             <div className="flex items-center gap-0.5">
               {Array.from({ length: booking.rating }).map((_, i) => (
@@ -90,23 +90,23 @@ function BookingRow({
           )}
         </div>
         {booking.topic && (
-          <p className="text-xs text-slate-500 truncate mt-0.5">{booking.topic}</p>
+          <p className="text-xs text-brand-ink-subtle truncate mt-0.5">{booking.topic}</p>
         )}
       </div>
 
       <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <div className="flex items-center gap-1.5 text-xs text-brand-ink-subtle">
           <Calendar className="w-3 h-3" />
           <span>{formatDate(booking.date)}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <div className="flex items-center gap-1.5 text-xs text-brand-ink-subtle">
           <Clock className="w-3 h-3" />
           <span>{booking.time} · {booking.duration} min</span>
         </div>
       </div>
 
       <div className="flex flex-col items-end gap-1.5 shrink-0">
-        <span className="text-sm font-bold text-slate-100">{formatCurrency(booking.price)}</span>
+        <span className="text-sm font-bold text-brand-ink">{formatCurrency(booking.price)}</span>
         <span
           className={cn(
             "text-[11px] font-semibold px-2 py-0.5 rounded-full border capitalize",

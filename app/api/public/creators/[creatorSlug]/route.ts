@@ -63,7 +63,7 @@ export async function GET(
         category: cp?.category ?? "",
         avatarInitials: profile.avatar_initials,
         avatarColor: profile.avatar_color,
-        avatarUrl: profile.avatar_url ?? undefined,
+        avatarUrl: profile.avatar_url ? `/api/public/avatar/${profile.id}` : undefined,
         timeZone: cp?.timezone ?? "America/New_York",
         bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
         liveJoinFee: cp?.live_join_fee ? Number(cp.live_join_fee) : null,

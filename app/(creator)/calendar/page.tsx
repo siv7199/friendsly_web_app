@@ -204,8 +204,8 @@ export default function CalendarPage() {
   return (
     <div className="px-4 md:px-8 py-6 max-w-4xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-black text-slate-100">Calendar</h1>
-        <p className="text-slate-400 mt-1">Your availability plus upcoming and completed sessions.</p>
+        <h1 className="text-3xl font-black font-display text-brand-ink">Calendar</h1>
+        <p className="text-brand-ink-subtle mt-1">Your availability plus upcoming and completed sessions.</p>
       </div>
 
       {user && (
@@ -225,9 +225,9 @@ export default function CalendarPage() {
           const Icon = item.icon;
           return (
             <div key={item.label} className="rounded-2xl border border-brand-border bg-brand-surface p-4">
-              <Icon className="w-4 h-4 text-slate-400 mb-2" />
-              <p className="text-xl font-black text-slate-100">{item.value}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{item.label}</p>
+              <Icon className="w-4 h-4 text-brand-ink-subtle mb-2" />
+              <p className="text-xl font-black text-brand-ink">{item.value}</p>
+              <p className="text-xs text-brand-ink-subtle mt-0.5">{item.label}</p>
             </div>
           );
         })}
@@ -236,7 +236,7 @@ export default function CalendarPage() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <CalendarDays className="w-5 h-5 text-brand-info" />
-          <h2 className="text-lg font-bold text-slate-100">Upcoming</h2>
+          <h2 className="text-lg font-bold text-brand-ink">Upcoming</h2>
           <Badge variant="info">{upcoming.length}</Badge>
         </div>
 
@@ -246,9 +246,9 @@ export default function CalendarPage() {
           </div>
         ) : upcoming.length === 0 ? (
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-10 text-center">
-            <CalendarDays className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-400">No upcoming bookings.</p>
-            <p className="text-slate-500 text-sm mt-1">
+            <CalendarDays className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
+            <p className="text-brand-ink-subtle">No upcoming bookings.</p>
+            <p className="text-brand-ink-subtle text-sm mt-1">
               Your upcoming sessions will appear here as fans book you.
             </p>
           </div>
@@ -258,11 +258,11 @@ export default function CalendarPage() {
             .map(([date, bookings]) => (
               <div key={date} className="mb-6">
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="text-sm font-semibold text-slate-300">
+                  <span className="text-sm font-semibold text-brand-ink-muted">
                     {formatGroupDate(date)}
                   </span>
                   <div className="flex-1 h-px bg-brand-border" />
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-brand-ink-subtle">
                     {formatCurrency(bookings.reduce((sum, booking) => sum + booking.price, 0))} expected
                   </span>
                 </div>
@@ -279,7 +279,7 @@ export default function CalendarPage() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <CheckCircle2 className="w-5 h-5 text-brand-live" />
-          <h2 className="text-lg font-bold text-slate-100">Completed</h2>
+          <h2 className="text-lg font-bold text-brand-ink">Completed</h2>
           <Badge variant="live">{completed.length}</Badge>
         </div>
 
@@ -289,9 +289,9 @@ export default function CalendarPage() {
           </div>
         ) : completed.length === 0 ? (
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-10 text-center">
-            <CheckCircle2 className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-400">No completed bookings yet.</p>
-            <p className="text-slate-500 text-sm mt-1">
+            <CheckCircle2 className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
+            <p className="text-brand-ink-subtle">No completed bookings yet.</p>
+            <p className="text-brand-ink-subtle text-sm mt-1">
               Finished sessions will move here automatically.
             </p>
           </div>

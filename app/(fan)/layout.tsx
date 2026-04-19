@@ -12,7 +12,13 @@ export default function FanLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-brand-bg">
       {!isImmersiveLiveRoute ? <FanSidebar /> : null}
-      <main className={isImmersiveLiveRoute ? "flex-1 overflow-hidden" : "flex-1 overflow-x-hidden pb-16 md:pb-0"}>
+      <main
+        className={
+          isImmersiveLiveRoute
+            ? "flex-1 overflow-hidden bg-brand-dark"
+            : "flex-1 overflow-x-hidden pb-16 md:pb-0 bg-brand-bg"
+        }
+      >
         {!isImmersiveLiveRoute ? <FanBookingQuickJoinBanner /> : null}
         {children}
       </main>

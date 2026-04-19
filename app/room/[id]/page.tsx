@@ -114,7 +114,7 @@ function BookingVideoStage({
             <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
             LIVE
           </Badge>
-          <span className="text-sm text-slate-400">
+          <span className="text-sm text-brand-ink-subtle">
             Session with {remoteName}
           </span>
         </div>
@@ -131,9 +131,9 @@ function BookingVideoStage({
             <div className="flex flex-col items-center justify-center gap-3 text-center px-4">
               <Avatar initials="You" size="xl" />
               {!canUseMedia ? (
-                <p className="text-xs text-slate-500">Camera and mic are locked until the scheduled start.</p>
+                <p className="text-xs text-brand-ink-muted">Camera and mic are locked until the scheduled start.</p>
               ) : (
-                <p className="text-xs text-slate-500">Your camera is off.</p>
+                <p className="text-xs text-brand-ink-muted">Your camera is off.</p>
               )}
             </div>
           )}
@@ -151,7 +151,7 @@ function BookingVideoStage({
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center text-slate-500 p-6 text-center z-10">
+            <div className="flex flex-col items-center justify-center text-brand-ink-muted p-6 text-center z-10">
               <Avatar
                 initials={remoteInitials}
                 color={remoteColor}
@@ -159,7 +159,7 @@ function BookingVideoStage({
                 size="xl"
                 className="opacity-60 mb-3"
               />
-              <p className="text-sm font-medium text-slate-400">Waiting for {remoteName}...</p>
+              <p className="text-sm font-medium text-brand-ink-subtle">Waiting for {remoteName}...</p>
             </div>
           )}
         </div>
@@ -174,9 +174,9 @@ function BookingVideoStage({
             className={cn(
               "w-12 h-12 rounded-full border flex items-center justify-center transition-colors",
               !canUseMedia
-                ? "cursor-not-allowed border-brand-border bg-brand-surface text-slate-600 opacity-60"
+                ? "cursor-not-allowed border-brand-border bg-brand-surface text-brand-ink-muted opacity-60"
                 : micOn
-                ? "border-brand-border bg-brand-surface text-slate-300"
+                ? "border-brand-border bg-brand-surface text-brand-ink-subtle"
                 : "border-red-500/40 bg-red-500/20 text-red-400"
             )}
           >
@@ -189,9 +189,9 @@ function BookingVideoStage({
             className={cn(
               "w-12 h-12 rounded-full border flex items-center justify-center transition-colors",
               !canUseMedia
-                ? "cursor-not-allowed border-brand-border bg-brand-surface text-slate-600 opacity-60"
+                ? "cursor-not-allowed border-brand-border bg-brand-surface text-brand-ink-muted opacity-60"
                 : camOn
-                ? "border-brand-border bg-brand-surface text-slate-300"
+                ? "border-brand-border bg-brand-surface text-brand-ink-subtle"
                 : "border-red-500/40 bg-red-500/20 text-red-400"
             )}
           >
@@ -200,7 +200,7 @@ function BookingVideoStage({
         </div>
 
         {!canUseMedia ? (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-brand-ink-muted">
             Camera and mic unlock at the scheduled start time.
           </p>
         ) : null}
@@ -490,7 +490,7 @@ export default function RoomPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-brand-bg gap-4">
         <Loader2 className="w-10 h-10 text-brand-primary animate-spin" />
-        <p className="text-slate-400 animate-pulse">Connecting to secure room...</p>
+        <p className="text-brand-ink-subtle animate-pulse">Connecting to secure room...</p>
       </div>
     );
   }
@@ -499,7 +499,7 @@ export default function RoomPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-brand-bg gap-4">
         <Loader2 className="w-10 h-10 text-brand-primary animate-spin" />
-        <p className="text-slate-400 animate-pulse">Reconnecting to the video room...</p>
+        <p className="text-brand-ink-subtle animate-pulse">Reconnecting to the video room...</p>
       </div>
     );
   }
@@ -548,8 +548,8 @@ export default function RoomPage() {
           <PhoneOff className="w-8 h-8 text-red-500" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-slate-100 mb-2">Room Unavailable</h1>
-          <p className="text-slate-400 max-w-md">{error ?? "Missing booking room details."}</p>
+          <h1 className="text-2xl font-bold text-brand-ink mb-2">Room Unavailable</h1>
+          <p className="text-brand-ink-subtle max-w-md">{error ?? "Missing booking room details."}</p>
         </div>
         <Button variant="outline" onClick={() => router.push(isCreator ? "/dashboard" : "/bookings")}>
           Go Back
@@ -562,11 +562,11 @@ export default function RoomPage() {
     <div className="flex flex-col min-h-screen bg-brand-bg p-4 md:p-6">
       <div className="flex items-center justify-between mb-4 md:mb-6">
         <div>
-          <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-brand-ink flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />
             {isCreator ? `Session with ${booking?.fan?.full_name}` : `Session with ${booking?.creator?.full_name}`}
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-brand-ink-muted mt-0.5">
             {booking?.topic || "No topic specified"} · Locked Room
           </p>
         </div>
@@ -597,7 +597,7 @@ export default function RoomPage() {
             Reconnecting to the video room...
           </p>
         ) : null}
-        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-medium">
+        <p className="text-[10px] text-brand-ink-muted uppercase tracking-widest font-medium">
           Secure end-to-end encrypted session
         </p>
       </div>

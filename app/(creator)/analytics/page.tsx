@@ -61,8 +61,8 @@ export default function AnalyticsPage() {
     <div className="px-4 md:px-8 py-6 max-w-6xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-100">Analytics</h1>
-          <p className="text-slate-400 mt-1">Track profile views, conversion, bookings, and public live guest interest.</p>
+          <h1 className="text-3xl font-black font-display text-brand-ink">Analytics</h1>
+          <p className="text-brand-ink-subtle mt-1">Track profile views, conversion, bookings, and public live guest interest.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {RANGE_OPTIONS.map((option) => (
@@ -71,7 +71,7 @@ export default function AnalyticsPage() {
               onClick={() => setRange(option.key)}
               className={option.key === range
                 ? "px-3 py-2 rounded-xl bg-brand-primary/20 border border-brand-primary/30 text-sm font-medium text-brand-primary-light"
-                : "px-3 py-2 rounded-xl bg-brand-surface border border-brand-border text-sm font-medium text-slate-400 hover:text-slate-100"}
+                : "px-3 py-2 rounded-xl bg-brand-surface border border-brand-border text-sm font-medium text-brand-ink-subtle hover:text-brand-ink"}
             >
               {option.label}
             </button>
@@ -97,8 +97,8 @@ export default function AnalyticsPage() {
               return (
                 <div key={item.label} className="rounded-2xl border border-brand-border bg-brand-surface p-5">
                   <Icon className="w-5 h-5 text-brand-primary-light mb-3" />
-                  <p className="text-2xl font-black text-slate-100">{item.value}</p>
-                  <p className="text-xs text-slate-400 mt-1">{item.label}</p>
+                  <p className="text-2xl font-black text-brand-ink">{item.value}</p>
+                  <p className="text-xs text-brand-ink-subtle mt-1">{item.label}</p>
                 </div>
               );
             })}
@@ -108,7 +108,7 @@ export default function AnalyticsPage() {
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
               <div className="flex items-center gap-2 mb-5">
                 <BarChart3 className="w-5 h-5 text-brand-info" />
-                <h2 className="text-lg font-bold text-slate-100">Traffic And Conversion Trend</h2>
+                <h2 className="text-lg font-bold text-brand-ink">Traffic And Conversion Trend</h2>
               </div>
               <div className="grid grid-cols-[repeat(auto-fit,minmax(28px,1fr))] gap-3 items-end min-h-[220px]">
                 {dailySeries.map((point) => (
@@ -118,11 +118,11 @@ export default function AnalyticsPage() {
                       <div className="w-2 rounded-full bg-brand-primary/80" style={{ height: `${Math.max(8, (point.bookings / maxBar) * 100)}%` }} />
                       <div className="w-2 rounded-full bg-brand-live/80" style={{ height: `${Math.max(8, (point.liveJoins / maxBar) * 100)}%` }} />
                     </div>
-                    <span className="text-[10px] text-slate-500 text-center">{point.label}</span>
+                    <span className="text-[10px] text-brand-ink-subtle text-center">{point.label}</span>
                   </div>
                 ))}
               </div>
-              <div className="flex gap-4 mt-4 text-xs text-slate-400 flex-wrap">
+              <div className="flex gap-4 mt-4 text-xs text-brand-ink-subtle flex-wrap">
                 <span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-brand-info/70" />Views</span>
                 <span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-brand-primary/80" />Bookings</span>
                 <span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-brand-live/80" />Live joins</span>
@@ -131,22 +131,22 @@ export default function AnalyticsPage() {
 
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-6 space-y-5">
               <div>
-                <h2 className="text-lg font-bold text-slate-100">Performance Snapshot</h2>
-                <p className="text-sm text-slate-400 mt-1">A practical read on how your funnel is doing.</p>
+                <h2 className="text-lg font-bold text-brand-ink">Performance Snapshot</h2>
+                <p className="text-sm text-brand-ink-subtle mt-1">A practical read on how your funnel is doing.</p>
               </div>
 
               <div className="rounded-xl border border-brand-border bg-brand-elevated p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Conversion</p>
-                <p className="text-3xl font-black text-slate-100 mt-2">{conversionRate}%</p>
-                <p className="text-sm text-slate-400 mt-2">
+                <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-subtle">Conversion</p>
+                <p className="text-3xl font-black text-brand-ink mt-2">{conversionRate}%</p>
+                <p className="text-sm text-brand-ink-subtle mt-2">
                   {uniqueConverters} unique converters from {uniqueViewers > 0 ? uniqueViewers : profileViews} viewers.
                 </p>
               </div>
 
               <div className="rounded-xl border border-brand-border bg-brand-elevated p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Creator Revenue</p>
-                <p className="text-3xl font-black text-slate-100 mt-2">{formatCurrency(grossRevenue)}</p>
-                <p className="text-sm text-slate-400 mt-2">
+                <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-subtle">Creator Revenue</p>
+                <p className="text-3xl font-black text-brand-ink mt-2">{formatCurrency(grossRevenue)}</p>
+                <p className="text-sm text-brand-ink-subtle mt-2">
                   Includes completed booking sessions and paid public live guest turns in the selected range.
                 </p>
               </div>

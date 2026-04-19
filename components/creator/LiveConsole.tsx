@@ -201,10 +201,10 @@ function LiveVideoStage({
               <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
               LIVE
             </Badge>
-            <span className="text-sm text-slate-300">
+            <span className="text-sm text-brand-ink-muted">
               {currentFan ? `Now with ${currentFan.fanName}` : "Public live is open"}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-brand-border bg-brand-elevated px-2.5 py-1 text-xs text-slate-300">
+            <span className="inline-flex items-center gap-1 rounded-full border border-brand-border bg-brand-elevated px-2.5 py-1 text-xs text-brand-ink-muted">
               <Users className="w-3.5 h-3.5" />
               {audienceCount} in live
             </span>
@@ -221,7 +221,7 @@ function LiveVideoStage({
         </div>
 
         <div className={cn(
-          "flex-1 min-h-[260px] xl:min-h-0 grid auto-rows-fr items-stretch gap-4",
+          "flex-1 min-h-0 grid auto-rows-fr items-stretch gap-4",
           showActiveFanStage ? "lg:grid-cols-2" : "grid-cols-1"
         )}>
           <div className="relative h-full rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center min-h-0">
@@ -286,60 +286,50 @@ function LiveVideoStage({
           ) : null}
         </div>
 
-        <div className="flex items-end justify-between gap-3 rounded-[20px] border border-brand-border bg-brand-elevated p-2.5">
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Queue</p>
-            <p className="mt-1 text-[11px] text-slate-400">
-              {queueCount > 0 ? "Compact queue strip" : "No fans yet. Invite viewers to be the first in line."}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {queue.length > 0 ? queue.slice(0, 5).map((entry: any, index: number) => (
-                <div
-                  key={entry.id}
-                  className={cn(
-                    "flex items-center gap-2 rounded-[14px] border px-2 py-1",
-                    index === 0 ? "border-brand-live/30 bg-brand-live/10" : "border-brand-border bg-brand-surface"
-                  )}
-                >
-                  <Avatar initials={entry.avatarInitials} color={entry.avatarColor} imageUrl={entry.avatarUrl} size="xs" />
-                  <span className={cn(
-                    "flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black",
-                    index === 0 ? "bg-brand-live text-brand-bg" : "bg-slate-100 text-slate-950"
-                  )}>
-                    {index + 1}
-                  </span>
-                  <span className="truncate text-[11px] font-semibold text-slate-100">{entry.fanName}</span>
-                </div>
-              )) : (
-                <div className="rounded-[14px] border border-brand-border bg-brand-surface px-3 py-1.5 text-xs text-slate-500">
-                  Waiting for the first fan
-                </div>
-              )}
-              {queue.length > 5 ? (
-                <div className="rounded-[14px] border border-brand-border bg-brand-surface px-2.5 py-1 text-[11px] font-semibold text-slate-300">
-                  +{queue.length - 5} more
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 self-end">
-            <Button variant="outline" size="sm" onClick={admitNext} disabled={queueCount < 1} className="h-10 gap-1.5 px-3">
-              <SkipForward className="w-4 h-4" />
-              Admit Next
-            </Button>
-            <Button variant="danger" size="sm" onClick={endSession} className="h-10 gap-1.5 px-3">
-              <StopCircle className="w-4 h-4" />
-              End Session
-            </Button>
-          </div>
-        </div>
       </div>
 
       <div className="h-full min-h-0 rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Live Chat</p>
-          <p className="mt-1 text-sm text-slate-300">Keep the room moving while you manage the stage.</p>
+        {/* Queue strip at top of chat column */}
+        <div className="rounded-[20px] border border-brand-border bg-brand-elevated p-2.5 shrink-0">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-brand-ink-muted">
+              Queue · {queueCount}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" onClick={admitNext} disabled={queueCount < 1} className="h-8 gap-1 px-2.5 text-[11px]">
+                <SkipForward className="w-3.5 h-3.5" />
+                Admit
+              </Button>
+              <Button variant="danger" size="sm" onClick={endSession} className="h-8 gap-1 px-2.5 text-[11px]">
+                <StopCircle className="w-3.5 h-3.5" />
+                End
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {queue.length > 0 ? queue.slice(0, 4).map((entry: any, index: number) => (
+              <div
+                key={entry.id}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-[12px] border px-2 py-1",
+                  index === 0 ? "border-brand-live/30 bg-brand-live/10" : "border-brand-border bg-brand-surface"
+                )}
+              >
+                <Avatar initials={entry.avatarInitials} color={entry.avatarColor} imageUrl={entry.avatarUrl} size="xs" />
+                <span className="truncate text-[11px] font-semibold text-brand-ink">{entry.fanName}</span>
+              </div>
+            )) : (
+              <span className="text-[11px] text-brand-ink-subtle">No fans yet — share your link</span>
+            )}
+            {queue.length > 4 ? (
+              <div className="rounded-[12px] border border-brand-border bg-brand-surface px-2 py-1 text-[11px] font-semibold text-brand-ink-muted">
+                +{queue.length - 4} more
+              </div>
+            ) : null}
+          </div>
         </div>
+
+        <p className="text-[11px] uppercase tracking-[0.25em] text-brand-ink-muted shrink-0">Live Chat</p>
         <div className="flex-1 min-h-0">
           {chatPanel}
         </div>
@@ -794,8 +784,8 @@ export function LiveConsole() {
   if (initializing) return (
     <div className="h-full flex flex-col items-center justify-center bg-brand-surface rounded-2xl border border-brand-border p-12">
       <Loader2 className="w-10 h-10 text-brand-primary animate-spin mb-4" />
-      <p className="text-slate-300 font-bold text-lg">Resuming Session...</p>
-      <p className="text-slate-500 text-sm mt-1">Please wait while we sync your queue.</p>
+      <p className="text-brand-ink font-bold text-lg">Resuming Session...</p>
+      <p className="text-brand-ink-subtle text-sm mt-1">Please wait while we sync your queue.</p>
     </div>
   );
 
@@ -810,24 +800,24 @@ export function LiveConsole() {
             {camOn ? <video ref={previewVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full object-cover" /> : <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="lg" />}
           </div>
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => setMicOn(!micOn)} className={cn("w-12 h-12 rounded-full border flex items-center justify-center", micOn ? "bg-brand-surface border-brand-border text-slate-300" : "bg-red-500/20 border-red-500/40 text-red-400")}>{micOn ? <Mic /> : <MicOff />}</button>
-            <button onClick={() => setCamOn(!camOn)} className={cn("w-12 h-12 rounded-full border flex items-center justify-center", camOn ? "bg-brand-surface border-brand-border text-slate-300" : "bg-red-500/20 border-red-500/40 text-red-400")}>{camOn ? <Video /> : <VideoOff />}</button>
+            <button onClick={() => setMicOn(!micOn)} className={cn("w-12 h-12 rounded-full border flex items-center justify-center", micOn ? "bg-brand-surface border-brand-border text-brand-ink-muted" : "bg-red-500/20 border-red-500/40 text-red-500")}>{micOn ? <Mic /> : <MicOff />}</button>
+            <button onClick={() => setCamOn(!camOn)} className={cn("w-12 h-12 rounded-full border flex items-center justify-center", camOn ? "bg-brand-surface border-brand-border text-brand-ink-muted" : "bg-red-500/20 border-red-500/40 text-red-500")}>{camOn ? <Video /> : <VideoOff />}</button>
           </div>
           <div className="w-full rounded-2xl border border-brand-border bg-brand-elevated p-4 mb-5 text-left">
-            <div className="flex items-center gap-2 text-slate-200 mb-3">
-              <CalendarClock className="w-4 h-4 text-brand-primary-light" />
+            <div className="flex items-center gap-2 text-brand-ink mb-3">
+              <CalendarClock className="w-4 h-4 text-brand-primary" />
               <p className="text-sm font-semibold">Announce when you’re going live</p>
             </div>
             <input
               type="datetime-local"
               value={scheduledLiveAt}
               onChange={(e) => setScheduledLiveAt(e.target.value)}
-              className="w-full h-11 px-3 rounded-xl border border-brand-border bg-brand-surface text-slate-100 text-sm focus:outline-none focus:border-brand-primary"
+              className="w-full h-11 px-3 rounded-xl border border-brand-border bg-brand-surface text-brand-ink text-sm focus:outline-none focus:border-brand-primary"
             />
             <select
               value={scheduledLiveTimeZone}
               onChange={(e) => setScheduledLiveTimeZone(e.target.value)}
-              className="w-full h-11 mt-3 px-3 rounded-xl border border-brand-border bg-brand-surface text-slate-100 text-sm focus:outline-none focus:border-brand-primary"
+              className="w-full h-11 mt-3 px-3 rounded-xl border border-brand-border bg-brand-surface text-brand-ink text-sm focus:outline-none focus:border-brand-primary"
             >
               {COMMON_TIME_ZONES.map((timeZone) => (
                 <option key={timeZone} value={timeZone}>
@@ -845,7 +835,7 @@ export function LiveConsole() {
             </div>
           </div>
           {!hasConfiguredLiveRate(liveRate) ? (
-            <p className="text-sm text-amber-300 mb-4">
+            <p className="text-sm text-amber-700 mb-4">
               Set a live join fee in Management before going live.
             </p>
           ) : null}

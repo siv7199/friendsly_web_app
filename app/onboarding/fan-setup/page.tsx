@@ -42,6 +42,7 @@ export default function FanSetupPage() {
   const [username, setUsername] = useState(user?.username ?? "");
   const [avatarColor, setAvatarColor] = useState(user?.avatar_color ?? "bg-violet-600");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
   const [submitting, setSubmitting] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState("");
@@ -70,6 +71,7 @@ export default function FanSetupPage() {
     try {
       const nextAvatarUrl = await uploadAvatarFile(file);
       setAvatarUrl(nextAvatarUrl);
+      setAvatarVersion(Date.now());
     } catch (error) {
       setAvatarError(error instanceof Error ? error.message : "Could not upload avatar.");
     } finally {
@@ -98,10 +100,10 @@ export default function FanSetupPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-brand-surface border border-brand-border">
             <Compass className="w-3.5 h-3.5 text-brand-primary-light" />
-            <span className="text-xs text-slate-400 font-medium">Fan Setup — Almost done!</span>
+            <span className="text-xs text-brand-ink-subtle font-medium">Fan Setup — Almost done!</span>
           </div>
-          <h1 className="text-2xl font-black text-slate-100">One last thing</h1>
-          <p className="text-slate-400 text-sm mt-1">Pick your avatar color and confirm your username.</p>
+          <h1 className="text-2xl font-black text-brand-ink">One last thing</h1>
+          <p className="text-brand-ink-subtle text-sm mt-1">Pick your avatar color and confirm your username.</p>
         </div>
 
         <div className="glass-card rounded-2xl p-6 space-y-5">
@@ -112,7 +114,7 @@ export default function FanSetupPage() {
                 initials={initials}
                 color={avatarColor}
                 size="xl"
-                imageUrl={avatarUrl || undefined}
+                imageUrl={avatarUrl && user?.id ? `/api/public/avatar/${user.id}?v=${avatarVersion}` : undefined}
               />
               <label className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-brand-primary border-2 border-brand-surface flex items-center justify-center cursor-pointer hover:bg-brand-primary-hover transition-colors">
                 <Camera className="w-3.5 h-3.5 text-white" />
@@ -127,12 +129,12 @@ export default function FanSetupPage() {
                 />
               </label>
             </div>
-            <p className="text-base font-bold text-slate-100">{user?.full_name}</p>
+            <p className="text-base font-bold text-brand-ink">{user?.full_name}</p>
             {avatarUrl && (
               <button
                 type="button"
                 onClick={() => void handleAvatarRemoved()}
-                className="text-xs text-red-400 hover:text-red-300 -mt-2"
+                className="text-xs text-red-600 hover:text-red-700 -mt-2"
                 disabled={uploadingAvatar}
               >
                 Remove photo
@@ -142,9 +144,9 @@ export default function FanSetupPage() {
               <p className="text-xs text-red-400 -mt-2">{avatarError}</p>
             )}
             {uploadingAvatar && (
-              <p className="text-xs text-slate-400 -mt-2">Uploading photo...</p>
+              <p className="text-xs text-brand-ink-subtle -mt-2">Uploading photo...</p>
             )}
-            <p className="text-xs text-slate-500">Pick a background color</p>
+            <p className="text-xs text-brand-ink-muted">Pick a background color</p>
             <div className="flex flex-wrap justify-center gap-2">
               {AVATAR_COLORS.map(({ cls, hex }) => (
                 <button
@@ -166,18 +168,18 @@ export default function FanSetupPage() {
 
           {/* Username input */}
           <div>
-            <label className="text-sm font-medium text-slate-300 mb-1.5 block">Your username</label>
+            <label className="text-sm font-medium text-brand-ink-subtle mb-1.5 block">Your username</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm pointer-events-none">@</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink-muted text-sm pointer-events-none">@</span>
               <input
                 type="text"
                 placeholder="jordankim"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.replace(/\s+/g, "").toLowerCase())}
-                className="w-full h-10 pl-7 pr-3 rounded-xl border border-brand-border bg-brand-elevated text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                className="w-full h-10 pl-7 pr-3 rounded-xl border border-brand-border bg-brand-elevated text-sm text-brand-ink placeholder:text-brand-ink-muted focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
               />
             </div>
-            <p className="text-xs text-slate-500 mt-1.5">
+            <p className="text-xs text-brand-ink-muted mt-1.5">
               This is how you&apos;ll appear in chat and queues.
             </p>
           </div>

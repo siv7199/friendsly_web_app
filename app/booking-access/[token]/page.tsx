@@ -119,7 +119,7 @@ export default function BookingAccessPage() {
   if (error || !payload) {
     return (
       <main className="min-h-screen bg-brand-bg flex items-center justify-center px-4">
-        <div className="max-w-md rounded-3xl border border-red-500/20 bg-red-500/10 px-6 py-8 text-center text-red-200">
+        <div className="max-w-md rounded-3xl border border-red-500/20 bg-red-50 px-6 py-8 text-center text-red-700">
           {error || "Could not load booking."}
         </div>
       </main>
@@ -198,14 +198,14 @@ export default function BookingAccessPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-primary-light">
             Guest Booking Access
           </p>
-          <h1 className="mt-2 text-3xl font-black text-slate-100">
+          <h1 className="mt-2 text-3xl font-black font-display text-brand-ink leading-tight">
             {isCancelled
               ? "This booking was cancelled"
               : isCompleted
               ? "This booking has ended"
               : "Your booking is ready"}
           </h1>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-2 text-sm text-brand-ink-subtle">
             {isCancelled
               ? "You can use the link below to book a new call with this creator."
               : isCompleted
@@ -215,27 +215,27 @@ export default function BookingAccessPage() {
         </div>
 
         {!isCancelled && !isCompleted && (
-          <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-5 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200">
+          <div className="rounded-3xl border border-amber-300/40 bg-amber-50 p-5 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-800">
               Booking policies
             </p>
-            <p className="text-sm text-amber-100">
+            <p className="text-sm text-amber-900">
               Cancel more than 24 hours before the call for a full refund. Cancel within 24 hours for a 50% refund.
             </p>
-            <p className="text-sm text-amber-100">
+            <p className="text-sm text-amber-900">
               Auto-cancel after 10 minutes: if neither participant joins, the booking is cancelled automatically and the fan gets a full refund.
             </p>
-            <p className="text-sm text-amber-100">
+            <p className="text-sm text-amber-900">
               If the creator does not join within 10 minutes, the fan gets a full refund. If the creator is waiting and the fan does not join within 10 minutes, the booking auto-cancels and the fan gets a 50% refund. A 10% late fee is required only when the creator is already waiting and the fan joins more than 5 minutes after the start time.
             </p>
-            <p className="text-sm text-amber-100">
+            <p className="text-sm text-amber-900">
               Guest bookings must be claimed into a Friendsly fan account before joining. If you do not want to create an account, you can cancel and receive the refund that applies under this policy.
             </p>
-            <p className="text-sm text-amber-200/90">
+            <p className="text-sm font-semibold text-amber-800">
               If you cancel now, your refund will be {formatCurrency(booking.refundAmount)}.
             </p>
             {booking.lateFeeRequired && (
-              <p className="text-sm text-amber-200/90">
+              <p className="text-sm font-semibold text-amber-800">
                 A late fee of {formatCurrency(booking.lateFeeAmount)} is required because the creator is already waiting and this booking is more than 5 minutes past its start time.
               </p>
             )}
@@ -251,27 +251,27 @@ export default function BookingAccessPage() {
               size="sm"
             />
             <div>
-              <p className="font-semibold text-slate-100">{booking.creator?.full_name ?? "Creator"}</p>
-              <p className="text-xs text-slate-500">Booked for {booking.guestName}</p>
+              <p className="font-semibold text-brand-ink">{booking.creator?.full_name ?? "Creator"}</p>
+              <p className="text-xs text-brand-ink-muted">Booked for {booking.guestName}</p>
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">When</p>
-              <p className="mt-2 flex items-center gap-2 text-sm text-slate-200">
+              <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">When</p>
+              <p className="mt-2 flex items-center gap-2 text-sm text-brand-ink">
                 <Calendar className="w-4 h-4 text-brand-primary-light" />
                 {scheduledDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
               </p>
-              <p className="mt-2 flex items-center gap-2 text-sm text-slate-200">
+              <p className="mt-2 flex items-center gap-2 text-sm text-brand-ink">
                 <Clock className="w-4 h-4 text-brand-primary-light" />
                 {scheduledDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} {getTimeZoneAbbreviation(scheduledDate, clientTimeZone)}
               </p>
             </div>
             <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Status</p>
-              <p className="mt-2 text-sm font-medium text-slate-100 capitalize">{booking.status}</p>
-              <p className="mt-2 text-sm text-slate-400">
+              <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Status</p>
+              <p className="mt-2 text-sm font-medium text-brand-ink capitalize">{booking.status}</p>
+              <p className="mt-2 text-sm text-brand-ink-subtle">
                 {isCancelled
                   ? "This call was cancelled, so the join link is no longer active."
                   : isCompleted
@@ -287,8 +287,8 @@ export default function BookingAccessPage() {
 
           {booking.topic && (
             <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Topic</p>
-              <p className="mt-2 text-sm text-slate-200">{booking.topic}</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Topic</p>
+              <p className="mt-2 text-sm text-brand-ink">{booking.topic}</p>
             </div>
           )}
 

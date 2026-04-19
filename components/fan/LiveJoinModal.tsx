@@ -22,11 +22,34 @@ const STRIPE_OPTIONS = {
     theme: "night" as const,
     variables: {
       colorPrimary: "#22C55E",
-      colorBackground: "#1A1535",
+      colorBackground: "#1e1b3a",
       colorText: "#f1f5f9",
+      colorTextSecondary: "#86efac",
+      colorTextPlaceholder: "#6b7280",
       colorDanger: "#f87171",
       fontFamily: "inherit",
       borderRadius: "12px",
+    },
+    rules: {
+      ".Label": {
+        color: "#86efac",
+        fontWeight: "500",
+      },
+      ".Input": {
+        borderColor: "rgba(34,197,94,0.3)",
+        color: "#f1f5f9",
+      },
+      ".Input--focused": {
+        borderColor: "#22C55E",
+        boxShadow: "0 0 0 2px rgba(34,197,94,0.15)",
+      },
+      ".Input--invalid": {
+        borderColor: "#f87171",
+        color: "#fca5a5",
+      },
+      ".Error": {
+        color: "#fca5a5",
+      },
     },
   },
 };
@@ -337,11 +360,11 @@ export function LiveJoinModal({
               <CheckCircle2 className="w-8 h-8 text-brand-live" />
             </div>
             <div>
-              <p className="text-slate-300 text-sm leading-relaxed">
-                You&apos;re in the queue for <strong className="text-slate-100">{creator.name}</strong>.
+              <p className="text-brand-ink-muted text-sm leading-relaxed">
+                You&apos;re in the queue for <strong className="text-brand-ink">{creator.name}</strong>.
                 The creator can admit you live for {LIVE_STAGE_SECONDS} seconds when it&apos;s your turn.
               </p>
-              <p className="text-slate-500 text-xs mt-2">Redirecting you back to the live...</p>
+              <p className="text-brand-ink-subtle text-xs mt-2">Redirecting you back to the live...</p>
             </div>
           </div>
         ) : null}
@@ -351,23 +374,23 @@ export function LiveJoinModal({
             <div className="flex items-center gap-3 p-3 rounded-xl bg-brand-surface border border-brand-border">
               <Avatar initials={creator.avatarInitials} color={creator.avatarColor} imageUrl={creator.avatarUrl} size="sm" />
               <div>
-                <p className="text-sm font-semibold text-slate-100">{creator.name}</p>
+                <p className="text-sm font-semibold text-brand-ink">{creator.name}</p>
                 <div className="flex items-center gap-1 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
                   <span className="text-xs text-brand-live font-medium">LIVE NOW</span>
                   {creator.queueCount > 0 ? (
-                    <span className="text-xs text-slate-500 ml-1">· {creator.queueCount} ahead</span>
+                    <span className="text-xs text-brand-ink-subtle ml-1">· {creator.queueCount} ahead</span>
                   ) : null}
                 </div>
               </div>
               <div className="ml-auto text-right">
                 <p className="text-lg font-black text-brand-live">{formatCurrency(joinFee)}</p>
-                <p className="text-[11px] text-slate-400">for {LIVE_STAGE_SECONDS} seconds</p>
+                <p className="text-[11px] text-brand-ink-subtle">for {LIVE_STAGE_SECONDS} seconds</p>
               </div>
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">How it works</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-ink-subtle">How it works</p>
               {[
                 {
                   icon: Zap,
@@ -390,14 +413,14 @@ export function LiveJoinModal({
                     <Icon className="w-4 h-4 text-brand-live" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-100">{title}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{desc}</p>
+                    <p className="text-sm font-semibold text-brand-ink">{title}</p>
+                    <p className="text-xs text-brand-ink-subtle mt-0.5">{desc}</p>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="rounded-xl border border-brand-live/20 bg-brand-live/10 p-3 text-[11px] text-slate-300">
+            <div className="rounded-xl border border-brand-live/20 bg-brand-live/10 p-3 text-[11px] text-brand-ink-muted">
               If the live ends before you&apos;re admitted, your queue fee is refunded in full. If you are admitted for any amount of time, the fee is not refunded.
             </div>
 
@@ -415,18 +438,18 @@ export function LiveJoinModal({
           <div className="space-y-4">
             <div className="rounded-xl border border-brand-border bg-brand-surface p-4 space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Live join fee</span>
-                <span className="text-slate-200">{formatCurrency(joinFee)}</span>
+                <span className="text-brand-ink-subtle">Live join fee</span>
+                <span className="text-brand-ink">{formatCurrency(joinFee)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-400">On-stage time</span>
-                <span className="text-slate-200">{LIVE_STAGE_SECONDS} seconds</span>
+                <span className="text-brand-ink-subtle">On-stage time</span>
+                <span className="text-brand-ink">{LIVE_STAGE_SECONDS} seconds</span>
               </div>
               <div className="border-t border-brand-border pt-2 flex justify-between text-sm font-bold">
-                <span className="text-slate-300">Charged today</span>
+                <span className="text-brand-ink-muted">Charged today</span>
                 <span className="text-brand-live">{formatCurrency(joinFee)}</span>
               </div>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-brand-ink-subtle">
                 Friendsly requires live join fees to be at least {formatCurrency(LIVE_MIN_JOIN_FEE)}.
               </p>
             </div>
@@ -438,13 +461,13 @@ export function LiveJoinModal({
             ) : null}
 
             {loadingSavedPaymentMethods ? (
-              <div className="flex items-center justify-center py-4 gap-2 text-slate-400 text-sm">
+              <div className="flex items-center justify-center py-4 gap-2 text-brand-ink-subtle text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Loading saved payments...
               </div>
             ) : savedPaymentMethods.length > 0 ? (
               <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Saved Payments</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand-ink-subtle">Saved Payments</p>
                 <div className="space-y-2">
                   {savedPaymentMethods.map((paymentMethod) => (
                     <label
@@ -461,10 +484,10 @@ export function LiveJoinModal({
                         checked={selectedPaymentMethodId === paymentMethod.id}
                         onChange={() => setSelectedPaymentMethodId(paymentMethod.id)}
                       />
-                      <div className="text-sm text-slate-200 capitalize">
+                      <div className="text-sm text-brand-ink capitalize">
                         {paymentMethod.brand} ending in {paymentMethod.last4}
                       </div>
-                      <div className="ml-auto text-xs text-slate-500">
+                      <div className="ml-auto text-xs text-brand-ink-subtle">
                         {String(paymentMethod.expMonth).padStart(2, "0")}/{paymentMethod.expYear}
                       </div>
                     </label>
@@ -484,7 +507,7 @@ export function LiveJoinModal({
             ) : null}
 
             {selectedPaymentMethodId ? null : fetchingIntent ? (
-              <div className="flex items-center justify-center py-8 gap-3 text-slate-400">
+              <div className="flex items-center justify-center py-8 gap-3 text-brand-ink-subtle">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span className="text-sm">Loading payment form...</span>
               </div>
@@ -496,7 +519,7 @@ export function LiveJoinModal({
                   </div>
                 ) : null}
                 <Elements stripe={stripePromise} options={{ ...STRIPE_OPTIONS, clientSecret }}>
-                  <label className="flex items-center gap-2 text-xs text-slate-400 mb-3">
+                  <label className="flex items-center gap-2 text-xs text-brand-ink-subtle mb-3">
                     <input
                       type="checkbox"
                       checked={saveNewCard}
@@ -510,7 +533,7 @@ export function LiveJoinModal({
               </>
             ) : null}
 
-            <button onClick={() => setStep("info")} className="text-xs text-slate-500 hover:text-slate-300 w-full text-center">
+            <button onClick={() => setStep("info")} className="text-xs text-brand-ink-subtle hover:text-brand-ink-muted w-full text-center">
               Back to details
             </button>
           </div>

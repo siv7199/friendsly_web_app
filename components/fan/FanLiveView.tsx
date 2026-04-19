@@ -49,7 +49,7 @@ function FanVideoStage({
             <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
             LIVE
           </Badge>
-          <span className="text-sm text-slate-400">
+          <span className="text-sm text-brand-ink-subtle">
             Session with {creatorName}
           </span>
         </div>
@@ -81,9 +81,9 @@ function FanVideoStage({
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center text-slate-500 p-6 text-center z-10">
+            <div className="flex flex-col items-center justify-center text-brand-ink-muted p-6 text-center z-10">
               <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="xl" className="opacity-50 mb-3" />
-              <p className="text-sm font-medium text-slate-400">Waiting for {creatorName}...</p>
+              <p className="text-sm font-medium text-brand-ink-subtle">Waiting for {creatorName}...</p>
             </div>
           )}
         </div>
@@ -97,7 +97,7 @@ function FanVideoStage({
             className={cn(
               "w-12 h-12 rounded-full border flex items-center justify-center transition-colors",
               micOn
-                ? "border-brand-border bg-brand-surface text-slate-300"
+                ? "border-brand-border bg-brand-surface text-brand-ink-subtle"
                 : "border-red-500/40 bg-red-500/20 text-red-400"
             )}
           >
@@ -108,7 +108,7 @@ function FanVideoStage({
             className={cn(
               "w-12 h-12 rounded-full border flex items-center justify-center transition-colors",
               camOn
-                ? "border-brand-border bg-brand-surface text-slate-300"
+                ? "border-brand-border bg-brand-surface text-brand-ink-subtle"
                 : "border-red-500/40 bg-red-500/20 text-red-400"
             )}
           >

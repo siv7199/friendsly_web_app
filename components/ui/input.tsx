@@ -13,13 +13,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="flex flex-col gap-1.5">
         {label && (
-          <label htmlFor={inputId} className="text-sm font-medium text-slate-300">
+          <label htmlFor={inputId} className="text-sm font-medium text-brand-ink-muted">
             {label}
           </label>
         )}
         <div className="relative">
           {icon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink-subtle">
               {icon}
             </div>
           )}
@@ -27,18 +27,18 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             type={type}
             className={cn(
-              "flex h-10 w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500",
-              "transition-colors focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary",
+              "flex h-10 w-full rounded-xl border border-brand-border bg-brand-surface px-3 py-2 text-sm text-brand-ink placeholder:text-brand-ink-subtle",
+              "transition-colors focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/30",
               "disabled:opacity-50 disabled:cursor-not-allowed",
               icon && "pl-9",
-              error && "border-red-500 focus:border-red-500 focus:ring-red-500",
+              error && "border-red-400 focus:border-red-400 focus:ring-red-400/30",
               className
             )}
             ref={ref}
             {...props}
           />
         </div>
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-red-500">{error}</p>}
       </div>
     );
   }

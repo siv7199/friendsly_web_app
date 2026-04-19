@@ -83,10 +83,10 @@ export function DialogContent({
       {(title || description) && (
         <div className="px-6 pt-6 pb-4 border-b border-brand-border">
           {title && (
-            <h2 className="text-xl font-bold text-slate-100">{title}</h2>
+            <h2 className="text-xl font-bold text-brand-ink">{title}</h2>
           )}
           {description && (
-            <p className="text-sm text-slate-400 mt-1">{description}</p>
+            <p className="text-sm text-brand-ink-muted mt-1">{description}</p>
           )}
         </div>
       )}
@@ -106,7 +106,7 @@ export function DialogClose({
     <button
       onClick={onClose}
       className={cn(
-        "absolute top-4 right-4 rounded-lg p-1.5 text-slate-400 hover:text-slate-100 hover:bg-brand-surface transition-colors",
+        "absolute top-4 right-4 rounded-lg p-1.5 text-brand-ink-subtle hover:text-brand-ink hover:bg-brand-elevated transition-colors",
         className
       )}
     >

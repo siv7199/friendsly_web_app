@@ -8,23 +8,23 @@ import {
   BookOpen,
   CreditCard,
   Heart,
-  Sparkles,
   Settings,
   LogOut,
-  Zap,
+  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 
 const LIVE_SESSION_STALE_MS = 45000;
 
 const NAV_ITEMS = [
-  { label: "Discover",    href: "/discover",   icon: Compass },
-  { label: "My Bookings", href: "/bookings",   icon: BookOpen },
-  { label: "Payments",    href: "/payments",   icon: CreditCard },
-  { label: "Saved",       href: "/saved",      icon: Heart },
+  { label: "Discover",    href: "/discover",  icon: Compass },
+  { label: "My Bookings", href: "/bookings",  icon: BookOpen },
+  { label: "Payments",    href: "/payments",  icon: CreditCard },
+  { label: "Saved",       href: "/saved",     icon: Heart },
 ];
 
 export function FanSidebar() {
@@ -52,7 +52,6 @@ export function FanSidebar() {
         .gte("last_heartbeat_at", heartbeatCutoffIso);
 
       const uniqueLiveCreators = new Set((data ?? []).map((session: any) => session.creator_id));
-
       setLiveCount(uniqueLiveCreators.size);
 
       const activeSessions = (data ?? []) as { last_heartbeat_at?: string | null }[];
@@ -71,9 +70,7 @@ export function FanSidebar() {
     }
 
     function refreshIfVisible() {
-      if (document.visibilityState === "visible") {
-        void getCount();
-      }
+      if (document.visibilityState === "visible") void getCount();
     }
 
     void getCount();
@@ -95,27 +92,30 @@ export function FanSidebar() {
     };
   }, []);
 
-  async function handleLogout() {
-    await logout();
+  function handleLogout() {
+    logout();
     router.push("/");
   }
 
   return (
-    <aside className="hidden md:flex flex-col w-64 min-h-screen bg-brand-surface border-r border-brand-border shrink-0">
-      {/* ── Logo ── */}
-      <div className="px-6 py-5 border-b border-brand-border">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-xl font-black text-white group-hover:text-brand-primary-light transition-colors">
-            Friendsly
-          </span>
-        </Link>
+    <aside className="hidden md:flex flex-col w-[220px] min-h-screen fan-rail shrink-0 animate-rail-enter">
+
+      {/* Logo */}
+      <div className="px-5 pt-6 pb-5 border-b border-brand-border/60">
+        <BrandLogo subtitle="Fan" theme="light" />
       </div>
 
-      {/* ── Navigation ── */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      {/* Live now indicator */}
+      {liveCount > 0 && (
+        <div className="mx-4 mt-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-live/8 border border-brand-live/20 animate-badge-pop">
+          <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse shrink-0" />
+          <span className="text-xs text-brand-live font-semibold font-display tracking-wide">{liveCount} live now</span>
+          <Radio className="w-3 h-3 text-brand-live ml-auto opacity-70" />
+        </div>
+      )}
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -124,47 +124,49 @@ export function FanSidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border border-transparent",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
                 isActive
-                  ? "bg-brand-primary/20 text-brand-primary-light border-brand-primary/20"
-                  : "text-slate-400 hover:text-slate-100 hover:bg-brand-elevated"
+                  ? "bg-brand-primary text-white shadow-sm"
+                  : "text-brand-ink-muted hover:text-brand-ink hover:bg-brand-elevated"
               )}
             >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span>{item.label}</span>
+              <Icon className={cn("w-4 h-4 shrink-0", isActive ? "opacity-90" : "")} />
+              <span className={cn("font-display", isActive ? "font-semibold" : "font-medium")}>{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      {/* ── Featured Live Banner — only shown when creators are live AND fan is not already on Discover ── */}
-      {/* ── Fan Profile ── */}
-      <div className="px-3 pb-4 border-t border-brand-border pt-4">
-        <div className="flex items-center gap-3">
+      {/* Profile footer */}
+      <div className="px-3 pb-5 pt-4 border-t border-brand-border/60">
+        <div className="flex items-center gap-2.5">
           <Avatar
             initials={user?.avatar_initials ?? "?"}
             color={user?.avatar_color ?? "bg-violet-500"}
             size="sm"
-            imageUrl={user?.avatar_url ?? undefined}
+            imageUrl={user?.avatar_url && user?.id ? `/api/public/avatar/${user.id}` : undefined}
           />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-100 truncate">
+            <p className="text-sm font-semibold text-brand-ink truncate leading-tight">
               {user?.full_name ?? "Guest"}
             </p>
-            <p className="text-xs text-slate-500 truncate">
+            <p className="text-[11px] text-brand-ink-subtle truncate">
               {user?.username ? `@${user.username}` : ""}
             </p>
           </div>
-          <div className="flex items-center gap-1">
-            <Link href="/settings" className="text-slate-500 hover:text-slate-300 transition-colors p-1 rounded-lg hover:bg-brand-elevated">
-              <Settings className="w-4 h-4" />
+          <div className="flex items-center gap-0.5">
+            <Link
+              href="/settings"
+              className="text-brand-ink-subtle hover:text-brand-ink-muted transition-colors p-1.5 rounded-lg hover:bg-brand-elevated"
+            >
+              <Settings className="w-3.5 h-3.5" />
             </Link>
             <button
               onClick={handleLogout}
-              className="text-slate-500 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-500/10"
+              className="text-brand-ink-subtle hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50"
               title="Sign out"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

@@ -119,10 +119,10 @@ export default function CreatorRequestPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-3 rounded-full border border-brand-border bg-brand-surface px-4 py-2">
             <Sparkles className="w-3.5 h-3.5 text-brand-gold" />
-            <span className="text-xs font-medium text-slate-400">Creator access is manually approved</span>
+            <span className="text-xs font-medium text-brand-ink-subtle">Creator access is manually approved</span>
           </div>
-          <h1 className="text-3xl font-black text-slate-100">Apply for a creator account</h1>
-          <p className="mt-2 text-sm text-slate-400">
+          <h1 className="text-3xl font-black font-display text-brand-ink">Apply for a creator account</h1>
+          <p className="mt-2 text-sm text-brand-ink-subtle">
             Share your contact info and any socials you want us to review. Social links are optional.
           </p>
         </div>
@@ -134,8 +134,8 @@ export default function CreatorRequestPage() {
                 <CheckCircle2 className="h-7 w-7" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-100">Request received</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
+                <h2 className="text-xl font-bold text-brand-ink">Request received</h2>
+                <p className="mt-2 text-sm leading-6 text-brand-ink-subtle">
                   We saved your creator application. You will not be able to sign in until the request is approved.
                 </p>
                 {emailConfigured === false && (
@@ -188,7 +188,7 @@ export default function CreatorRequestPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword((value) => !value)}
-                      className="absolute right-3 top-[34px] text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors"
+                      className="absolute right-3 top-[34px] text-xs font-semibold text-brand-ink-subtle hover:text-brand-ink transition-colors"
                     >
                       {showPassword ? "Hide" : "Show"}
                     </button>
@@ -242,7 +242,7 @@ export default function CreatorRequestPage() {
               />
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-300" htmlFor="creator-request-notes">
+                <label className="text-sm font-medium text-brand-ink-subtle" htmlFor="creator-request-notes">
                   Notes
                 </label>
                 <textarea
@@ -251,7 +251,7 @@ export default function CreatorRequestPage() {
                   onChange={(event) => update("notes", event.target.value)}
                   placeholder="Anything you want the review team to know"
                   rows={4}
-                  className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                  className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-muted focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
                 />
               </div>
 
@@ -261,7 +261,7 @@ export default function CreatorRequestPage() {
                 </p>
               )}
 
-              <div className="rounded-xl border border-brand-gold/20 bg-brand-gold/5 px-4 py-3 text-xs leading-5 text-slate-400">
+              <div className="rounded-xl border border-brand-gold/20 bg-brand-gold/5 px-4 py-3 text-xs leading-5 text-brand-ink-subtle">
                 {user
                   ? "Manual review keeps creator accounts vetted before they can accept bookings or go live."
                   : "You will set your password now, but sign-in stays locked until the review team approves your creator request."}
@@ -288,7 +288,7 @@ export default function CreatorRequestPage() {
                 )}
               </Button>
 
-              <p className="text-center text-xs text-slate-500">
+              <p className="text-center text-xs text-brand-ink-muted">
                 Fan accounts still use the regular sign-up flow. Creator accounts are approved manually.
               </p>
             </form>

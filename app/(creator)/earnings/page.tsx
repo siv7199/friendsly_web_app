@@ -189,14 +189,14 @@ export default function EarningsPage() {
   return (
     <div className="px-4 md:px-8 py-6 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-black text-slate-100">Earnings</h1>
-        <p className="text-slate-400 mt-1">Track your balance, payouts, and creator revenue in one place.</p>
+        <h1 className="text-3xl font-black font-display text-brand-ink">Earnings</h1>
+        <p className="text-brand-ink-subtle mt-1">Track your balance, payouts, and creator revenue in one place.</p>
       </div>
 
       <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-slate-100">Earnings Summary</h2>
-          {loadingFinancials && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+          <h2 className="text-base font-semibold text-brand-ink">Earnings Summary</h2>
+          {loadingFinancials && <Loader2 className="w-4 h-4 animate-spin text-brand-ink-subtle" />}
         </div>
 
         {notice && (
@@ -206,33 +206,33 @@ export default function EarningsPage() {
         )}
 
             {payoutError && (
-          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <div className="mb-4 rounded-xl border border-red-400/30 bg-red-50 px-4 py-3 text-sm text-red-600">
             {payoutError}
           </div>
         )}
 
         {connectState.payoutsEnabled && earnings.available - earnings.withdrawable > 0.009 && !payoutError && (
-          <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          <div className="mb-4 rounded-xl border border-amber-300/50 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             Some earnings are still clearing, so you can withdraw {formatCurrency(earnings.withdrawable)} right now.
           </div>
         )}
 
         {earnings.pending > 0.009 && (
-          <div className="mb-4 rounded-xl border border-brand-primary/20 bg-brand-primary/10 px-4 py-3 text-sm text-slate-200">
+          <div className="mb-4 rounded-xl border border-brand-primary/20 bg-brand-primary/10 px-4 py-3 text-sm text-brand-ink">
             {formatCurrency(earnings.pending)} is still pending and will only become withdrawable after the call outcome is finalized, like completion or a late-cancel/no-show result.
           </div>
         )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
           {[
-            { label: "Available to Withdraw", value: formatCurrency(earnings.withdrawable), accent: "text-gradient-gold" },
+            { label: "Available to Withdraw", value: formatCurrency(earnings.withdrawable), accent: "text-amber-600" },
             { label: "Pending Earnings", value: formatCurrency(earnings.pending), accent: "text-brand-live" },
-            { label: "This Month", value: formatCurrency(earnings.thisMonth), accent: "text-slate-100" },
-            { label: "Total Earned", value: formatCurrency(earnings.totalEarned), accent: "text-brand-primary-light" },
+            { label: "This Month", value: formatCurrency(earnings.thisMonth), accent: "text-brand-ink" },
+            { label: "Total Earned", value: formatCurrency(earnings.totalEarned), accent: "text-brand-primary" },
           ].map((s) => (
             <div key={s.label} className="p-4 rounded-xl bg-brand-elevated border border-brand-border">
               <p className={cn("text-xl font-black", s.accent)}>{s.value}</p>
-              <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-wider font-semibold">{s.label}</p>
+              <p className="text-[11px] text-brand-ink-muted mt-1 uppercase tracking-wider font-semibold">{s.label}</p>
             </div>
           ))}
         </div>
@@ -240,8 +240,8 @@ export default function EarningsPage() {
         <div className="mb-5 rounded-2xl border border-brand-border bg-brand-elevated p-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h3 className="text-sm font-semibold text-slate-100">Stripe Connect</h3>
-              <p className="mt-1 text-xs text-slate-400">
+              <h3 className="text-sm font-semibold text-brand-ink">Stripe Connect</h3>
+              <p className="mt-1 text-xs text-brand-ink-subtle">
                 {connectState.payoutsEnabled
                   ? "Payouts are enabled and withdrawals can be sent to your connected account."
                   : connectState.accountId
@@ -285,10 +285,10 @@ export default function EarningsPage() {
               <DollarSign className="w-4 h-4 text-brand-primary-light" />
             </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-200">Withdraw Funds</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Transfer your currently withdrawable balance to your connected account</p>
+                    <h3 className="text-sm font-semibold text-brand-ink">Withdraw Funds</h3>
+                    <p className="text-xs text-brand-ink-subtle mt-0.5">Transfer your currently withdrawable balance to your connected account</p>
                     {earnings.pendingPayouts > 0.009 && (
-                      <p className="text-[11px] text-slate-500 mt-1">
+                      <p className="text-[11px] text-brand-ink-subtle mt-1">
                         {formatCurrency(earnings.pendingPayouts)} is already being transferred out.
                       </p>
                     )}
@@ -306,32 +306,32 @@ export default function EarningsPage() {
       </div>
 
       <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
-        <h2 className="text-base font-semibold text-slate-100 mb-4">Payout History</h2>
+        <h2 className="text-base font-semibold text-brand-ink mb-4">Payout History</h2>
 
         {loadingFinancials ? (
           <div className="text-center py-6">
-            <Loader2 className="w-6 h-6 animate-spin text-slate-500 mx-auto" />
+            <Loader2 className="w-6 h-6 animate-spin text-brand-ink-subtle mx-auto" />
           </div>
         ) : payouts.length > 0 ? (
           <div className="space-y-3">
             {payouts.map((p) => (
               <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-brand-elevated border border-brand-border">
                 <div className="flex items-center gap-3">
-                  <CreditCard className="w-4 h-4 text-slate-400" />
+                  <CreditCard className="w-4 h-4 text-brand-ink-subtle" />
                   <div>
-                    <p className="text-sm font-semibold text-slate-200">Withdrawal to Stripe</p>
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-sm font-semibold text-brand-ink">Withdrawal to Stripe</p>
+                    <p className="text-[10px] text-brand-ink-subtle">
                       {new Date(p.created_at).toLocaleDateString()} at {new Date(p.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-slate-100">{formatCurrency(p.amount)}</p>
+                  <p className="text-sm font-bold text-brand-ink">{formatCurrency(p.amount)}</p>
                   <Badge variant={p.status === "completed" ? "live" : p.status === "failed" ? "danger" : "default"} className="text-[10px] mt-1 capitalize">
                     {p.status}
                   </Badge>
                   {p.failure_reason && (
-                    <p className="mt-1 max-w-[220px] text-[10px] text-red-300">{p.failure_reason}</p>
+                    <p className="mt-1 max-w-[220px] text-[10px] text-red-600">{p.failure_reason}</p>
                   )}
                 </div>
               </div>
@@ -339,9 +339,9 @@ export default function EarningsPage() {
           </div>
         ) : (
           <div className="text-center py-8">
-            <DollarSign className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-500 text-sm">No payouts yet.</p>
-            <p className="text-slate-600 text-xs mt-1">When you withdraw your earnings, they will appear here.</p>
+            <DollarSign className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
+            <p className="text-brand-ink-subtle text-sm">No payouts yet.</p>
+            <p className="text-brand-ink-subtle text-xs mt-1">When you withdraw your earnings, they will appear here.</p>
           </div>
         )}
       </div>

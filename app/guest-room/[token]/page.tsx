@@ -81,7 +81,7 @@ function GuestVideoStage({
             <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
             LIVE
           </Badge>
-          <span className="text-sm text-slate-400">
+          <span className="text-sm text-brand-ink-subtle">
             Session with {accessPayload?.booking.creator?.full_name ?? "Creator"}
           </span>
         </div>
@@ -111,7 +111,7 @@ function GuestVideoStage({
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center text-slate-500 p-6 text-center z-10">
+            <div className="flex flex-col items-center justify-center text-brand-ink-muted p-6 text-center z-10">
               <Avatar
                 initials={accessPayload?.booking.creator?.avatar_initials ?? "CR"}
                 color={accessPayload?.booking.creator?.avatar_color ?? "bg-violet-600"}
@@ -119,7 +119,7 @@ function GuestVideoStage({
                 size="xl"
                 className="opacity-60 mb-3"
               />
-              <p className="text-sm font-medium text-slate-400">
+              <p className="text-sm font-medium text-brand-ink-subtle">
                 Waiting for {accessPayload?.booking.creator?.full_name ?? "Creator"}...
               </p>
             </div>
@@ -134,7 +134,7 @@ function GuestVideoStage({
             className={cn(
               "w-12 h-12 rounded-full border flex items-center justify-center transition-colors",
               micOn
-                ? "border-brand-border bg-brand-surface text-slate-300"
+                ? "border-brand-border bg-brand-surface text-brand-ink-subtle"
                 : "border-red-500/40 bg-red-500/20 text-red-400"
             )}
           >
@@ -145,7 +145,7 @@ function GuestVideoStage({
             className={cn(
               "w-12 h-12 rounded-full border flex items-center justify-center transition-colors",
               camOn
-                ? "border-brand-border bg-brand-surface text-slate-300"
+                ? "border-brand-border bg-brand-surface text-brand-ink-subtle"
                 : "border-red-500/40 bg-red-500/20 text-red-400"
             )}
           >
@@ -267,7 +267,7 @@ export default function GuestRoomPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-brand-bg">
         <Loader2 className="w-10 h-10 animate-spin text-brand-primary" />
-        <p className="text-slate-400 animate-pulse">Connecting to secure room...</p>
+        <p className="text-brand-ink-subtle animate-pulse">Connecting to secure room...</p>
       </div>
     );
   }
@@ -317,8 +317,8 @@ export default function GuestRoomPage() {
           <PhoneOff className="w-8 h-8 text-red-500" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Room Unavailable</h1>
-          <p className="mt-2 max-w-md text-slate-400">{error || "Missing booking room details."}</p>
+          <h1 className="text-2xl font-bold text-brand-ink">Room Unavailable</h1>
+          <p className="mt-2 max-w-md text-brand-ink-subtle">{error || "Missing booking room details."}</p>
         </div>
         <Button variant="outline" onClick={() => router.push(`/booking-access/${rawToken}`)}>
           Back to booking
@@ -338,10 +338,10 @@ export default function GuestRoomPage() {
             size="sm"
           />
           <div>
-            <h2 className="text-lg font-bold text-slate-100">
+            <h2 className="text-lg font-bold text-brand-ink">
               Session with {accessPayload?.booking.creator?.full_name ?? "Creator"}
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-brand-ink-muted">
               {accessPayload?.booking.topic || "No topic specified"} · Guest room
             </p>
           </div>

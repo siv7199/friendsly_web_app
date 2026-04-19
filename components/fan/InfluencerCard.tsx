@@ -1,16 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Star, Video, Clock, Zap, Heart } from "lucide-react";
-import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Star, Video, Clock, Zap, Heart, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BookingModal } from "@/components/fan/BookingModal";
 import type { Creator, CallPackage } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { getTimeZoneAbbreviation } from "@/lib/timezones";
 import Link from "next/link";
 
 interface InfluencerCardProps {
@@ -34,7 +31,6 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingBookingData, setIsLoadingBookingData] = useState(false);
   const [countdownText, setCountdownText] = useState<string | null>(null);
-  const [scheduledLabel, setScheduledLabel] = useState<string | null>(null);
 
   useEffect(() => {
     setIsSaved(initialIsSaved);
@@ -44,7 +40,6 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
     function updateCountdown() {
       if (!creator.scheduledLiveAt || creator.isLive) {
         setCountdownText(null);
-        setScheduledLabel(null);
         return;
       }
       const scheduledDate = new Date(creator.scheduledLiveAt);
@@ -55,21 +50,9 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
         const totalMinutes = Math.floor(diff / 60000);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
-        setCountdownText(hours > 0 ? `Going live in ${hours}h ${minutes}m` : `Going live in ${minutes}m`);
+        setCountdownText(hours > 0 ? `Live in ${hours}h ${minutes}m` : `Live in ${minutes}m`);
       }
-
-      const timeZone = creator.scheduledLiveTimeZone || creator.timeZone;
-      const abbreviation = timeZone ? getTimeZoneAbbreviation(scheduledDate, timeZone) : null;
-      setScheduledLabel(
-        `${scheduledDate.toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })}${abbreviation ? ` ${abbreviation}` : ""}`
-      );
     }
-
     updateCountdown();
     const interval = window.setInterval(updateCountdown, 60000);
     return () => window.clearInterval(interval);
@@ -78,22 +61,14 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
   async function toggleSave(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) return; // Maybe show login modal?
-
+    if (!user) return;
     setIsSaving(true);
     const supabase = createClient();
-
     if (isSaved) {
-      await supabase
-        .from("saved_creators")
-        .delete()
-        .eq("fan_id", user.id)
-        .eq("creator_id", creator.id);
+      await supabase.from("saved_creators").delete().eq("fan_id", user.id).eq("creator_id", creator.id);
       setIsSaved(false);
     } else {
-      await supabase
-        .from("saved_creators")
-        .insert({ fan_id: user.id, creator_id: creator.id });
+      await supabase.from("saved_creators").insert({ fan_id: user.id, creator_id: creator.id });
       setIsSaved(true);
     }
     setIsSaving(false);
@@ -101,24 +76,13 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
 
   async function loadBookingData() {
     if (packages.length > 0 || availability.length > 0 || isLoadingBookingData) return;
-
     setIsLoadingBookingData(true);
     const supabase = createClient();
-
     try {
       const [{ data: packageData }, { data: availabilityData, error: availabilityError }] = await Promise.all([
-        supabase
-          .from("call_packages")
-          .select("*")
-          .eq("creator_id", creator.id)
-          .eq("is_active", true),
-        supabase
-          .from("creator_availability")
-          .select("day_of_week, start_time, end_time, package_id")
-          .eq("creator_id", creator.id)
-          .eq("is_active", true),
+        supabase.from("call_packages").select("*").eq("creator_id", creator.id).eq("is_active", true),
+        supabase.from("creator_availability").select("day_of_week, start_time, end_time, package_id").eq("creator_id", creator.id).eq("is_active", true),
       ]);
-
       if (packageData) {
         setPackages(packageData.map((p: any) => ({
           id: p.id,
@@ -130,10 +94,7 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
           bookingsCount: p.bookings_count,
         })));
       }
-
-      if (availabilityData && !availabilityError) {
-        setAvailability(availabilityData);
-      }
+      if (availabilityData && !availabilityError) setAvailability(availabilityData);
     } finally {
       setIsLoadingBookingData(false);
     }
@@ -149,198 +110,172 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
 
   return (
     <>
-      <article className="glass-card rounded-2xl overflow-hidden group hover:border-brand-primary/40 hover:-translate-y-1 transition-all duration-300 flex flex-col">
-        {/* ── Card Header ── */}
-        <div className="p-5 flex items-start gap-4">
-          <Link href={`/profile/${creator.id}`}>
-            <Avatar
-              initials={creator.avatarInitials}
-              color={creator.avatarColor}
-              imageUrl={creator.avatarUrl}
-              size="lg"
-              isLive={creator.isLive}
-              className="cursor-pointer"
+      <article className="bg-white rounded-2xl overflow-hidden flex flex-col shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 ease-out-expo animate-card-enter group border border-brand-border/60">
+
+        {/* ── Media area — large purple stage (matches reference) ── */}
+        <div className="relative overflow-hidden" style={{ aspectRatio: "4/3" }}>
+
+          {/* Purple gradient background — the signature card visual */}
+          <div className="absolute inset-0 bg-gradient-card-media" />
+
+          {/* Creator photo or centered avatar — fallback always rendered beneath */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className={cn("w-20 h-20 rounded-full flex items-center justify-center", creator.avatarColor || "bg-white/25")}>
+              <span className="text-3xl font-black text-white/90 font-display">
+                {creator.avatarInitials}
+              </span>
+            </div>
+          </div>
+          {creator.avatarUrl && (
+            <img
+              src={creator.avatarUrl}
+              alt={creator.name}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
-          </Link>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/profile/${creator.id}`}
-                    className="text-base font-bold text-slate-100 hover:text-brand-primary-light transition-colors"
-                  >
-                    {creator.name}
-                  </Link>
-                  {creator.isNew && (
-                    <Badge variant="gold" className="text-[10px] uppercase tracking-wide">
-                      New
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-sm text-slate-500">{creator.username}</p>
-              </div>
-              {creator.isLive && (
-                <div className="flex flex-col items-end gap-2">
-                  <Badge variant="live" className="shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
-                    LIVE
-                  </Badge>
-                  <button
-                    onClick={toggleSave}
-                    disabled={isSaving}
-                    className={cn(
-                      "p-2 rounded-full transition-all",
-                      isSaved ? "text-red-500 bg-red-500/10" : "text-slate-500 hover:text-slate-300 bg-slate-800/50"
-                    )}
-                  >
-                    <Heart className={cn("w-4 h-4", isSaved && "fill-current")} />
-                  </button>
-                </div>
-              )}
-              {!creator.isLive && (
-                <button
-                  onClick={toggleSave}
-                  disabled={isSaving}
-                  className={cn(
-                    "p-2 rounded-full transition-all",
-                    isSaved ? "text-red-500 bg-red-500/10" : "text-slate-500 hover:text-slate-300 bg-slate-800/50"
-                  )}
-                >
-                  <Heart className={cn("w-4 h-4", isSaved && "fill-current")} />
-                </button>
-              )}
+          )}
+
+          {/* Live overlay — pulsing badge on the media area */}
+          {creator.isLive && (
+            <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/95 shadow-sm animate-badge-pop">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
+              <span className="text-[10px] font-bold text-brand-live font-display uppercase tracking-wider">Live</span>
             </div>
+          )}
 
-            {/* Rating + Followers */}
-            <div className="flex items-center gap-3 mt-1.5">
-              <div className="flex items-center gap-1">
-                <Star className="w-3.5 h-3.5 fill-brand-gold text-brand-gold" />
-                <span className="text-xs font-semibold text-brand-gold">{creator.rating}</span>
-                <span className="text-xs text-slate-500">({creator.reviewCount})</span>
-              </div>
+          {/* Queue count */}
+          {creator.isLive && creator.queueCount > 0 && (
+            <div className="absolute top-3 right-10 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-sm">
+              <Users className="w-2.5 h-2.5 text-white/80" />
+              <span className="text-[10px] font-semibold text-white/90">{creator.queueCount}</span>
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* ── Category Tag ── */}
-        <div className="px-5">
-          <Badge variant="primary" className="text-[11px]">
-            {creator.category || "New Creator"}
-          </Badge>
-        </div>
-
-        {/* ── Bio ── */}
-        <p className="px-5 pt-3 text-sm text-slate-400 leading-relaxed line-clamp-2 flex-1">
-          {creator.bio || "No bio set yet. This creator is just getting started!"}
-        </p>
-
-        {/* ── Tags ── */}
-        <div className="px-5 pt-3 flex flex-wrap gap-1.5">
-          {creator.tags.map((tag) => (
-            <span
-              key={tag}
-              className="text-[11px] px-2 py-0.5 rounded-full bg-brand-elevated border border-brand-border text-slate-400"
+          {/* Save button */}
+          {user && (
+            <button
+              onClick={toggleSave}
+              disabled={isSaving}
+              className={cn(
+                "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150",
+                isSaved
+                  ? "bg-red-500 text-white shadow-sm"
+                  : "bg-white/80 text-brand-ink-subtle hover:bg-white hover:text-red-400 backdrop-blur-sm"
+              )}
             >
-              {tag}
-            </span>
-          ))}
+              <Heart className={cn("w-3.5 h-3.5", isSaved && "fill-current")} />
+            </button>
+          )}
+
+          {/* New creator badge */}
+          {creator.isNew && !creator.isLive && (
+            <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-amber-400/90 text-[10px] font-bold text-white font-display uppercase tracking-wide animate-badge-pop">
+              New
+            </div>
+          )}
+
+          {/* Bottom scrim — fades into white card below */}
+          <div className="absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-white/20 to-transparent" />
         </div>
 
-        {/* ── Pricing / Availability ── */}
-        <div className="px-5 py-4 mt-3 border-t border-brand-border flex items-center justify-between gap-3">
-          <div>
-            {/* Live join fee takes priority when creator is live */}
-            {creator.isLive && hasLiveRate ? (
-              <>
-                <div className="flex items-baseline gap-1">
-                  <Zap className="w-3.5 h-3.5 text-brand-live" />
-                  <span className="text-xl font-black text-brand-live">
-                    {formatCurrency(creator.liveJoinFee!)}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">Join live for 30 seconds</p>
-              </>
-            ) : hasPackages ? (
-              <>
-                <div className="flex flex-col items-start gap-0.5">
-                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Starts at</span>
-                  <span className="text-2xl font-black text-slate-100 leading-none">
-                    {formatCurrency(creator.callPrice)}
-                  </span>
-                </div>
-                {hasLiveRate && (
-                  <p className="text-[11px] text-brand-live mt-0.5">
-                    <Zap className="w-2.5 h-2.5 inline mr-0.5" />
-                    Live: {formatCurrency(creator.liveJoinFee!)} for 30s
-                  </p>
-                )}
-                {!creator.isLive && countdownText && (
-                  <>
-                    <p className="text-[11px] text-brand-primary-light mt-0.5">{countdownText}</p>
-                    {scheduledLabel ? (
-                      <p className="text-[11px] text-slate-500 mt-0.5">{scheduledLabel}</p>
-                    ) : null}
-                  </>
-                )}
-              </>
-            ) : (
-              <span className="text-sm font-semibold text-slate-400">Packages TBD</span>
-            )}
-            <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
-              <Clock className="w-3 h-3" />
-              <span>Next available: {creator.nextAvailable}</span>
+        {/* ── Content area ── */}
+        <div className="px-4 pt-3.5 pb-2 flex-1 flex flex-col gap-2">
+
+          {/* Name row */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <Link
+                href={`/profile/${creator.id}`}
+                className="text-base font-bold text-brand-ink hover:text-brand-primary transition-colors leading-tight font-display block"
+              >
+                {creator.name}
+              </Link>
+              <p className="text-[11px] text-brand-ink-subtle mt-0.5">{creator.username}</p>
             </div>
+            {creator.category && (
+              <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-brand-elevated border border-brand-border text-brand-ink-muted font-display font-semibold">
+                {creator.category}
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
-            {creator.isLive && hasPackages && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleOpenBooking()}
-                className="shrink-0 px-2.5"
-                title="Book Call"
-              >
-                <Video className="w-4 h-4" />
-              </Button>
+          {/* Bio */}
+          <p className="text-sm text-brand-ink-muted leading-relaxed line-clamp-2">
+            {creator.bio || "This creator is just getting started."}
+          </p>
+
+          {/* Status row */}
+          <div className="flex items-center gap-3">
+            {creator.isLive ? (
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
+                <span className="text-xs font-semibold text-brand-live">Live Now</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                <span className="text-xs font-bold text-amber-600">{creator.rating}</span>
+                <span className="text-xs text-brand-ink-subtle">({creator.reviewCount})</span>
+              </div>
             )}
 
-            {creator.isLive && hasLiveRate ? (
-              <Link href={`/waiting-room/${creator.id}`}>
-                <Button variant="live" size="sm" className="gap-1.5 shrink-0">
-                  <Zap className="w-3.5 h-3.5" />
-                  Watch Live
-                </Button>
-              </Link>
-            ) : creator.isLive && !hasLiveRate ? (
-              <Button variant="outline" size="sm" disabled className="gap-1.5 opacity-60 cursor-not-allowed">
-                <Zap className="w-3.5 h-3.5" />
-                <span className="text-xs truncate">No Rate Set</span>
-              </Button>
-            ) : hasPackages ? (
+            {!creator.isLive && countdownText && (
+              <span className="text-[11px] text-brand-primary font-semibold">{countdownText}</span>
+            )}
+
+            {creator.isLive && hasLiveRate && (
+              <span className="flex items-center gap-0.5 text-[11px] font-semibold text-brand-primary ml-auto">
+                <Zap className="w-2.5 h-2.5" />
+                {formatCurrency(creator.liveJoinFee!)}/30s
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* ── CTA footer — full-width button matching reference ── */}
+        <div className="px-4 pb-4 pt-2">
+          {creator.isLive && hasLiveRate ? (
+            <Link href={`/waiting-room/${creator.id}`} className="block">
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => void handleOpenBooking()}
-                className="gap-1.5 shrink-0"
-                disabled={isLoadingBookingData}
+                className="w-full rounded-full font-display font-semibold tracking-wide"
               >
-                <Video className="w-3.5 h-3.5" />
-                {isLoadingBookingData ? "Loading..." : "Book Call"}
+                <Zap className="w-3.5 h-3.5" />
+                Join Live
               </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled
-                className="gap-1.5 opacity-50 cursor-not-allowed shrink-0"
-              >
-                <Clock className="w-3.5 h-3.5" />
-                Coming Soon
-              </Button>
-            )}
-          </div>
+            </Link>
+          ) : creator.isLive && !hasLiveRate ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full rounded-full opacity-50 cursor-not-allowed"
+              disabled
+            >
+              No rate set
+            </Button>
+          ) : hasPackages ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleOpenBooking()}
+              className="w-full rounded-full font-display font-semibold group-hover:bg-brand-primary group-hover:text-white group-hover:border-brand-primary transition-all duration-200"
+              disabled={isLoadingBookingData}
+            >
+              <Video className="w-3.5 h-3.5" />
+              {isLoadingBookingData ? "Loading…" : `Book · ${formatCurrency(creator.callPrice)}`}
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled
+              className="w-full rounded-full opacity-50 font-display"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              Coming Soon
+            </Button>
+          )}
         </div>
       </article>
 

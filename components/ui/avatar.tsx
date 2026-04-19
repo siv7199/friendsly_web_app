@@ -32,14 +32,20 @@ export function Avatar({
       <div
         className={cn(
           outer,
-          imageUrl && imageUrl.length > 0 ? "" : color,
-          "rounded-full flex items-center justify-center font-bold text-white overflow-hidden"
+          color,
+          "relative rounded-full flex items-center justify-center font-bold text-white overflow-hidden"
         )}
       >
-        {imageUrl && imageUrl.length > 0 ? (
-          <img src={imageUrl} alt={initials} className="w-full h-full object-cover" />
-        ) : (
-          <span className={text}>{initials}</span>
+        {/* Initials always render as base layer */}
+        <span className={cn(text, "select-none")}>{initials}</span>
+        {/* Image overlays initials; on error it hides itself, showing initials + color */}
+        {imageUrl && imageUrl.length > 0 && (
+          <img
+            src={imageUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+          />
         )}
       </div>
       {isLive && (

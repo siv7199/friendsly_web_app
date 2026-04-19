@@ -152,12 +152,12 @@ export default async function CreatorRequestReviewPage({
         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-elevated">
           {icon}
         </div>
-        <h1 className="text-2xl font-black text-slate-100">{result.title}</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-400">{result.message}</p>
+        <h1 className="text-2xl font-black text-brand-ink">{result.title}</h1>
+        <p className="mt-3 text-sm leading-6 text-brand-ink-subtle">{result.message}</p>
         <div className="mt-6">
           <Link
             href="/"
-            className="inline-flex items-center justify-center rounded-xl border border-brand-border bg-brand-elevated px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-brand-primary/10 hover:text-brand-primary-light"
+            className="inline-flex items-center justify-center rounded-xl border border-brand-border bg-brand-elevated px-4 py-2 text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-primary/10 hover:text-brand-primary-light"
           >
             Back to Friendsly
           </Link>

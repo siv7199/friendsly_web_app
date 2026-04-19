@@ -420,8 +420,8 @@ export default function DashboardPage() {
       {/* ── Header ── */}
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-slate-400 text-sm">Good afternoon,</p>
-          <h1 className="text-3xl font-black text-slate-100">{displayName} 👋</h1>
+          <p className="text-brand-ink-subtle text-sm">Good afternoon,</p>
+          <h1 className="text-3xl font-black font-display text-brand-ink">{displayName} 👋</h1>
         </div>
         <Link href="/live">
           <Button variant="live" className="gap-2 shadow-glow-live">
@@ -480,10 +480,10 @@ export default function DashboardPage() {
             <div className="mb-4 rounded-2xl border border-brand-live/30 bg-brand-live/10 p-4 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-live">Ready To Start</p>
-                <p className="mt-1 text-sm text-slate-100">
+                <p className="mt-1 text-sm text-brand-ink">
                   {nextJoinableBooking.status === "live" ? "Your booking room is live now." : `You can join ${nextJoinableBooking.fanName}'s booking now.`}
                 </p>
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-brand-ink-subtle">
                   {nextJoinableBooking.time} · {nextJoinableBooking.duration} min
                 </p>
               </div>
@@ -497,13 +497,13 @@ export default function DashboardPage() {
           )}
 
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-slate-100">Upcoming Bookings</h2>
+            <h2 className="text-lg font-bold text-brand-ink">Upcoming Bookings</h2>
             <Link href="/calendar" className="text-sm text-brand-primary-light hover:underline flex items-center gap-1">
               View all <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
           {loadingDashboard ? (
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 flex justify-center text-slate-400">
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 flex justify-center text-brand-ink-subtle">
               <Loader2 className="w-5 h-5 animate-spin" />
             </div>
           ) : (
@@ -519,10 +519,10 @@ export default function DashboardPage() {
         <div className="space-y-4">
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-primary-light">Shareable Booking Link</p>
-            <p className="mt-2 text-sm text-slate-300">
+            <p className="mt-2 text-sm text-brand-ink-muted">
               Send fans straight to your public booking page with one link.
             </p>
-            <div className="mt-4 rounded-xl border border-brand-border bg-brand-elevated px-3 py-3 text-xs text-slate-300 break-all">
+            <div className="mt-4 rounded-xl border border-brand-border bg-brand-elevated px-3 py-3 text-xs text-brand-ink-muted break-all">
               {clientOrigin && user?.username ? `${clientOrigin}/book/${user.username}` : `/book/${user?.username ?? ""}`}
             </div>
             <div className="mt-4 flex gap-3">
@@ -537,8 +537,8 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3 mb-4">
               <Avatar initials={avatarInitials} color={avatarColor} imageUrl={avatarUrl} size="md" />
               <div>
-                <p className="font-bold text-slate-100">{displayName}</p>
-                <p className="text-xs text-slate-500">
+                <p className="font-bold text-brand-ink">{displayName}</p>
+                <p className="text-xs text-brand-ink-subtle">
                   {displayUsername}{displayCategory ? ` · ${displayCategory}` : ""}
                 </p>
               </div>
@@ -546,7 +546,7 @@ export default function DashboardPage() {
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-slate-400">Profile strength</span>
+                <span className="text-brand-ink-subtle">Profile strength</span>
                 <span className="text-brand-live font-semibold">{profileStrength}%</span>
               </div>
               <div className="w-full h-2 rounded-full bg-brand-elevated">
@@ -563,8 +563,8 @@ export default function DashboardPage() {
                   <Sparkles className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-100">Smart Insights</p>
-                  <p className="text-[11px] text-slate-500">Personalized next steps based on your profile and activity.</p>
+                  <p className="text-sm font-semibold text-brand-ink">Smart Insights</p>
+                  <p className="text-[11px] text-brand-ink-subtle">Personalized next steps based on your profile and activity.</p>
                 </div>
               </div>
 
@@ -573,14 +573,14 @@ export default function DashboardPage() {
                   <div key={insight.id} className="rounded-xl border border-brand-border bg-brand-elevated/80 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold text-slate-100">{insight.title}</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-400">{insight.description}</p>
+                        <p className="text-sm font-semibold text-brand-ink">{insight.title}</p>
+                        <p className="mt-1 text-xs leading-5 text-brand-ink-subtle">{insight.description}</p>
                       </div>
                       <span
                         className={cn(
                           "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide",
-                          insight.tone === "action" && "bg-amber-500/10 text-amber-300",
-                          insight.tone === "opportunity" && "bg-brand-primary/10 text-brand-primary-light",
+                          insight.tone === "action" && "bg-amber-50 text-amber-700",
+                          insight.tone === "opportunity" && "bg-brand-primary-bg text-brand-primary-deep",
                           insight.tone === "momentum" && "bg-brand-live/10 text-brand-live"
                         )}
                       >
@@ -602,7 +602,7 @@ export default function DashboardPage() {
 
           {/* Quick Actions */}
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-            <h3 className="text-sm font-semibold text-slate-300 mb-3">Quick Actions</h3>
+            <h3 className="text-sm font-semibold text-brand-ink-muted mb-3">Quick Actions</h3>
             <div className="space-y-2">
               {[
                 { label: "Manage Offerings", href: "/management", icon: "⚙️" },
@@ -612,11 +612,11 @@ export default function DashboardPage() {
                 <Link
                   key={action.href + action.label}
                   href={action.href}
-                  className="flex items-center gap-3 p-2.5 rounded-xl bg-brand-elevated border border-brand-border hover:border-brand-primary/40 transition-colors text-sm text-slate-300 hover:text-slate-100"
+                  className="flex items-center gap-3 p-2.5 rounded-xl bg-brand-elevated border border-brand-border hover:border-brand-primary/40 transition-colors text-sm text-brand-ink-muted hover:text-brand-ink"
                 >
                   <span>{action.icon}</span>
                   <span>{action.label}</span>
-                  <ArrowRight className="w-3.5 h-3.5 ml-auto text-slate-500" />
+                  <ArrowRight className="w-3.5 h-3.5 ml-auto text-brand-ink-subtle" />
                 </Link>
               ))}
             </div>
@@ -627,7 +627,7 @@ export default function DashboardPage() {
       {/* ── Recent Reviews ── */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold text-slate-100">Recent Reviews</h2>
+          <h2 className="text-lg font-bold text-brand-ink">Recent Reviews</h2>
         </div>
         {loadingReviews ? (
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 flex justify-center">
@@ -635,9 +635,9 @@ export default function DashboardPage() {
           </div>
         ) : dashReviews.length === 0 ? (
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 text-center">
-            <Star className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-400">No reviews yet.</p>
-            <p className="text-slate-500 text-sm mt-1">Reviews from fans will appear here after their calls.</p>
+            <Star className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
+            <p className="text-brand-ink-subtle">No reviews yet.</p>
+            <p className="text-brand-ink-subtle text-sm mt-1">Reviews from fans will appear here after their calls.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -647,8 +647,8 @@ export default function DashboardPage() {
                   <Avatar initials={review.fanInitials} color={review.fanColor} imageUrl={review.fanAvatarUrl} size="sm" />
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-100">{review.fanName}</p>
-                      <span className="text-xs text-slate-500">{review.date}</span>
+                      <p className="text-sm font-semibold text-brand-ink">{review.fanName}</p>
+                      <span className="text-xs text-brand-ink-subtle">{review.date}</span>
                     </div>
                     <div className="flex items-center gap-0.5 mt-0.5 mb-2">
                       {[1, 2, 3, 4, 5].map((n) => (
@@ -658,13 +658,13 @@ export default function DashboardPage() {
                             "w-3.5 h-3.5",
                             n <= review.rating
                               ? "fill-brand-gold text-brand-gold"
-                              : "text-slate-600"
+                              : "text-brand-ink-subtle"
                           )}
                         />
                       ))}
                     </div>
                     {review.comment && (
-                      <p className="text-sm text-slate-300 leading-relaxed">{review.comment}</p>
+                      <p className="text-sm text-brand-ink-muted leading-relaxed">{review.comment}</p>
                     )}
                   </div>
                 </div>

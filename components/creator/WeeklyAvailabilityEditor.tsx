@@ -210,8 +210,8 @@ export function WeeklyAvailabilityEditor({
     <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
         <div>
-          <h2 className="text-lg font-bold text-slate-100">Weekly Availability</h2>
-          <p className="text-sm text-slate-400 mt-1">
+          <h2 className="text-lg font-bold text-brand-ink">Weekly Availability</h2>
+          <p className="text-sm text-brand-ink-subtle mt-1">
             Set the recurring times fans can book you for 1-on-1 calls each week.
           </p>
         </div>
@@ -225,13 +225,13 @@ export function WeeklyAvailabilityEditor({
       </div>
 
       <div className="mb-5">
-        <label className="text-sm font-medium text-slate-300 mb-2 block">
+        <label className="text-sm font-medium text-brand-ink-muted mb-2 block">
           Your Time Zone
         </label>
         <select
           value={creatorTimeZone}
           onChange={(e) => setCreatorTimeZone(e.target.value)}
-          className="w-full max-w-sm h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-primary"
+          className="w-full max-w-sm h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
         >
           {COMMON_TIME_ZONES.map((timeZone) => (
             <option key={timeZone} value={timeZone}>
@@ -239,13 +239,13 @@ export function WeeklyAvailabilityEditor({
             </option>
           ))}
         </select>
-        <p className="text-xs text-slate-500 mt-2">
+        <p className="text-xs text-brand-ink-subtle mt-2">
           Fans will see these slots converted into their own local time automatically.
         </p>
       </div>
 
       <div className="mb-5">
-        <label className="text-sm font-medium text-slate-300 mb-2 block">
+        <label className="text-sm font-medium text-brand-ink-muted mb-2 block">
           Booking Start Increments
         </label>
         <div className="flex gap-2 flex-wrap">
@@ -258,14 +258,14 @@ export function WeeklyAvailabilityEditor({
                 "px-3 py-2 rounded-xl border text-sm font-medium transition-all",
                 bookingIntervalMinutes === minutes
                   ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
-                  : "bg-brand-elevated border-brand-border text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
+                  : "bg-brand-elevated border-brand-border text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
               )}
             >
               Every {minutes} min
             </button>
           ))}
         </div>
-        <p className="text-xs text-slate-500 mt-2">
+        <p className="text-xs text-brand-ink-subtle mt-2">
           Fans will only see booking start times spaced by this interval inside your available windows.
         </p>
       </div>
@@ -283,8 +283,8 @@ export function WeeklyAvailabilityEditor({
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-100">{dayLabel}</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <h3 className="text-sm font-semibold text-brand-ink">{dayLabel}</h3>
+                  <p className="text-xs text-brand-ink-subtle mt-0.5">
                     {daySlots.length === 0
                       ? "Unavailable"
                       : `${daySlots.length} ${daySlots.length === 1 ? "time slot" : "time slots"}`}
@@ -302,7 +302,7 @@ export function WeeklyAvailabilityEditor({
               </div>
 
               {daySlots.length === 0 ? (
-                <div className="mt-3 rounded-xl border border-dashed border-brand-border px-4 py-3 text-sm text-slate-500">
+                <div className="mt-3 rounded-xl border border-dashed border-brand-border px-4 py-3 text-sm text-brand-ink-subtle">
                   No slots yet for {dayLabel}.
                 </div>
               ) : (
@@ -322,7 +322,7 @@ export function WeeklyAvailabilityEditor({
                       >
                         <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1.2fr_auto] gap-3 items-end">
                           <div>
-                            <label className="text-xs font-medium text-slate-400 mb-1.5 block">
+                            <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
                               Start
                             </label>
                             <input
@@ -330,11 +330,11 @@ export function WeeklyAvailabilityEditor({
                               value={slot.start_time}
                               onChange={(e) => updateAvailabilitySlot(slot.id, "start_time", e.target.value)}
                               step={bookingIntervalMinutes * 60}
-                              className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-primary"
+                              className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-medium text-slate-400 mb-1.5 block">
+                            <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
                               End
                             </label>
                             <input
@@ -342,17 +342,17 @@ export function WeeklyAvailabilityEditor({
                               value={slot.end_time}
                               onChange={(e) => updateAvailabilitySlot(slot.id, "end_time", e.target.value)}
                               step={bookingIntervalMinutes * 60}
-                              className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-primary"
+                              className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-medium text-slate-400 mb-1.5 block">
+                            <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
                               Offering
                             </label>
                             <select
                               value={slot.package_id ?? ""}
                               onChange={(e) => updateAvailabilitySlot(slot.id, "package_id", e.target.value)}
-                              className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-primary"
+                              className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
                             >
                               <option value="">All offerings</option>
                               {packages
@@ -367,14 +367,14 @@ export function WeeklyAvailabilityEditor({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-slate-400 hover:text-red-400"
+                            className="text-brand-ink-subtle hover:text-red-400"
                             onClick={() => removeAvailabilitySlot(slot.id)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                         {isInvalid && (
-                          <p className="mt-2 text-xs text-red-300">
+                          <p className="mt-2 text-xs text-red-600">
                             End time must be later than start time.
                           </p>
                         )}
@@ -388,7 +388,7 @@ export function WeeklyAvailabilityEditor({
         })}
       </div>
 
-      <p className="text-xs text-slate-500 mt-4">
+      <p className="text-xs text-brand-ink-subtle mt-4">
         Fans will see these recurring weekly windows on your profile when booking calls.
       </p>
     </div>

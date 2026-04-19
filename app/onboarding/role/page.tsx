@@ -74,12 +74,12 @@ export default function RoleSelectionPage() {
       <div className="relative z-10 text-center mb-10 animate-fade-in">
         <div className="inline-flex items-center gap-2 mb-4 px-4 py-2 rounded-full bg-brand-surface border border-brand-border">
           <Zap className="w-3.5 h-3.5 text-brand-gold" />
-          <span className="text-xs text-slate-400 font-medium">Step 1 of 2 - Choose your role</span>
+          <span className="text-xs text-brand-ink-subtle font-medium">Step 1 of 2 - Choose your role</span>
         </div>
-        <h1 className="text-3xl md:text-4xl font-black text-slate-100">
+        <h1 className="text-3xl md:text-4xl font-black text-brand-ink">
           How will you use <span className="text-gradient-primary">Friendsly</span>?
         </h1>
-        <p className="text-slate-400 mt-2">
+        <p className="text-brand-ink-subtle mt-2">
           {user?.full_name ? `Hey ${user.full_name.split(" ")[0]}, pick the path that fits you.` : "Pick the path that fits you best."}
         </p>
       </div>
@@ -94,11 +94,11 @@ export default function RoleSelectionPage() {
               </div>
 
               <h2 className="text-xl font-bold text-white mb-2">{option.title}</h2>
-              <p className="text-slate-400 text-sm leading-relaxed mb-5">{option.description}</p>
+              <p className="text-brand-ink-subtle text-sm leading-relaxed mb-5">{option.description}</p>
 
               <div className="space-y-2 mb-6">
                 {option.perks.map((perk) => (
-                  <div key={perk} className="flex items-center gap-2 text-sm text-slate-300">
+                  <div key={perk} className="flex items-center gap-2 text-sm text-brand-ink-subtle">
                     <CheckCircle2 className="w-3.5 h-3.5 text-brand-live shrink-0" />
                     <span>{perk}</span>
                   </div>
@@ -106,7 +106,7 @@ export default function RoleSelectionPage() {
               </div>
 
               {option.role === "creator" && (
-                <div className="mb-5 flex items-start gap-2 rounded-xl border border-brand-gold/20 bg-brand-gold/5 px-3 py-2 text-xs text-slate-400">
+                <div className="mb-5 flex items-start gap-2 rounded-xl border border-brand-gold/20 bg-brand-gold/5 px-3 py-2 text-xs text-brand-ink-subtle">
                   <ShieldCheck className="w-3.5 h-3.5 mt-0.5 shrink-0 text-brand-gold" />
                   <span>Creator access is approved manually before accounts can go live or accept paid bookings.</span>
                 </div>

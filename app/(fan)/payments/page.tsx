@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -101,7 +101,7 @@ export default function PaymentsPage() {
             status: booking.status ?? "completed",
             description: pkg?.name ? `Booked call: ${pkg.name}` : "Booked 1-on-1 call",
             meta: booking.late_fee_paid_at
-              ? `${booking.duration ?? 0} min session · includes ${formatCurrency(Number(booking.late_fee_amount ?? 0))} late fee`
+              ? `${booking.duration ?? 0} min session Â· includes ${formatCurrency(Number(booking.late_fee_amount ?? 0))} late fee`
               : `${booking.duration ?? 0} min session`,
           };
         });
@@ -170,33 +170,33 @@ export default function PaymentsPage() {
   return (
     <div className="px-4 md:px-8 py-6 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-black text-slate-100">Payment History</h1>
-        <p className="text-slate-400 mt-1">Every booking and live-session charge tied to your fan account.</p>
+        <h1 className="text-3xl font-black font-display text-brand-ink">Payment History</h1>
+        <p className="text-brand-ink-subtle mt-1">Every booking and live-session charge tied to your fan account.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Total Spent</p>
-          <p className="mt-2 text-3xl font-black text-slate-100">{formatCurrency(totals.totalSpent)}</p>
-          <p className="mt-2 text-sm text-slate-500">{payments.length} total charges</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Total Spent</p>
+          <p className="mt-2 text-3xl font-black text-brand-ink">{formatCurrency(totals.totalSpent)}</p>
+          <p className="mt-2 text-sm text-brand-ink-muted">{payments.length} total charges</p>
         </div>
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Booked Calls</p>
-          <p className="mt-2 text-3xl font-black text-slate-100">{formatCurrency(totals.bookingSpent)}</p>
-          <p className="mt-2 text-sm text-slate-500">Prepaid 1-on-1 sessions</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Booked Calls</p>
+          <p className="mt-2 text-3xl font-black text-brand-ink">{formatCurrency(totals.bookingSpent)}</p>
+          <p className="mt-2 text-sm text-brand-ink-muted">Prepaid 1-on-1 sessions</p>
         </div>
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Live Sessions</p>
-          <p className="mt-2 text-3xl font-black text-slate-100">{formatCurrency(totals.liveSpent)}</p>
-          <p className="mt-2 text-sm text-slate-500">Pay-per-minute live receipts</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Live Sessions</p>
+          <p className="mt-2 text-3xl font-black text-brand-ink">{formatCurrency(totals.liveSpent)}</p>
+          <p className="mt-2 text-sm text-brand-ink-muted">Pay-per-minute live receipts</p>
         </div>
       </div>
 
       {payments.length === 0 ? (
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-12 text-center">
-          <Receipt className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-slate-300">No payment history yet</p>
-          <p className="text-sm text-slate-500 mt-1 mb-6">
+          <Receipt className="w-12 h-12 text-brand-ink-muted mx-auto mb-4" />
+          <p className="text-lg font-semibold text-brand-ink-muted">No payment history yet</p>
+          <p className="text-sm text-brand-ink-muted mt-1 mb-6">
             Once you book a call or finish a live session, your charges will show up here.
           </p>
           <Link href="/discover">
@@ -232,15 +232,15 @@ export default function PaymentsPage() {
                       <div>
                         <Link
                           href={`/profile/${payment.creatorId}`}
-                          className="font-bold text-slate-100 hover:text-brand-primary-light transition-colors"
+                          className="font-bold text-brand-ink hover:text-brand-primary-light transition-colors"
                         >
                           {payment.creatorName}
                         </Link>
-                        <p className="text-sm text-slate-500">@{payment.creatorUsername}</p>
+                        <p className="text-sm text-brand-ink-muted">@{payment.creatorUsername}</p>
                       </div>
 
                       <div className="text-right">
-                        <p className="text-xl font-black text-slate-100">{formatCurrency(payment.amount)}</p>
+                        <p className="text-xl font-black text-brand-ink">{formatCurrency(payment.amount)}</p>
                         <Badge
                           variant="default"
                           className={cn(
@@ -255,7 +255,7 @@ export default function PaymentsPage() {
                       </div>
                     </div>
 
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-400">
+                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-brand-ink-subtle">
                       <span className="flex items-center gap-1">
                         {isLive ? <Radio className="w-3.5 h-3.5" /> : <CreditCard className="w-3.5 h-3.5" />}
                         {payment.description}
@@ -267,7 +267,7 @@ export default function PaymentsPage() {
                     </div>
 
                     {payment.meta && (
-                      <p className="mt-2 text-sm text-slate-500">{payment.meta}</p>
+                      <p className="mt-2 text-sm text-brand-ink-muted">{payment.meta}</p>
                     )}
                   </div>
                 </div>

@@ -43,9 +43,32 @@ const STRIPE_APPEARANCE = {
     colorPrimary: "#7C3AED",
     colorBackground: "#1A1535",
     colorText: "#f1f5f9",
+    colorTextSecondary: "#c4b5fd",
+    colorTextPlaceholder: "#7c6fa0",
     colorDanger: "#f87171",
     fontFamily: "inherit",
     borderRadius: "12px",
+  },
+  rules: {
+    ".Label": {
+      color: "#c4b5fd",
+      fontWeight: "500",
+    },
+    ".Input": {
+      borderColor: "rgba(124,92,231,0.35)",
+      color: "#f1f5f9",
+    },
+    ".Input--focused": {
+      borderColor: "#7C3AED",
+      boxShadow: "0 0 0 2px rgba(124,92,231,0.2)",
+    },
+    ".Input--invalid": {
+      borderColor: "#f87171",
+      color: "#fca5a5",
+    },
+    ".Error": {
+      color: "#fca5a5",
+    },
   },
 };
 
@@ -134,6 +157,7 @@ export default function SettingsPage() {
   const [billingError, setBillingError] = useState("");
   const [avatarError, setAvatarError] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
 
   // Financial state
   const [earnings, setEarnings] = useState({ available: 0, pending: 0, thisMonth: 0, totalEarned: 0 });
@@ -375,6 +399,7 @@ export default function SettingsPage() {
     try {
       const avatarUrl = await uploadAvatarFile(file);
       update("avatar_url", avatarUrl);
+      setAvatarVersion(Date.now());
     } catch (error) {
       setAvatarError(error instanceof Error ? error.message : "Could not upload avatar.");
     } finally {
@@ -446,13 +471,13 @@ export default function SettingsPage() {
       <div>
         <button
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-100 transition-colors mb-3"
+          className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors mb-3"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
         </button>
-        <h1 className="text-3xl font-black text-slate-100">Settings</h1>
-        <p className="text-slate-400 mt-1">Manage your account and preferences.</p>
+        <h1 className="text-3xl font-black font-display text-brand-ink">Settings</h1>
+        <p className="text-brand-ink-subtle mt-1">Manage your account and preferences.</p>
       </div>
 
       {/* ── Tabs ── */}
@@ -465,7 +490,7 @@ export default function SettingsPage() {
               "px-5 py-3 text-sm font-medium capitalize border-b-2 transition-colors",
               activeTab === tab
                 ? "border-brand-primary text-brand-primary-light"
-                : "border-transparent text-slate-500 hover:text-slate-300"
+                : "border-transparent text-brand-ink-muted hover:text-brand-ink-subtle"
             )}
           >
             {tab}
@@ -478,14 +503,14 @@ export default function SettingsPage() {
         <div className="space-y-6">
           {/* Avatar + color selector */}
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
-            <h2 className="text-base font-semibold text-slate-100 mb-4">Avatar</h2>
+            <h2 className="text-base font-semibold text-brand-ink mb-4">Avatar</h2>
             <div className="flex items-center gap-5">
               <div className="relative">
                 <Avatar
                   initials={user.avatar_initials}
                   color={form.avatar_color || user.avatar_color}
                   size="xl"
-                  imageUrl={form.avatar_url || undefined}
+                  imageUrl={form.avatar_url ? `/api/public/avatar/${user.id}?v=${avatarVersion}` : undefined}
                 />
                 <label className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-brand-primary border-2 border-brand-surface flex items-center justify-center cursor-pointer hover:bg-brand-primary-hover transition-colors">
                   <Camera className="w-3.5 h-3.5 text-white" />
@@ -501,14 +526,14 @@ export default function SettingsPage() {
                 </label>
               </div>
               <div>
-                <p className="text-sm text-slate-300 mb-1">
+                <p className="text-sm text-brand-ink-subtle mb-1">
                   {uploadingAvatar ? "Uploading photo..." : form.avatar_url ? "Photo uploaded" : "Upload a photo or choose a color"}
                 </p>
                 {form.avatar_url && (
                   <button
                     type="button"
                     onClick={() => void handleAvatarRemoved()}
-                    className="text-xs text-red-400 hover:text-red-300 mb-2 block"
+                    className="text-xs text-red-600 hover:text-red-700 mb-2 block"
                     disabled={uploadingAvatar}
                   >
                     Remove photo
@@ -538,7 +563,7 @@ export default function SettingsPage() {
 
           {/* Profile fields */}
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-6 space-y-4">
-            <h2 className="text-base font-semibold text-slate-100">Profile</h2>
+            <h2 className="text-base font-semibold text-brand-ink">Profile</h2>
 
             <Input
               label="Full Name"
@@ -549,21 +574,21 @@ export default function SettingsPage() {
             />
 
             <div>
-              <label className="text-sm font-medium text-slate-300 mb-1.5 block">Username</label>
+              <label className="text-sm font-medium text-brand-ink-subtle mb-1.5 block">Username</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm pointer-events-none">@</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink-muted text-sm pointer-events-none">@</span>
                 <input
                   type="text"
                   value={form.username}
                   onChange={(e) => update("username", e.target.value.replace(/\s+/g, "").toLowerCase())}
-                  className="w-full h-10 pl-7 pr-3 rounded-xl border border-brand-border bg-brand-elevated text-sm text-slate-100 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                  className="w-full h-10 pl-7 pr-3 rounded-xl border border-brand-border bg-brand-elevated text-sm text-brand-ink focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
                 />
               </div>
             </div>
 
             {/* Email — read-only in mock */}
             <div>
-              <label className="text-sm font-medium text-slate-300 mb-1.5 flex items-center gap-2 block">
+              <label className="text-sm font-medium text-brand-ink-subtle mb-1.5 flex items-center gap-2 block">
                 <Mail className="w-4 h-4" />
                 Email
                 <Badge variant="default" className="text-[10px] ml-1">Read-only</Badge>
@@ -572,7 +597,7 @@ export default function SettingsPage() {
                 type="email"
                 value={user.email}
                 disabled
-                className="w-full h-10 px-3 rounded-xl border border-brand-border bg-brand-elevated/50 text-sm text-slate-500 cursor-not-allowed"
+                className="w-full h-10 px-3 rounded-xl border border-brand-border bg-brand-elevated/50 text-sm text-brand-ink-muted cursor-not-allowed"
               />
             </div>
           </div>
@@ -581,25 +606,25 @@ export default function SettingsPage() {
           {isCreator && (
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-slate-100">Creator Profile</h2>
+                <h2 className="text-base font-semibold text-brand-ink">Creator Profile</h2>
                 <Badge variant="gold">Creator</Badge>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-slate-300 mb-1.5 block">
+                <label className="text-sm font-medium text-brand-ink-subtle mb-1.5 block">
                   Bio
-                  <span className="float-right text-xs font-normal text-slate-500">{(form.bio ?? "").length}/280</span>
+                  <span className="float-right text-xs font-normal text-brand-ink-muted">{(form.bio ?? "").length}/280</span>
                 </label>
                 <textarea
                   value={form.bio}
                   onChange={(e) => update("bio", e.target.value.slice(0, 280))}
                   rows={3}
-                  className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                  className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-muted resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
                 />
               </div>
 
               <div>
-                <label className="text-sm font-medium text-slate-300 mb-2 block">Category</label>
+                <label className="text-sm font-medium text-brand-ink-subtle mb-2 block">Category</label>
                 <div className="grid grid-cols-2 gap-2">
                   {CREATOR_CATEGORIES.map((cat) => (
                     <button
@@ -610,7 +635,7 @@ export default function SettingsPage() {
                         "px-3 py-2 rounded-xl border text-xs font-medium text-left transition-all",
                         form.category === cat
                           ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
-                          : "bg-brand-elevated border-brand-border text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
+                          : "bg-brand-elevated border-brand-border text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
                       )}
                     >
                       {cat}
@@ -687,7 +712,7 @@ export default function SettingsPage() {
               <Shield className="w-4 h-4 text-red-400" />
               <h2 className="text-sm font-semibold text-red-400">Danger Zone</h2>
             </div>
-            <p className="text-xs text-slate-500 mb-4">
+            <p className="text-xs text-brand-ink-muted mb-4">
               Deleting your account clears all local data and signs you out. This cannot be undone.
             </p>
             <Button
@@ -708,7 +733,7 @@ export default function SettingsPage() {
         <div className="space-y-6">
           {/* Payment method */}
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
-            <h2 className="text-base font-semibold text-slate-100 mb-4">Payment Method</h2>
+            <h2 className="text-base font-semibold text-brand-ink mb-4">Payment Method</h2>
 
             {/* Saved payment methods */}
             {billingError && (
@@ -726,10 +751,10 @@ export default function SettingsPage() {
                   >
                     <CreditCard className="w-5 h-5 text-brand-primary-light shrink-0" />
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-slate-100 capitalize">
+                      <p className="text-sm font-semibold text-brand-ink capitalize">
                         {paymentMethod.brand} ending in {paymentMethod.last4}
                       </p>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-brand-ink-subtle">
                         Expires {String(paymentMethod.expMonth).padStart(2, "0")}/{paymentMethod.expYear}
                       </p>
                     </div>
@@ -738,7 +763,7 @@ export default function SettingsPage() {
                       <button
                         onClick={() => handleRemoveCard(paymentMethod.id)}
                         disabled={removingPaymentMethodId === paymentMethod.id}
-                        className="ml-2 text-slate-500 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-500/10 disabled:opacity-50"
+                        className="ml-2 text-brand-ink-muted hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-500/10 disabled:opacity-50"
                         title="Remove card"
                       >
                         {removingPaymentMethodId === paymentMethod.id ? (
@@ -755,8 +780,8 @@ export default function SettingsPage() {
 
             {savedPaymentMethods.length === 0 && !showAddCard && (
               <div className="flex items-center gap-3 p-4 rounded-xl bg-brand-elevated border border-brand-border mb-4">
-                <CreditCard className="w-5 h-5 text-slate-400" />
-                <span className="text-sm text-slate-400 flex-1">
+                <CreditCard className="w-5 h-5 text-brand-ink-subtle" />
+                <span className="text-sm text-brand-ink-subtle flex-1">
                   {loadingPaymentMethods ? "Loading payment methods..." : "No payment method on file"}
                 </span>
               </div>
@@ -798,20 +823,20 @@ export default function SettingsPage() {
           {isCreator && (
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-slate-100">Earnings Summary</h2>
-                {loadingFinancials && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+                <h2 className="text-base font-semibold text-brand-ink">Earnings Summary</h2>
+                {loadingFinancials && <Loader2 className="w-4 h-4 animate-spin text-brand-ink-subtle" />}
               </div>
               
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
                 {[
                   { label: "Available to Withdraw", value: formatCurrency(earnings.available), accent: "text-gradient-gold" },
                   { label: "Pending Payout", value: formatCurrency(earnings.pending), accent: "text-brand-live" },
-                  { label: "This Month", value: formatCurrency(earnings.thisMonth), accent: "text-slate-100" },
+                  { label: "This Month", value: formatCurrency(earnings.thisMonth), accent: "text-brand-ink" },
                   { label: "Total Earned", value: formatCurrency(earnings.totalEarned), accent: "text-brand-primary-light" },
                 ].map((s) => (
                   <div key={s.label} className="p-4 rounded-xl bg-brand-elevated border border-brand-border">
                     <p className={cn("text-xl font-black", s.accent)}>{s.value}</p>
-                    <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-wider font-semibold">{s.label}</p>
+                    <p className="text-[11px] text-brand-ink-muted mt-1 uppercase tracking-wider font-semibold">{s.label}</p>
                   </div>
                 ))}
               </div>
@@ -822,8 +847,8 @@ export default function SettingsPage() {
                     <DollarSign className="w-4 h-4 text-brand-primary-light" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-200">Withdraw Funds</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Transfer your available balance to your connected account</p>
+                    <h3 className="text-sm font-semibold text-brand-ink">Withdraw Funds</h3>
+                    <p className="text-xs text-brand-ink-muted mt-0.5">Transfer your available balance to your connected account</p>
                   </div>
                 </div>
                 <Button 
@@ -841,27 +866,27 @@ export default function SettingsPage() {
           {/* Payout history */}
           {isCreator && (
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
-              <h2 className="text-base font-semibold text-slate-100 mb-4">Payout History</h2>
+              <h2 className="text-base font-semibold text-brand-ink mb-4">Payout History</h2>
               
               {loadingFinancials ? (
                 <div className="text-center py-6">
-                  <Loader2 className="w-6 h-6 animate-spin text-slate-500 mx-auto" />
+                  <Loader2 className="w-6 h-6 animate-spin text-brand-ink-muted mx-auto" />
                 </div>
               ) : payouts.length > 0 ? (
                 <div className="space-y-3">
                   {payouts.map((p) => (
                     <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-brand-elevated border border-brand-border">
                       <div className="flex items-center gap-3">
-                        <CreditCard className="w-4 h-4 text-slate-400" />
+                        <CreditCard className="w-4 h-4 text-brand-ink-subtle" />
                         <div>
-                          <p className="text-sm font-semibold text-slate-200">Withdrawal to Stripe</p>
-                          <p className="text-[10px] text-slate-500">
+                          <p className="text-sm font-semibold text-brand-ink">Withdrawal to Stripe</p>
+                          <p className="text-[10px] text-brand-ink-muted">
                             {new Date(p.created_at).toLocaleDateString()} at {new Date(p.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-bold text-slate-100">{formatCurrency(p.amount)}</p>
+                        <p className="text-sm font-bold text-brand-ink">{formatCurrency(p.amount)}</p>
                         <Badge variant={p.status === "completed" ? "live" : p.status === "failed" ? "danger" : "default"} className="text-[10px] mt-1 capitalize">
                           {p.status}
                         </Badge>
@@ -871,9 +896,9 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <DollarSign className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-                  <p className="text-slate-500 text-sm">No payouts yet.</p>
-                  <p className="text-slate-600 text-xs mt-1">
+                  <DollarSign className="w-8 h-8 text-brand-ink-muted mx-auto mb-3" />
+                  <p className="text-brand-ink-muted text-sm">No payouts yet.</p>
+                  <p className="text-brand-ink-muted text-xs mt-1">
                     When you withdraw your earnings, they will appear here.
                   </p>
                 </div>

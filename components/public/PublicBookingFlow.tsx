@@ -87,11 +87,34 @@ const STRIPE_OPTIONS = {
     theme: "night" as const,
     variables: {
       colorPrimary: "#7C3AED",
-      colorBackground: "#1A1535",
+      colorBackground: "#1e1b3a",
       colorText: "#f1f5f9",
+      colorTextSecondary: "#c4b5fd",
+      colorTextPlaceholder: "#7c6fa0",
       colorDanger: "#f87171",
       fontFamily: "inherit",
       borderRadius: "12px",
+    },
+    rules: {
+      ".Label": {
+        color: "#c4b5fd",
+        fontWeight: "500",
+      },
+      ".Input": {
+        borderColor: "rgba(124,92,231,0.35)",
+        color: "#f1f5f9",
+      },
+      ".Input--focused": {
+        borderColor: "#7C3AED",
+        boxShadow: "0 0 0 2px rgba(124,92,231,0.2)",
+      },
+      ".Input--invalid": {
+        borderColor: "#f87171",
+        color: "#fca5a5",
+      },
+      ".Error": {
+        color: "#fca5a5",
+      },
     },
   },
 };
@@ -588,7 +611,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
   if (loadError || !creator) {
     return (
-      <div className="rounded-3xl border border-red-500/20 bg-red-500/10 px-6 py-8 text-center text-red-200">
+      <div className="rounded-3xl border border-red-300/40 bg-red-50 px-6 py-8 text-center text-red-700">
         {loadError || "Could not load this booking page."}
       </div>
     );
@@ -610,10 +633,10 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-primary-light">
                   Shareable Booking Link
                 </p>
-                <h1 className="mt-2 text-3xl font-black text-slate-100">{creator.name}</h1>
-                <p className="mt-1 text-sm text-slate-400">{creator.category}</p>
+                <h1 className="mt-2 text-3xl font-black font-display text-brand-ink">{creator.name}</h1>
+                <p className="mt-1 text-sm text-brand-ink-subtle">{creator.category}</p>
                 {creator.bio && (
-                  <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-300">
+                  <p className="mt-4 max-w-2xl text-sm leading-relaxed text-brand-ink-subtle">
                     {creator.bio}
                   </p>
                 )}
@@ -623,8 +646,8 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
           <div className="rounded-3xl border border-brand-border bg-brand-surface p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-100">Choose your session</h2>
-              <span className="text-xs text-slate-500">
+              <h2 className="text-lg font-bold text-brand-ink">Choose your session</h2>
+              <span className="text-xs text-brand-ink-muted">
                 Step {step === "success" ? "Done" : step === "payment" ? "4" : step === "identity" ? "3" : "2"} of 4
               </span>
             </div>
@@ -648,11 +671,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-bold text-slate-100">{pkg.name}</p>
-                        <p className="mt-1 text-sm text-slate-400">{pkg.description}</p>
-                        <p className="mt-2 text-xs text-slate-500">{pkg.duration} min</p>
+                        <p className="font-bold text-brand-ink">{pkg.name}</p>
+                        <p className="mt-1 text-sm text-brand-ink-subtle">{pkg.description}</p>
+                        <p className="mt-2 text-xs text-brand-ink-muted">{pkg.duration} min</p>
                       </div>
-                      <p className="text-lg font-black text-gradient-gold">{formatCurrency(pkg.price)}</p>
+                      <p className="text-lg font-black text-amber-600 font-bold">{formatCurrency(pkg.price)}</p>
                     </div>
                   </button>
                 ))}
@@ -663,10 +686,10 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
               <div className="mt-6 rounded-2xl border border-brand-border bg-brand-elevated p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-slate-100">{selectedPackage.name}</p>
-                    <p className="text-xs text-slate-500">{selectedPackage.duration} min</p>
+                    <p className="text-sm font-semibold text-brand-ink">{selectedPackage.name}</p>
+                    <p className="text-xs text-brand-ink-muted">{selectedPackage.duration} min</p>
                   </div>
-                  <p className="text-base font-bold text-slate-100">{formatCurrency(selectedPackage.price)}</p>
+                  <p className="text-base font-bold text-brand-ink">{formatCurrency(selectedPackage.price)}</p>
                 </div>
               </div>
             )}
@@ -674,11 +697,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
             {(step === "select" || step === "details" || step === "identity" || step === "payment") && (
               <div className="mt-6 space-y-5">
                 <div>
-                  <p className="mb-2 text-xs text-slate-500">
+                  <p className="mb-2 text-xs text-brand-ink-muted">
                     Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}).
                   </p>
                   <div className="mb-3 flex items-center justify-between">
-                    <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                    <label className="flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
                       <Calendar className="w-4 h-4 text-brand-primary-light" />
                       Select Date
                     </label>
@@ -686,14 +709,14 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                       <button
                         onClick={() => setWeekOffset((value) => Math.max(0, value - 1))}
                         disabled={weekOffset === 0}
-                        className="rounded-md border border-brand-border bg-brand-elevated p-1 text-slate-400 transition-colors hover:text-slate-100 disabled:opacity-30"
+                        className="rounded-md border border-brand-border bg-brand-elevated p-1 text-brand-ink-subtle transition-colors hover:text-brand-ink disabled:opacity-30"
                       >
                         <ChevronLeft className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setWeekOffset((value) => Math.min(3, value + 1))}
                         disabled={weekOffset >= 3}
-                        className="rounded-md border border-brand-border bg-brand-elevated p-1 text-slate-400 transition-colors hover:text-slate-100 disabled:opacity-30"
+                        className="rounded-md border border-brand-border bg-brand-elevated p-1 text-brand-ink-subtle transition-colors hover:text-brand-ink disabled:opacity-30"
                       >
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
@@ -715,10 +738,10 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                           className={cn(
                             "flex flex-col items-center rounded-xl border p-2 text-xs font-medium transition-all",
                             isSelected
-                              ? "border-brand-primary bg-brand-primary/20 text-brand-primary-light"
+                              ? "border-brand-primary bg-brand-primary/20 text-brand-primary-light ring-1 ring-brand-primary/30"
                               : hasTimes
-                              ? "border-brand-border bg-brand-elevated text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
-                              : "cursor-not-allowed border-brand-border bg-brand-elevated text-slate-600 opacity-50"
+                              ? "border-brand-primary/40 bg-white text-brand-ink font-semibold shadow-sm hover:border-brand-primary hover:bg-brand-primary/5"
+                              : "cursor-not-allowed border-brand-border/40 bg-brand-elevated/40 text-brand-ink-muted opacity-35"
                           )}
                         >
                           <span className="text-[10px] uppercase opacity-70">
@@ -733,12 +756,12 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
                 {selectedDate && (
                   <div>
-                    <label className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-300">
+                    <label className="mb-3 flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
                       <Clock className="w-4 h-4 text-brand-primary-light" />
                       Select Time
                     </label>
                     {availableTimeSlots.length === 0 ? (
-                      <p className="rounded-xl border border-brand-border bg-brand-elevated px-4 py-3 text-sm text-slate-500">
+                      <p className="rounded-xl border border-brand-border bg-brand-elevated px-4 py-3 text-sm text-brand-ink-muted">
                         No times available on that date.
                       </p>
                     ) : (
@@ -751,7 +774,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                               "rounded-xl border px-3 py-2 text-xs font-medium transition-all",
                               selectedTime === slot
                                 ? "border-brand-primary bg-brand-primary/20 text-brand-primary-light"
-                                : "border-brand-border bg-brand-elevated text-slate-400 hover:border-brand-primary/40 hover:text-slate-200"
+                                : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
                             )}
                           >
                             {slot}
@@ -765,7 +788,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                 {selectedDate && selectedTime && (
                   <div className="space-y-4">
                     <div>
-                      <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-300">
+                      <label className="mb-2 flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
                         <MessageSquare className="w-4 h-4 text-brand-primary-light" />
                         What do you want to cover?
                       </label>
@@ -774,7 +797,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                         onChange={(event) => setTopic(event.target.value)}
                         rows={3}
                         placeholder={`Let ${creator.name.split(" ")[0]} know what you'd like to talk about.`}
-                        className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                        className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-muted focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                       />
                     </div>
 
@@ -787,60 +810,60 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
         <aside className="space-y-5">
           <div className="rounded-3xl border border-brand-border bg-brand-surface p-6">
-            <h2 className="text-lg font-bold text-slate-100">Booking summary</h2>
+            <h2 className="text-lg font-bold text-brand-ink">Booking summary</h2>
             <div className="mt-4 space-y-3 text-sm">
               <div className="flex items-center gap-3 rounded-2xl border border-brand-border bg-brand-elevated p-3">
                 <Avatar initials={creator.avatarInitials} color={creator.avatarColor} imageUrl={creator.avatarUrl} size="sm" />
                 <div>
-                  <p className="font-semibold text-slate-100">{creator.name}</p>
-                  <p className="text-xs text-slate-500">{creator.category}</p>
+                  <p className="font-semibold text-brand-ink">{creator.name}</p>
+                  <p className="text-xs text-brand-ink-muted">{creator.category}</p>
                 </div>
               </div>
               <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Session</span>
-                  <span className="font-medium text-slate-200">{selectedPackage?.name ?? "Choose a package"}</span>
+                  <span className="text-brand-ink-muted">Session</span>
+                  <span className="font-medium text-brand-ink">{selectedPackage?.name ?? "Choose a package"}</span>
                 </div>
                 <div className="mt-2 flex justify-between">
-                  <span className="text-slate-500">When</span>
-                  <span className="font-medium text-slate-200">
+                  <span className="text-brand-ink-muted">When</span>
+                  <span className="font-medium text-brand-ink">
                     {selectedDate && selectedTime ? `${formatShortDate(selectedDate)} at ${selectedTime}` : "Select a date and time"}
                   </span>
                 </div>
                 <div className="mt-2 flex justify-between">
-                  <span className="text-slate-500">Duration</span>
-                  <span className="font-medium text-slate-200">{selectedPackage ? `${selectedPackage.duration} min` : "—"}</span>
+                  <span className="text-brand-ink-muted">Duration</span>
+                  <span className="font-medium text-brand-ink">{selectedPackage ? `${selectedPackage.duration} min` : "—"}</span>
                 </div>
               </div>
 
               {selectedPackage && (
                 <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Session fee</span>
-                    <span className="text-slate-200">{formatCurrency(sessionPrice)}</span>
+                    <span className="text-brand-ink-subtle">Session fee</span>
+                    <span className="text-brand-ink">{formatCurrency(sessionPrice)}</span>
                   </div>
                   <div className="mt-2 flex justify-between text-sm">
-                    <span className="text-slate-400">Platform fee (2.5%)</span>
-                    <span className="text-slate-200">{formatCurrency(platformFeeAmount)}</span>
+                    <span className="text-brand-ink-subtle">Platform fee (2.5%)</span>
+                    <span className="text-brand-ink">{formatCurrency(platformFeeAmount)}</span>
                   </div>
                   <div className="mt-3 flex justify-between border-t border-brand-border pt-3 text-base font-bold">
-                    <span className="text-slate-100">Total</span>
-                    <span className="text-gradient-gold">{formatCurrency(sessionGrossPrice)}</span>
+                    <span className="text-brand-ink">Total</span>
+                    <span className="text-amber-600 font-bold">{formatCurrency(sessionGrossPrice)}</span>
                   </div>
                 </div>
               )}
 
-              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200">
+              <div className="rounded-2xl border border-amber-300/40 bg-amber-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-800">
                   Refund policy
                 </p>
-                <p className="mt-2 text-sm text-amber-100">
+                <p className="mt-2 text-sm text-amber-900">
                   Fans get a full refund when they cancel more than 24 hours before the call and a 50% refund within 24 hours.
                 </p>
-                <p className="mt-2 text-sm text-amber-100">
+                <p className="mt-2 text-sm text-amber-900">
                   If the creator does not join within 10 minutes, the fan gets a full refund. If the creator is waiting and the fan does not join within 10 minutes, the booking auto-cancels and the fan gets a 50% refund. A 10% late fee applies only when the creator is already waiting and the fan joins more than 5 minutes after the start time.
                 </p>
-                <p className="mt-2 text-sm text-amber-100">
+                <p className="mt-2 text-sm text-amber-900">
                   Guests can book without an account, but they must create or sign in to a Friendsly fan account before joining the call.
                 </p>
               </div>
@@ -858,7 +881,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                 Review and pay
               </Button>
               {!canReviewAndPay && (
-                <p className="mt-3 text-xs text-slate-500">
+                <p className="mt-3 text-xs text-brand-ink-muted">
                   Select a package, date, and time to continue.
                 </p>
               )}
@@ -867,7 +890,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
           {step === "identity" && (
             <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 space-y-4">
-              <h2 className="text-lg font-bold text-slate-100">Choose how to continue</h2>
+              <h2 className="text-lg font-bold text-brand-ink">Choose how to continue</h2>
               {user?.role === "fan" ? (
                 <Button variant="gold" className="w-full" onClick={() => setStep("payment")}>
                   Continue as {user.full_name}
@@ -931,14 +954,14 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
           {step === "payment" && (
             <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 space-y-4">
-              <h2 className="text-lg font-bold text-slate-100">Complete payment</h2>
+              <h2 className="text-lg font-bold text-brand-ink">Complete payment</h2>
               {paymentError && (
-                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                <div className="rounded-2xl border border-red-300/40 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {paymentError}
                 </div>
               )}
               {fetchingIntent ? (
-                <div className="flex items-center justify-center gap-3 py-8 text-slate-400">
+                <div className="flex items-center justify-center gap-3 py-8 text-brand-ink-subtle">
                   <Loader2 className="w-5 h-5 animate-spin" />
                   <span className="text-sm">Loading payment form...</span>
                 </div>
@@ -963,18 +986,18 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                   <CheckCircle2 className="w-6 h-6 text-brand-live" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-100">You&apos;re booked</h2>
-                  <p className="text-sm text-slate-300">{successMessage}</p>
+                  <h2 className="text-lg font-bold text-brand-ink">You&apos;re booked</h2>
+                  <p className="text-sm text-brand-ink-subtle">{successMessage}</p>
                 </div>
               </div>
 
               {successAccessUrl ? (
                 <div className="rounded-2xl border border-brand-border bg-brand-surface p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Private booking link</p>
-                  <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-3 text-sm text-amber-100">
+                  <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Private booking link</p>
+                  <div className="mt-3 rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-3 text-sm text-amber-900 font-medium">
                     Save this private booking link. You&apos;ll need it later to return and join your call.
                   </div>
-                  <p className="mt-2 break-all text-sm text-slate-200">
+                  <p className="mt-2 break-all text-sm text-brand-ink">
                     {clientOrigin && successAccessUrl ? `${clientOrigin}${successAccessUrl}` : successAccessUrl}
                   </p>
                   <div className="mt-4">

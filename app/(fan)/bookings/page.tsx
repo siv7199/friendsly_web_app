@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /**
  * Fan Bookings Page  (route: /bookings)
@@ -214,12 +214,12 @@ export default function BookingsPage() {
     <div className="px-4 md:px-8 py-6 max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-black text-slate-100">My Bookings</h1>
-        <p className="text-slate-400 mt-1">Manage your upcoming and past sessions.</p>
-        <p className="text-xs text-slate-500 mt-2">
+        <h1 className="text-3xl font-black font-display text-brand-ink">My Bookings</h1>
+        <p className="text-brand-ink-subtle mt-1">Manage your upcoming and past sessions.</p>
+        <p className="text-xs text-brand-ink-muted mt-2">
           Refund policy: cancel more than 24 hours before the call for a full refund. Cancel within 24 hours for a 50% refund.
         </p>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-brand-ink-muted mt-1">
           Auto-cancel after 10 minutes: if the creator still has not joined, you get a full refund. If the creator is waiting and you do not join within 10 minutes, the booking auto-cancels and you get a 50% refund. A 10% late fee applies only when the creator is already waiting and you join more than 5 minutes after the start time.
         </p>
       </div>
@@ -234,7 +234,7 @@ export default function BookingsPage() {
               "flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
               activeTab === tab.key
                 ? "bg-brand-primary/20 text-brand-primary-light border border-brand-primary/20"
-                : "text-slate-400 hover:text-slate-200 border border-transparent"
+                : "text-brand-ink-subtle hover:text-brand-ink border border-transparent"
             )}
           >
             {tab.label}
@@ -243,7 +243,7 @@ export default function BookingsPage() {
                 "ml-2 text-xs px-1.5 py-0.5 rounded-full",
                 activeTab === tab.key
                   ? "bg-brand-primary/30 text-brand-primary-light"
-                  : "bg-brand-elevated text-slate-500"
+                  : "bg-brand-elevated text-brand-ink-muted"
               )}>
                 {tab.count}
               </span>
@@ -256,11 +256,11 @@ export default function BookingsPage() {
         <div className="rounded-2xl border border-brand-live/30 bg-brand-live/10 p-4 flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-live">Ready To Join</p>
-            <p className="mt-1 text-sm text-slate-100">
+            <p className="mt-1 text-sm text-brand-ink">
               Your booking with {nextJoinableBooking.creatorName} is ready now.
             </p>
-            <p className="mt-1 text-xs text-slate-400">
-              {new Date(nextJoinableBooking.scheduledAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} · {nextJoinableBooking.duration} min
+            <p className="mt-1 text-xs text-brand-ink-subtle">
+              {new Date(nextJoinableBooking.scheduledAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} Â· {nextJoinableBooking.duration} min
             </p>
           </div>
           <Link href={`/room/${nextJoinableBooking.id}`}>
@@ -277,9 +277,9 @@ export default function BookingsPage() {
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-12 text-center">
           {activeTab === "upcoming" ? (
             <>
-              <CalendarDays className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <p className="text-lg font-semibold text-slate-300">No upcoming bookings</p>
-              <p className="text-sm text-slate-500 mt-1 mb-6">
+              <CalendarDays className="w-12 h-12 text-brand-ink-muted mx-auto mb-4" />
+              <p className="text-lg font-semibold text-brand-ink-muted">No upcoming bookings</p>
+              <p className="text-sm text-brand-ink-muted mt-1 mb-6">
                 Find a creator and book your first 1-on-1 call!
               </p>
               <Link href="/discover">
@@ -291,11 +291,11 @@ export default function BookingsPage() {
             </>
           ) : (
             <>
-              <Video className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <p className="text-lg font-semibold text-slate-300">
+              <Video className="w-12 h-12 text-brand-ink-muted mx-auto mb-4" />
+              <p className="text-lg font-semibold text-brand-ink-muted">
                 No {activeTab} bookings
               </p>
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="text-sm text-brand-ink-muted mt-1">
                 {activeTab === "completed"
                   ? "Your completed sessions will appear here."
                   : "Cancelled sessions will appear here."}
@@ -340,11 +340,11 @@ export default function BookingsPage() {
                       <div>
                         <Link
                           href={`/profile/${booking.creatorId}`}
-                          className="font-bold text-slate-100 hover:text-brand-primary-light transition-colors"
+                          className="font-bold text-brand-ink hover:text-brand-primary-light transition-colors"
                         >
                           {booking.creatorName}
                         </Link>
-                        <p className="text-sm text-slate-500">@{booking.creatorUsername}</p>
+                        <p className="text-sm text-brand-ink-muted">@{booking.creatorUsername}</p>
                       </div>
                       <Badge
                         variant={
@@ -361,34 +361,34 @@ export default function BookingsPage() {
                       >
                         {booking.status === "upcoming" && "Upcoming"}
                         {booking.status === "live" && "Live Now"}
-                        {booking.status === "completed" && "✓ Completed"}
+                        {booking.status === "completed" && "âœ“ Completed"}
                         {booking.status === "cancelled" && "Cancelled"}
                       </Badge>
                     </div>
 
                     {/* Details */}
-                    <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-slate-400">
+                    <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-brand-ink-subtle">
                       <span className="flex items-center gap-1">
                         <CalendarDays className="w-3.5 h-3.5" />
                         {dateStr}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
-                        {timeStr} · {booking.duration} min
+                        {timeStr} Â· {booking.duration} min
                       </span>
-                      <span className="font-semibold text-slate-200">
+                      <span className="font-semibold text-brand-ink">
                         {formatCurrency(booking.price)}
                       </span>
                     </div>
 
                     {booking.packageName && (
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-brand-ink-muted mt-1">
                         Package: {booking.packageName}
                       </p>
                     )}
 
                     {booking.topic && (
-                      <div className="mt-2 flex items-start gap-1.5 text-sm text-slate-400">
+                      <div className="mt-2 flex items-start gap-1.5 text-sm text-brand-ink-subtle">
                         <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                         <span className="line-clamp-1">{booking.topic}</span>
                       </div>
@@ -409,10 +409,10 @@ export default function BookingsPage() {
                               <XCircle className="w-3.5 h-3.5" />
                               {cancellingId === booking.id ? "Cancelling..." : "Cancel"}
                             </Button>
-                            <p className="text-[11px] text-slate-500">
+                            <p className="text-[11px] text-brand-ink-muted">
                               Full refund until 24h before. 50% refund after that.
                             </p>
-                            <p className="text-[11px] text-slate-500">
+                            <p className="text-[11px] text-brand-ink-muted">
                               Auto-cancel after 10 minutes if the creator still has not joined. If the creator is waiting and you do not join within 10 minutes, the booking auto-cancels and you get a 50% refund. Late fee applies only if the creator is waiting and you join more than 5 minutes after start.
                             </p>
                           </div>

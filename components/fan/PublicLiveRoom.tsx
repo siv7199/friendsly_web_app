@@ -253,27 +253,62 @@ function LiveStage({
   return (
     <div className="rounded-[28px] border border-brand-border bg-brand-surface p-4 md:p-5 h-full min-h-0 flex flex-col gap-4 overflow-hidden">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="live">
               <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
               LIVE
             </Badge>
-            <span className="text-sm font-semibold text-slate-100">{creatorName}</span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-brand-border bg-brand-elevated px-2.5 py-1 text-xs text-slate-300">
+            <span className="text-sm font-semibold text-brand-ink">{creatorName}</span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-brand-border bg-brand-elevated px-2.5 py-1 text-xs text-brand-ink-subtle">
               <Users className="w-3.5 h-3.5" />
               {audienceCount} in live
             </span>
           </div>
-          <p className="mt-1 text-sm text-slate-400">{stageLabel}</p>
+          <p className="mt-1 text-sm text-brand-ink-subtle">{stageLabel}</p>
         </div>
 
-        {isAdmitted ? (
-          <div className="text-right">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-brand-live">On Stage</p>
-            <p className="text-2xl font-black text-brand-live">{Math.max(0, secondsRemaining)}s</p>
-          </div>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {isAdmitted ? (
+            <>
+              <button
+                onClick={async () => {
+                  const next = !micOn;
+                  setMicOn(next);
+                  await enableStageMedia({ audio: next, video: camOn });
+                }}
+                className={cn(
+                  "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
+                  micOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light" : "border-red-500/40 bg-red-500/20 text-red-400"
+                )}
+              >
+                {micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={async () => {
+                  const next = !camOn;
+                  setCamOn(next);
+                  await enableStageMedia({ audio: micOn, video: next });
+                }}
+                className={cn(
+                  "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
+                  camOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light" : "border-red-500/40 bg-red-500/20 text-red-400"
+                )}
+              >
+                {camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+              </button>
+              <div className="text-right pl-1">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-brand-live">On Stage</p>
+                <p className="text-xl font-black text-brand-live tabular-nums">{Math.max(0, secondsRemaining)}s</p>
+              </div>
+            </>
+          ) : (
+            <Button variant="live" className="gap-2 shrink-0" onClick={onJoinQueue} disabled={joinDisabled}>
+              <Zap className="w-4 h-4" />
+              Join Live
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className={cn(
@@ -289,7 +324,7 @@ function LiveStage({
           ) : (
             <div className="h-full w-full flex flex-col items-center justify-center gap-4 bg-[radial-gradient(circle_at_top,#1d4ed833,transparent_55%)]">
               <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="xl" />
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-brand-ink-subtle">
                 {creatorSessionId ? `${creatorName}'s camera is off` : `Connecting to ${creatorName}'s live video...`}
               </p>
             </div>
@@ -307,7 +342,7 @@ function LiveStage({
                   <DailyVideo sessionId={localSessionId} type="video" mirror className="h-full w-full object-cover" />
                   <style dangerouslySetInnerHTML={dailyVideoFillStyles} />
                 </div>
-                <div className="absolute left-4 top-4 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] text-slate-300">
+                <div className="absolute left-4 top-4 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] text-white/80">
                   You
                 </div>
                 <div className="absolute left-4 bottom-4 rounded-xl bg-black/45 px-3 py-1.5 text-sm font-semibold text-white">
@@ -317,7 +352,7 @@ function LiveStage({
             ) : (
               <div className="h-full w-full bg-[radial-gradient(circle_at_top,#1d4ed833,transparent_55%)] flex flex-col items-center justify-center gap-4 text-center">
                 <Avatar initials={viewerInitials} color={viewerColor} imageUrl={viewerAvatarUrl} size="xl" />
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-brand-ink-subtle">
                   {camOn ? "Camera unavailable or already in use" : "Your camera is off"}
                 </p>
               </div>
@@ -339,14 +374,14 @@ function LiveStage({
                     imageUrl={activeFan?.avatarUrl}
                     size="xl"
                   />
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-brand-ink-subtle">
                     {activeFanSessionId
                       ? `${activeFan?.fanName ?? "Fan"} is on stage, but their camera is off or unavailable.`
                       : `Connecting ${activeFan?.fanName ?? "fan"} to the stage...`}
                   </p>
                 </div>
               )}
-              <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] text-slate-300">
+              <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] text-white/80">
                 Current Fan
               </div>
               <div className="absolute left-3 bottom-3 rounded-lg bg-black/45 px-2 py-1 text-xs font-semibold text-white">
@@ -357,96 +392,6 @@ function LiveStage({
         ) : null}
       </div>
 
-      <div className="flex items-end justify-between gap-4 rounded-[24px] border border-brand-border bg-brand-elevated p-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Queue</p>
-          <p className="mt-1 text-[11px] text-slate-400">
-            {queueCount > 0 ? "Compact queue strip" : "Be the first fan in line and join the live."}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {queueCount > 0 ? (
-              (queuePreview?.length
-                ? queuePreview
-                : Array.from({ length: queueCount }).map((_, index): QueuePreviewEntry => ({
-                    id: `placeholder-${index}`,
-                    fanName: index === 0 ? "Up next" : `Waiting ${index + 1}`,
-                  }))
-              ).slice(0, 5).map((entry, index) => (
-                <div
-                  key={entry.id}
-                  className={cn(
-                    "flex items-center gap-2 rounded-[14px] border px-2.5 py-1.5",
-                    index === 0 ? "border-brand-live/30 bg-brand-live/10" : "border-brand-border bg-brand-surface"
-                  )}
-                >
-                  {entry.avatarInitials ? (
-                    <Avatar
-                      initials={entry.avatarInitials}
-                      color={entry.avatarColor ?? "bg-brand-primary"}
-                      imageUrl={entry.avatarUrl}
-                      size="xs"
-                    />
-                  ) : (
-                    <div className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black",
-                      index === 0 ? "bg-brand-live/20 text-brand-live" : "bg-brand-elevated text-slate-300"
-                    )}>
-                      {index + 1}
-                    </div>
-                  )}
-                  <span className="text-xs font-semibold text-slate-100">{index === 0 ? "Up next" : entry.fanName}</span>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-[14px] border border-brand-border bg-brand-surface px-3 py-2 text-xs text-slate-500">
-                Be first in queue
-              </div>
-            )}
-            {queueCount > 5 ? (
-              <div className="rounded-[14px] border border-brand-border bg-brand-surface px-2.5 py-1.5 text-xs font-semibold text-slate-300">
-                +{queueCount - 5} more
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2">
-          {isAdmitted ? (
-            <>
-              <button
-                onClick={async () => {
-                  const next = !micOn;
-                  setMicOn(next);
-                  await enableStageMedia({ audio: next, video: camOn });
-                }}
-                className={cn(
-                  "w-11 h-11 rounded-full border flex items-center justify-center transition-colors",
-                  micOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light" : "border-red-500/40 bg-red-500/20 text-red-400"
-                )}
-              >
-                {micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={async () => {
-                  const next = !camOn;
-                  setCamOn(next);
-                  await enableStageMedia({ audio: micOn, video: next });
-                }}
-                className={cn(
-                  "w-11 h-11 rounded-full border flex items-center justify-center transition-colors",
-                  camOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light" : "border-red-500/40 bg-red-500/20 text-red-400"
-                )}
-              >
-                {camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-              </button>
-            </>
-          ) : null}
-          <Button variant="live" className="gap-2 shrink-0" onClick={onJoinQueue} disabled={joinDisabled}>
-            <Zap className="w-4 h-4" />
-            {isAdmitted ? "On Stage" : "Join Live"}
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

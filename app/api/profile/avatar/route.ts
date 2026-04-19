@@ -15,23 +15,31 @@ function extractStoragePathFromUrl(url: string | null | undefined) {
 
 async function ensureAvatarBucket() {
   const serviceSupabase = createServiceClient();
-  const { data: buckets } = await serviceSupabase.storage.listBuckets();
-  const exists = buckets?.some((bucket) => bucket.name === AVATAR_BUCKET);
+  const { data: buckets, error: listError } = await serviceSupabase.storage.listBuckets();
 
-  if (!exists) {
-    await serviceSupabase.storage.createBucket(AVATAR_BUCKET, {
-      public: true,
-      fileSizeLimit: 10 * 1024 * 1024,
-      allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"],
-    });
-    return;
+  if (listError) {
+    console.error("[avatar] listBuckets failed:", listError.message);
   }
 
-  await serviceSupabase.storage.updateBucket(AVATAR_BUCKET, {
+  const exists = buckets?.some((bucket) => bucket.name === AVATAR_BUCKET) ?? false;
+  const bucketConfig = {
     public: true,
     fileSizeLimit: 10 * 1024 * 1024,
-    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"],
-  });
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] as string[],
+  };
+
+  if (!exists) {
+    const { error } = await serviceSupabase.storage.createBucket(AVATAR_BUCKET, bucketConfig);
+    if (error && !error.message.includes("already exists")) {
+      console.error("[avatar] createBucket failed:", error.message);
+    }
+    // always attempt updateBucket regardless — createBucket may silently no-op on conflict
+  }
+
+  const { error: updateError } = await serviceSupabase.storage.updateBucket(AVATAR_BUCKET, bucketConfig);
+  if (updateError) {
+    console.error("[avatar] updateBucket failed:", updateError.message);
+  }
 }
 
 export async function POST(request: Request) {

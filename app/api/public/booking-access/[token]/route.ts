@@ -37,7 +37,7 @@ export async function GET(
           late_fee_paid_at,
           guest_name_snapshot,
           guest_email_snapshot,
-          creator:profiles!creator_id(full_name, username, avatar_initials, avatar_color, avatar_url)
+          creator:profiles!creator_id(id, full_name, username, avatar_initials, avatar_color, avatar_url)
         )
       `)
       .eq("token_hash", hashAccessToken(rawToken))
@@ -73,7 +73,14 @@ export async function GET(
         topic: booking.topic ?? null,
         guestName: booking.guest_name_snapshot ?? "Guest",
         guestEmail: booking.guest_email_snapshot ?? null,
-        creator: booking.creator ?? null,
+        creator: booking.creator
+          ? {
+              ...booking.creator,
+              avatar_url: booking.creator.avatar_url && booking.creator.id
+                ? `/api/public/avatar/${booking.creator.id}`
+                : null,
+            }
+          : null,
         joinOpensAt: window.joinOpensAt.toISOString(),
         endsAt: window.endsAt.toISOString(),
         canJoinNow: isBookingJoinable(booking.status, booking.scheduled_at, Number(booking.duration ?? 0)),
