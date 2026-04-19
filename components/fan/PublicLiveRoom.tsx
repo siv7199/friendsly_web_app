@@ -258,8 +258,8 @@ function LiveStage({
   const showRemoteGuestStage = Boolean(!isAdmitted && activeFan);
 
   return (
-    <div className="rounded-[28px] border border-brand-border bg-brand-surface p-4 md:p-5 h-full min-h-0 flex flex-col gap-4 overflow-hidden">
-      <div className="flex items-center justify-between gap-3">
+    <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 h-full min-h-0 flex flex-col gap-3 overflow-hidden">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="live">
@@ -272,45 +272,11 @@ function LiveStage({
               {audienceCount} in live
             </span>
           </div>
-          <p className="mt-1 text-sm text-brand-ink-subtle">{stageLabel}</p>
+          <p className="mt-1 text-xs md:text-sm text-brand-ink-subtle">{stageLabel}</p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          {isAdmitted ? (
-            <>
-              <button
-                onClick={async () => {
-                  const next = !micOn;
-                  setMicOn(next);
-                  await enableStageMedia({ audio: next, video: camOn });
-                }}
-                className={cn(
-                  "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
-                  micOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light" : "border-red-500/40 bg-red-500/20 text-red-400"
-                )}
-              >
-                {micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={async () => {
-                  const next = !camOn;
-                  setCamOn(next);
-                  await enableStageMedia({ audio: micOn, video: next });
-                }}
-                className={cn(
-                  "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
-                  camOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light" : "border-red-500/40 bg-red-500/20 text-red-400"
-                )}
-              >
-                {camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-              </button>
-              <div className="text-right pl-1">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-brand-live">On Stage</p>
-                <p className="text-xl font-black text-brand-live tabular-nums">{formatStageElapsed(stageElapsedSeconds)}</p>
-                <p className="text-[10px] text-brand-live/75">of {LIVE_STAGE_MAX_MINUTES}:00 max</p>
-              </div>
-            </>
-          ) : (
+        <div className="flex shrink-0 items-center gap-2 self-start md:self-auto">
+          {isAdmitted ? null : (
             <Button variant="live" className="gap-2 shrink-0" onClick={onJoinQueue} disabled={joinDisabled}>
               <Zap className="w-4 h-4" />
               Join Live
@@ -320,10 +286,15 @@ function LiveStage({
       </div>
 
       <div className={cn(
-        "grid flex-1 min-h-0 auto-rows-fr items-stretch gap-4 overflow-hidden",
-        isAdmitted || showRemoteGuestStage ? "md:grid-cols-2" : "grid-cols-1"
+        "grid flex-1 min-h-0 gap-4 overflow-hidden",
+        isAdmitted || showRemoteGuestStage
+          ? "grid-rows-[minmax(220px,33vh)_minmax(220px,33vh)] md:grid-rows-1 md:auto-rows-fr md:grid-cols-2"
+          : "grid-cols-1 auto-rows-fr"
       )}>
-        <div className="relative h-full min-h-[240px] md:min-h-0 rounded-[24px] overflow-hidden border border-brand-border bg-brand-elevated">
+        <div className={cn(
+          "relative h-full rounded-[24px] overflow-hidden border border-brand-border bg-brand-elevated",
+          isAdmitted || showRemoteGuestStage ? "min-h-[220px] md:min-h-0" : "min-h-[280px] md:min-h-0"
+        )}>
           {creatorSessionId && creatorVideoActive ? (
             <div className="daily-stage-video h-full w-full overflow-hidden">
               <DailyVideo sessionId={creatorSessionId} type="video" className="h-full w-full object-cover" />
@@ -337,24 +308,21 @@ function LiveStage({
               </p>
             </div>
           )}
-          <div className="absolute left-4 bottom-4 rounded-xl bg-black/45 px-3 py-1.5 text-sm font-semibold text-white">
-            {creatorName}
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
+          <div className="absolute left-4 bottom-4 rounded-xl bg-black/45 px-3 py-2 text-white max-w-[calc(100%-2rem)]">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Host</p>
+            <p className="text-sm font-semibold">{creatorName}</p>
           </div>
         </div>
 
         {isAdmitted ? (
-          <div className="relative h-full rounded-[24px] border border-brand-border bg-brand-elevated min-h-[240px] md:min-h-0 overflow-hidden">
+          <div className="relative h-full rounded-[24px] border border-brand-border bg-brand-elevated min-h-[220px] md:min-h-0 overflow-hidden">
             {localSessionId && camOn && localVideoActive ? (
               <div className="relative h-full w-full overflow-hidden bg-black/30">
                 <div className="daily-stage-video h-full w-full overflow-hidden">
                   <DailyVideo sessionId={localSessionId} type="video" mirror className="h-full w-full object-cover" />
                   <style dangerouslySetInnerHTML={dailyVideoFillStyles} />
-                </div>
-                <div className="absolute left-4 top-4 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] text-white/80">
-                  You
-                </div>
-                <div className="absolute left-4 bottom-4 rounded-xl bg-black/45 px-3 py-1.5 text-sm font-semibold text-white">
-                  On Stage
                 </div>
               </div>
             ) : (
@@ -365,9 +333,48 @@ function LiveStage({
                 </p>
               </div>
             )}
+            <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
+            <div className="absolute left-4 top-4 rounded-xl border border-brand-live/30 bg-black/25 px-3 py-2 text-white">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-brand-live">On Stage</p>
+              <p className="text-lg font-black tabular-nums text-brand-live">{formatStageElapsed(stageElapsedSeconds)}</p>
+              <p className="text-[10px] text-white/75">of {LIVE_STAGE_MAX_MINUTES}:00 max</p>
+            </div>
+            <div className="absolute left-4 bottom-4 rounded-xl bg-black/45 px-3 py-2 text-white">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">You</p>
+              <p className="text-sm font-semibold">On Stage</p>
+            </div>
+            <div className="absolute right-4 bottom-4 flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  const next = !micOn;
+                  setMicOn(next);
+                  await enableStageMedia({ audio: next, video: camOn });
+                }}
+                className={cn(
+                  "w-11 h-11 rounded-full border flex items-center justify-center transition-colors backdrop-blur-sm",
+                  micOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light" : "border-red-500/40 bg-red-500/20 text-red-400"
+                )}
+              >
+                {micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={async () => {
+                  const next = !camOn;
+                  setCamOn(next);
+                  await enableStageMedia({ audio: micOn, video: next });
+                }}
+                className={cn(
+                  "w-11 h-11 rounded-full border flex items-center justify-center transition-colors backdrop-blur-sm",
+                  camOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light" : "border-red-500/40 bg-red-500/20 text-red-400"
+                )}
+              >
+                {camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         ) : showRemoteGuestStage ? (
-          <div className="h-full rounded-[24px] border border-brand-border bg-brand-elevated min-h-[240px] md:min-h-0 overflow-hidden">
+          <div className="h-full rounded-[24px] border border-brand-border bg-brand-elevated min-h-[220px] md:min-h-0 overflow-hidden">
             <div className="relative h-full w-full overflow-hidden">
               {activeFanSessionId && activeFanVideoActive ? (
                 <div className="daily-stage-video h-full w-full overflow-hidden">
@@ -389,6 +396,8 @@ function LiveStage({
                   </p>
                 </div>
               )}
+              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
+              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
               <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] text-white/80">
                 Current Fan
               </div>

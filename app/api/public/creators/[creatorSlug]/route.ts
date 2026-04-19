@@ -17,7 +17,14 @@ export async function GET(
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("*, creator_profiles(*), live_sessions(*)")
+      .select(`
+        id, username, full_name, avatar_initials, avatar_color, avatar_url,
+        creator_profiles(
+          bio, category, timezone, booking_interval_minutes, live_join_fee,
+          is_live, current_live_session_id
+        ),
+        live_sessions(id, is_active, daily_room_url, last_heartbeat_at)
+      `)
       .eq("role", "creator")
       .eq("username", creatorSlug)
       .single();
@@ -29,7 +36,7 @@ export async function GET(
     const [packagesRes, availabilityRes] = await Promise.all([
       supabase
         .from("call_packages")
-        .select("*")
+        .select("id, name, description, duration, price, is_active")
         .eq("creator_id", profile.id)
         .eq("is_active", true)
         .order("price"),
@@ -45,12 +52,18 @@ export async function GET(
       ? profile.creator_profiles[0]
       : profile.creator_profiles;
     const sessions = Array.isArray(profile.live_sessions) ? profile.live_sessions : [];
-    const activeSession = sessions.find(
+    const freshActiveSession = sessions.find(
       (s: any) =>
         s?.is_active === true &&
         !!s?.daily_room_url &&
         !!s?.last_heartbeat_at &&
         Date.now() - new Date(s.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+    ) ?? null;
+    const activeSession = freshActiveSession ?? sessions.find(
+      (s: any) =>
+        s?.is_active === true &&
+        !!s?.daily_room_url &&
+        (!cp?.current_live_session_id || s.id === cp.current_live_session_id)
     ) ?? null;
 
     return NextResponse.json({
@@ -67,7 +80,7 @@ export async function GET(
         timeZone: cp?.timezone ?? "America/New_York",
         bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
         liveJoinFee: cp?.live_join_fee ? Number(cp.live_join_fee) : null,
-        isLive: Boolean(activeSession),
+        isLive: Boolean(cp?.is_live && activeSession),
       },
       packages: (packagesRes.data ?? []).map((pkg: any) => ({
         id: pkg.id,

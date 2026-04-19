@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { DailyProvider, useCallObject, useDaily } from "@daily-co/daily-react";
+import { DailyProvider, useDaily } from "@daily-co/daily-react";
+import DailyIframe, { type DailyCall } from "@daily-co/daily-js";
 
 function CallJoiner({
   url,
@@ -119,12 +120,23 @@ export function CallContainer({
   startVideo?: boolean;
   startAudio?: boolean;
 }) {
-  const callObject = useCallObject({});
+  const callObjectRef = useRef<DailyCall | null>(null);
 
-  if (!callObject) return null;
+  if (!callObjectRef.current) {
+    callObjectRef.current = DailyIframe.createCallObject();
+  }
+
+  useEffect(() => {
+    const callObject = callObjectRef.current;
+    return () => {
+      if (!callObject) return;
+      callObject.destroy().catch(() => {});
+      callObjectRef.current = null;
+    };
+  }, []);
 
   return (
-    <DailyProvider callObject={callObject}>
+    <DailyProvider callObject={callObjectRef.current}>
       <CallJoiner
         url={url}
         token={token}

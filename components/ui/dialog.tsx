@@ -28,6 +28,7 @@ interface DialogContentProps {
   description?: string;
   children: React.ReactNode;
   className?: string;
+  onClose?: () => void;
 }
 
 export function Dialog({ open, onClose, children }: DialogProps) {
@@ -71,6 +72,7 @@ export function DialogContent({
   description,
   children,
   className,
+  onClose,
 }: DialogContentProps) {
   return (
     <div
@@ -80,17 +82,26 @@ export function DialogContent({
         className
       )}
     >
-      {(title || description) && (
-        <div className="px-6 pt-6 pb-4 border-b border-brand-border">
+      {(title || description || onClose) && (
+        <div className="relative px-5 pt-5 pb-3.5 border-b border-brand-border">
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 rounded-lg p-1.5 text-brand-ink-subtle hover:text-brand-ink hover:bg-brand-surface transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
           {title && (
-            <h2 className="text-xl font-bold text-brand-ink">{title}</h2>
+            <h2 className="text-lg font-bold text-brand-ink pr-8 leading-tight">{title}</h2>
           )}
           {description && (
             <p className="text-sm text-brand-ink-muted mt-1">{description}</p>
           )}
         </div>
       )}
-      <div className="p-6">{children}</div>
+      <div className="p-5">{children}</div>
     </div>
   );
 }

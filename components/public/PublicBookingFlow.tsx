@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import {
+  BadgeCheck,
   Calendar,
   CheckCircle2,
   ChevronLeft,
@@ -15,6 +16,7 @@ import {
   Mail,
   MessageSquare,
   Phone,
+  Radio,
   User,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -37,6 +39,7 @@ type CreatorPayload = {
   avatarUrl?: string;
   timeZone: string;
   bookingIntervalMinutes: number;
+  isLive: boolean;
 };
 
 type PackagePayload = {
@@ -243,6 +246,7 @@ function PaymentForm({
 export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuthContext();
 
   const [loading, setLoading] = useState(true);
@@ -274,9 +278,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const [clientOrigin, setClientOrigin] = useState("");
   const [showRefundPolicyOnSuccess, setShowRefundPolicyOnSuccess] = useState(false);
   const paymentInitKeyRef = useRef<string | null>(null);
+  const hasHandledLiveIntentRef = useRef(false);
 
   const draftKey = getDraftKey(creatorSlug);
   const viewerTimeZone = getBrowserTimeZone();
+  const liveIntentRequested = searchParams.get("intent") === "live";
 
   const selectedPackage = useMemo(
     () => packages.find((pkg) => pkg.id === selectedPackageId) ?? (packages.length === 1 ? packages[0] : null),
@@ -290,9 +296,46 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const platformFeeAmount = sessionGrossPrice - sessionPrice;
   const availableDates = getAvailableDates(weekOffset);
   const canReviewAndPay = Boolean(selectedPackage && selectedDate && selectedTime);
+  const needsPackageSelection = packages.length > 1 && !selectedPackage;
+  const currentStepLabel = step === "success" ? "Done" : step === "payment" ? "4" : step === "identity" ? "3" : "2";
   const packageAvailability = availability.filter((slot) =>
     !selectedPackage?.id ? slot.package_id == null : slot.package_id == null || slot.package_id === selectedPackage.id
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshLiveStatus() {
+      try {
+        const creatorRes = await fetch(`/api/public/creators/${encodeURIComponent(creatorSlug)}`, {
+          cache: "no-store",
+        });
+        const creatorData = await creatorRes.json();
+        if (!creatorRes.ok || cancelled) return;
+
+        setCreator((current) => current ? { ...current, ...creatorData.creator } : creatorData.creator);
+      } catch {
+        // Ignore lightweight live-status refresh failures and preserve the page state.
+      }
+    }
+
+    function refreshIfVisible() {
+      if (document.visibilityState === "visible") {
+        void refreshLiveStatus();
+      }
+    }
+
+    const interval = window.setInterval(refreshIfVisible, 15000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [creatorSlug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -494,8 +537,22 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     setStep("success");
   }
 
-  function handleAuthRedirect(tab: "signin" | "signup") {
-    router.push(`/?tab=${tab}&next=${encodeURIComponent(pathname)}`);
+  function handleAuthRedirect(tab: "signin" | "signup", nextTarget?: string) {
+    router.push(`/?tab=${tab}&next=${encodeURIComponent(nextTarget ?? pathname)}`);
+  }
+
+  function handleJoinLive() {
+    if (!creator?.isLive) return;
+
+    const liveNextPath = `${pathname}?intent=live`;
+    if (user?.role === "fan") {
+      router.push(`/waiting-room/${creator.id}`);
+      return;
+    }
+
+    setIdentityMode(null);
+    setStep("identity");
+    handleAuthRedirect("signin", liveNextPath);
   }
 
   function handleContinueFromDetails() {
@@ -605,6 +662,17 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     user?.role,
   ]);
 
+  useEffect(() => {
+    if (authLoading || !creator?.isLive || !liveIntentRequested || hasHandledLiveIntentRef.current) {
+      return;
+    }
+
+    if (user?.role === "fan") {
+      hasHandledLiveIntentRef.current = true;
+      router.replace(`/waiting-room/${creator.id}`);
+    }
+  }, [authLoading, creator?.id, creator?.isLive, liveIntentRequested, router, user?.role]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -644,6 +712,12 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                     {creator.bio}
                   </p>
                 )}
+                {creator.isLive && (
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-brand-live/20 bg-brand-live/10 px-3 py-1.5 text-xs font-semibold text-brand-live">
+                    <span className="h-2 w-2 rounded-full bg-brand-live animate-pulse" />
+                    Live on Friendsly right now
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -652,7 +726,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-brand-ink">Choose your session</h2>
               <span className="text-xs text-brand-ink-muted">
-                Step {step === "success" ? "Done" : step === "payment" ? "4" : step === "identity" ? "3" : "2"} of 4
+                Step {currentStepLabel} of 4
               </span>
             </div>
 
@@ -698,114 +772,157 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
               </div>
             )}
 
+            {needsPackageSelection && (
+              <div className="mt-6 rounded-2xl border border-dashed border-brand-primary/35 bg-brand-primary/5 p-4">
+                <p className="text-sm font-semibold text-brand-ink">Choose a booking type first</p>
+                <p className="mt-1 text-sm leading-relaxed text-brand-ink-subtle">
+                  Pick the kind of session you want, then we&apos;ll show the available dates and times for that option.
+                </p>
+              </div>
+            )}
+
             {(step === "select" || step === "details" || step === "identity" || step === "payment") && (
               <div className="mt-6 space-y-5">
-                <div>
-                  <p className="mb-2 text-xs text-brand-ink-muted">
-                    Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}).
-                  </p>
-                  <div className="mb-3 flex items-center justify-between">
-                    <label className="flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
-                      <Calendar className="w-4 h-4 text-brand-primary-light" />
-                      Select Date
-                    </label>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => setWeekOffset((value) => Math.max(0, value - 1))}
-                        disabled={weekOffset === 0}
-                        className="rounded-md border border-brand-border bg-brand-elevated p-1 text-brand-ink-subtle transition-colors hover:text-brand-ink disabled:opacity-30"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setWeekOffset((value) => Math.min(3, value + 1))}
-                        disabled={weekOffset >= 3}
-                        className="rounded-md border border-brand-border bg-brand-elevated p-1 text-brand-ink-subtle transition-colors hover:text-brand-ink disabled:opacity-30"
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {availableDates.map((date) => {
-                      const isSelected = selectedDate?.toDateString() === date.toDateString();
-                      const hasTimes = availableDateKeys.has(date.toDateString());
-                      return (
-                        <button
-                          key={date.toISOString()}
-                          onClick={() => {
-                            if (!hasTimes) return;
-                            setSelectedDate(date);
-                            setSelectedTime(null);
-                          }}
-                          disabled={!hasTimes}
-                          className={cn(
-                            "flex flex-col items-center rounded-xl border p-2 text-xs font-medium transition-all",
-                            isSelected
-                              ? "border-brand-primary bg-brand-primary/20 text-brand-primary-light ring-1 ring-brand-primary/30"
-                              : hasTimes
-                              ? "border-brand-primary/40 bg-white text-brand-ink font-semibold shadow-sm hover:border-brand-primary hover:bg-brand-primary/5"
-                              : "cursor-not-allowed border-brand-border/40 bg-brand-elevated/40 text-brand-ink-muted opacity-35"
-                          )}
-                        >
-                          <span className="text-[10px] uppercase opacity-70">
-                            {date.toLocaleDateString("en-US", { weekday: "short" })}
-                          </span>
-                          <span className="mt-0.5 text-base font-bold">{date.getDate()}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {selectedDate && (
-                  <div>
-                    <label className="mb-3 flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
-                      <Clock className="w-4 h-4 text-brand-primary-light" />
-                      Select Time
-                    </label>
-                    {availableTimeSlots.length === 0 ? (
-                      <p className="rounded-xl border border-brand-border bg-brand-elevated px-4 py-3 text-sm text-brand-ink-muted">
-                        No times available on that date.
+                {selectedPackage && (
+                  <>
+                    <div>
+                      <p className="mb-2 text-xs text-brand-ink-muted">
+                        Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}).
                       </p>
-                    ) : (
-                      <div className="grid grid-cols-3 gap-2">
-                        {availableTimeSlots.map((slot) => (
+                      <div className="mb-3 flex items-center justify-between">
+                        <label className="flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
+                          <Calendar className="w-4 h-4 text-brand-primary-light" />
+                          Select Date
+                        </label>
+                        <div className="flex items-center gap-1.5">
                           <button
-                            key={slot}
-                            onClick={() => setSelectedTime(slot)}
-                            className={cn(
-                              "rounded-xl border px-3 py-2 text-xs font-medium transition-all",
-                              selectedTime === slot
-                                ? "border-brand-primary bg-brand-primary/20 text-brand-primary-light"
-                                : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
-                            )}
+                            onClick={() => setWeekOffset((value) => Math.max(0, value - 1))}
+                            disabled={weekOffset === 0}
+                            className="rounded-md border border-brand-border bg-brand-elevated p-1 text-brand-ink-subtle transition-colors hover:text-brand-ink disabled:opacity-30"
                           >
-                            {slot}
+                            <ChevronLeft className="w-3.5 h-3.5" />
                           </button>
-                        ))}
+                          <button
+                            onClick={() => setWeekOffset((value) => Math.min(3, value + 1))}
+                            disabled={weekOffset >= 3}
+                            className="rounded-md border border-brand-border bg-brand-elevated p-1 text-brand-ink-subtle transition-colors hover:text-brand-ink disabled:opacity-30"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {availableDates.map((date) => {
+                          const isSelected = selectedDate?.toDateString() === date.toDateString();
+                          const hasTimes = availableDateKeys.has(date.toDateString());
+                          return (
+                            <button
+                              key={date.toISOString()}
+                              onClick={() => {
+                                if (!hasTimes) return;
+                                setSelectedDate(date);
+                                setSelectedTime(null);
+                              }}
+                              disabled={!hasTimes}
+                              className={cn(
+                                "flex flex-col items-center rounded-xl border p-2 text-xs font-medium transition-all",
+                                isSelected
+                                  ? "border-brand-primary bg-brand-primary/20 text-brand-primary-light ring-1 ring-brand-primary/30"
+                                  : hasTimes
+                                  ? "border-brand-primary/40 bg-white text-brand-ink font-semibold shadow-sm hover:border-brand-primary hover:bg-brand-primary/5"
+                                  : "cursor-not-allowed border-brand-border/40 bg-brand-elevated/40 text-brand-ink-muted opacity-35"
+                              )}
+                            >
+                              <span className="text-[10px] uppercase opacity-70">
+                                {date.toLocaleDateString("en-US", { weekday: "short" })}
+                              </span>
+                              <span className="mt-0.5 text-base font-bold">{date.getDate()}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {selectedDate && (
+                      <div>
+                        <label className="mb-3 flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
+                          <Clock className="w-4 h-4 text-brand-primary-light" />
+                          Select Time
+                        </label>
+                        {availableTimeSlots.length === 0 ? (
+                          <p className="rounded-xl border border-brand-border bg-brand-elevated px-4 py-3 text-sm text-brand-ink-muted">
+                            No times available on that date.
+                          </p>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            {availableTimeSlots.map((slot) => (
+                              <button
+                                key={slot}
+                                onClick={() => setSelectedTime(slot)}
+                                className={cn(
+                                  "rounded-xl border px-3 py-2 text-xs font-medium transition-all",
+                                  selectedTime === slot
+                                    ? "border-brand-primary bg-brand-primary/20 text-brand-primary-light"
+                                    : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
+                                )}
+                              >
+                                {slot}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
 
-                {selectedDate && selectedTime && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="mb-2 flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
-                        <MessageSquare className="w-4 h-4 text-brand-primary-light" />
-                        What do you want to cover?
-                      </label>
-                      <textarea
-                        value={topic}
-                        onChange={(event) => setTopic(event.target.value)}
-                        rows={3}
-                        placeholder={`Let ${creator.name.split(" ")[0]} know what you'd like to talk about.`}
-                        className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-muted focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                      />
-                    </div>
+                    {selectedDate && selectedTime && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
+                            <MessageSquare className="w-4 h-4 text-brand-primary-light" />
+                            What do you want to cover?
+                          </label>
+                          <textarea
+                            value={topic}
+                            onChange={(event) => setTopic(event.target.value)}
+                            rows={3}
+                            placeholder={`Let ${creator.name.split(" ")[0]} know what you'd like to talk about.`}
+                            className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-muted focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                          />
+                        </div>
 
-                  </div>
+                        <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4 lg:hidden">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-ink-muted">Your booking</p>
+                          <div className="mt-3 space-y-2 text-sm">
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-brand-ink-muted">Session</span>
+                              <span className="text-right font-medium text-brand-ink">{selectedPackage.name}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-brand-ink-muted">When</span>
+                              <span className="text-right font-medium text-brand-ink">{`${formatShortDate(selectedDate)} at ${selectedTime}`}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-brand-ink-muted">Total</span>
+                              <span className="font-bold text-amber-600">{formatCurrency(sessionGrossPrice)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {(step === "select" || step === "details") && (
+                          <div className="rounded-2xl border border-brand-border bg-brand-surface p-4 lg:hidden">
+                            <Button
+                              variant="gold"
+                              className="w-full"
+                              onClick={handleContinueFromDetails}
+                              disabled={!canReviewAndPay}
+                            >
+                              Review and pay
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -813,7 +930,40 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         </section>
 
         <aside className="space-y-5">
-          <div className="rounded-3xl border border-brand-border bg-brand-surface p-6">
+          {creator.isLive && (
+            <div className="rounded-3xl border border-brand-live/20 bg-brand-live/10 p-6">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-live/15 border border-brand-live/20">
+                  <Radio className="h-5 w-5 text-brand-live" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-live">Join Live Now</p>
+                  <p className="mt-2 text-lg font-bold text-brand-ink">{creator.name} is live on Friendsly.</p>
+                  <p className="mt-1 text-sm leading-relaxed text-brand-ink-subtle">
+                    Use this same shareable link to jump into the live experience. Fans need a Friendsly account before watching or joining.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 space-y-3">
+                <Button variant="live" className="w-full gap-2" onClick={handleJoinLive}>
+                  <Radio className="w-4 h-4" />
+                  {user?.role === "fan" ? "Join Live Now" : "Sign In To Join Live"}
+                </Button>
+                {!user && (
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={() => handleAuthRedirect("signup", `${pathname}?intent=live`)}
+                  >
+                    <BadgeCheck className="w-4 h-4" />
+                    Create Fan Account To Watch
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="hidden rounded-3xl border border-brand-border bg-brand-surface p-6 lg:block">
             <h2 className="text-lg font-bold text-brand-ink">Booking summary</h2>
             <div className="mt-4 space-y-3 text-sm">
               <div className="flex items-center gap-3 rounded-2xl border border-brand-border bg-brand-elevated p-3">
@@ -871,7 +1021,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
           </div>
 
           {(step === "select" || step === "details") && (
-            <div className="rounded-3xl border border-brand-border bg-brand-surface p-6">
+            <div className="hidden rounded-3xl border border-brand-border bg-brand-surface p-6 lg:block">
               <Button
                 variant="gold"
                 className="w-full"

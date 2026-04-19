@@ -42,6 +42,23 @@ function getSessionExpiryDelay(lastHeartbeatAt?: string | null) {
   return Math.max(1000, remainingMs + 1000);
 }
 
+function shouldRefreshFromLiveSessionChange(payload: any) {
+  const previousSession = payload.old;
+  const nextSession = payload.new;
+
+  if (payload.eventType === "INSERT" || payload.eventType === "DELETE") return true;
+
+  const wasLive = isSessionFresh(previousSession);
+  const isLiveNow = isSessionFresh(nextSession);
+
+  return (
+    wasLive !== isLiveNow ||
+    previousSession?.is_active !== nextSession?.is_active ||
+    previousSession?.daily_room_url !== nextSession?.daily_room_url ||
+    previousSession?.creator_id !== nextSession?.creator_id
+  );
+}
+
 async function fetchCreators(): Promise<Creator[]> {
   const supabase = createClient();
 
@@ -66,7 +83,7 @@ async function fetchCreators(): Promise<Creator[]> {
   const creatorIds = profiles.map((p: { id: string }) => p.id);
   const { data: allPackages } = await supabase
     .from("call_packages")
-    .select("*")
+    .select("creator_id, price, duration")
     .in("creator_id", creatorIds)
     .eq("is_active", true)
     .order("price");
@@ -237,7 +254,9 @@ export default function DiscoverPage() {
             c.id === creatorId ? { ...c, isLive: liveNow, currentLiveSessionId: liveNow ? nextSession.id : undefined, queueCount: liveNow ? c.queueCount : 0 } : c
           ));
         }
-        scheduleRefreshes();
+        if (shouldRefreshFromLiveSessionChange(payload)) {
+          scheduleRefreshes();
+        }
       })
       .subscribe();
 
@@ -371,7 +390,7 @@ export default function DiscoverPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
             {allCreators.map((creator, i) => (
               <div key={creator.id} style={{ animationDelay: `${i * 25}ms` }} className="animate-card-enter">
                 <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />

@@ -50,6 +50,22 @@ function getSessionExpiryDelay(lastHeartbeatAt?: string | null) {
   return Math.max(1000, remainingMs + 1000);
 }
 
+function shouldRefreshFromLiveSessionChange(payload: any) {
+  const previousSession = payload.old;
+  const nextSession = payload.new;
+
+  if (payload.eventType === "INSERT" || payload.eventType === "DELETE") return true;
+
+  const wasLive = isSessionFresh(previousSession);
+  const isLiveNow = isSessionFresh(nextSession);
+
+  return (
+    wasLive !== isLiveNow ||
+    previousSession?.is_active !== nextSession?.is_active ||
+    previousSession?.daily_room_url !== nextSession?.daily_room_url
+  );
+}
+
 function getWeekDates(offset = 0): Date[] {
   const today = new Date();
   const monday = new Date(today);
@@ -85,14 +101,22 @@ async function fetchCreatorData(id: string): Promise<{
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*, creator_profiles(*), live_sessions(*)")
+    .select(`
+      id, full_name, username, created_at, avatar_initials, avatar_color, avatar_url,
+      creator_profiles(
+        bio, category, tags, followers_count, avg_rating, response_time, live_join_fee,
+        scheduled_live_at, scheduled_live_timezone, timezone, booking_interval_minutes,
+        instagram_url, tiktok_url, x_url
+      ),
+      live_sessions(id, is_active, daily_room_url, last_heartbeat_at)
+    `)
     .eq("id", id)
     .eq("role", "creator")
     .single();
 
   const { data: pkgs } = await supabase
     .from("call_packages")
-    .select("*")
+    .select("id, name, duration, price, description, is_active, bookings_count")
     .eq("creator_id", id)
     .eq("is_active", true)
     .order("price");
@@ -397,7 +421,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               : prev
           );
 
-          scheduleRefreshes();
+          if (shouldRefreshFromLiveSessionChange(payload)) {
+            scheduleRefreshes();
+          }
         }
       )
       .subscribe();
@@ -652,6 +678,26 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
+        {/* ── Mobile quick-action bar (above-fold, hidden on desktop) ── */}
+        {(hasPackages || (creator.isLive && hasLiveRate)) && (
+          <div className="md:hidden rounded-2xl border border-brand-border bg-brand-surface p-3.5 flex flex-col gap-2">
+            {hasPackages && (
+              <Button variant="gold" size="md" className="w-full gap-2" onClick={() => setShowBooking(true)}>
+                <Video className="w-4 h-4" />
+                Book from {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
+              </Button>
+            )}
+            {creator.isLive && hasLiveRate && (
+              <Link href={`/waiting-room/${creator.id}`}>
+                <Button variant="live" size="md" className="w-full gap-2">
+                  <Zap className="w-4 h-4" />
+                  Join Live · {formatCurrency(creator.liveJoinFee!)} / min
+                </Button>
+              </Link>
+            )}
+          </div>
+        )}
+
         {/* ── Main Grid ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
@@ -817,7 +863,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           </div>
 
           {/* ── Right: CTA + Trust Signals ── */}
-          <div className="space-y-3">
+          <div className="space-y-3 md:sticky md:top-4 md:self-start">
 
             {/* CTA Card */}
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-4 flex flex-col gap-3">
@@ -870,11 +916,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
               {/* Action buttons */}
               <div className="space-y-3">
-                {/* 1. Book a Call Button (Always visible) */}
+                {/* 1. Book Button (desktop — already visible above fold on mobile) */}
                 {hasPackages ? (
-                  <Button variant="gold" size="lg" className="w-full" onClick={() => setShowBooking(true)}>
-                    <Video className="w-4 h-4 mr-2" />
-                    Book a Call
+                  <Button variant="gold" size="lg" className="w-full gap-2" onClick={() => setShowBooking(true)}>
+                    <Video className="w-4 h-4" />
+                    Book from {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
                   </Button>
                 ) : (
                   <Button variant="ghost" size="lg" className="w-full opacity-50 cursor-not-allowed" disabled>

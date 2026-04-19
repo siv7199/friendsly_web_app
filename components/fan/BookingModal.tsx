@@ -474,6 +474,7 @@ export function BookingModal({
     <Dialog open={open} onClose={handleReset}>
       <DialogContent
         className="w-full max-w-md"
+        onClose={step !== "success" ? handleReset : undefined}
         title={step === "success" ? "You're booked! 🎉" : `Book a call with ${creator.name}`}
         description={
           step === "package" ? "Choose a session type." :
@@ -540,34 +541,32 @@ export function BookingModal({
 
         {/* ── STEP 1: Date + Time ── */}
         {step === "select" && (
-          <div className="space-y-5">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-brand-surface border border-brand-border">
+          <div className="space-y-3">
+            {/* Compact session summary */}
+            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-brand-surface border border-brand-border">
               <Avatar initials={creator.avatarInitials} color={creator.avatarColor} imageUrl={creator.avatarUrl} size="sm" />
-              <div>
-                <p className="text-sm font-semibold text-brand-ink">{creator.name}</p>
-                <p className="text-xs text-brand-ink-muted">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-brand-ink leading-tight">{creator.name}</p>
+                <p className="text-xs text-brand-ink-muted truncate">
                   {selectedPackage ? `${selectedPackage.name} · ` : ""}
                   {sessionDuration} min · {formatCurrency(sessionPrice)}
                 </p>
               </div>
             </div>
 
+            {/* Date picker */}
             <div>
-              <p className="text-xs text-brand-ink-muted mb-3">
-                Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}).
-              </p>
-              <p className="text-xs text-brand-ink-muted mb-3 -mt-1">
-                Booking starts are offered every {bookingIntervalMinutes} minutes.
-              </p>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-medium text-brand-ink-subtle flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-brand-primary-light" />
-                  Select Date
-                </label>
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-brand-ink-muted font-medium uppercase tracking-wider mr-1">
-                    {weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : `+${weekOffset} weeks`}
+                  <Calendar className="w-3.5 h-3.5 text-brand-primary-light" />
+                  <span className="text-xs font-medium text-brand-ink-subtle">
+                    Select Date
                   </span>
+                  <span className="text-[10px] text-brand-ink-muted ml-1">
+                    ({weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : `+${weekOffset}w`} · {getTimeZoneAbbreviation(new Date(), viewerTimeZone)})
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
                   <button
                     onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
                     disabled={weekOffset === 0}
@@ -584,7 +583,7 @@ export function BookingModal({
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-1.5">
                 {availableDates.map((date) => {
                   const isSelected = selectedDate?.toDateString() === date.toDateString();
                   const hasTimes = availableDateKeys.has(date.toDateString());
@@ -597,7 +596,7 @@ export function BookingModal({
                       }}
                       disabled={!hasTimes}
                       className={cn(
-                        "flex flex-col items-center p-2 rounded-xl border text-xs font-medium transition-all",
+                        "flex flex-col items-center py-1.5 rounded-xl border text-xs font-medium transition-all",
                         isSelected
                           ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light ring-1 ring-brand-primary/30"
                           : hasTimes
@@ -605,50 +604,51 @@ export function BookingModal({
                           : "border-brand-border/40 bg-brand-elevated/40 text-brand-ink-muted opacity-35 cursor-not-allowed"
                       )}
                     >
-                      <span className="text-[10px] uppercase opacity-70">
+                      <span className="text-[9px] uppercase opacity-70">
                         {date.toLocaleDateString("en-US", { weekday: "short" })}
                       </span>
-                      <span className="text-base font-bold mt-0.5">{date.getDate()}</span>
+                      <span className="text-sm font-bold mt-0.5">{date.getDate()}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {selectedDate && (
-              <div>
-                <label className="text-sm font-medium text-brand-ink-subtle flex items-center gap-2 mb-3">
-                  <Clock className="w-4 h-4 text-brand-primary-light" />
-                  Select Time
-                </label>
-                {availableTimeSlots.length === 0 ? (
-                  <p className="text-sm text-brand-ink-muted rounded-xl border border-brand-border bg-brand-elevated px-4 py-3">
-                    {loadingExistingBookings
-                      ? "Checking booked times..."
-                      : "No times available for this offering on that date."}
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-3 gap-2">
-                    {availableTimeSlots.map((slot) => (
-                      <button
-                        key={slot}
-                        onClick={() => setSelectedTime(slot)}
-                        className={cn(
-                          "py-2 px-3 rounded-xl border text-xs font-medium transition-all",
-                          selectedTime === slot
-                            ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
-                            : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
-                        )}
-                      >
-                        {slot}
-                      </button>
-                    ))}
-                  </div>
-                )}
+            {/* Time picker — always rendered, prompts to pick date if none selected */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Clock className="w-3.5 h-3.5 text-brand-primary-light" />
+                <span className="text-xs font-medium text-brand-ink-subtle">Select Time</span>
               </div>
-            )}
+              {!selectedDate ? (
+                <p className="text-xs text-brand-ink-muted py-2 px-3 rounded-xl border border-brand-border bg-brand-elevated">
+                  Pick a date above to see available times.
+                </p>
+              ) : availableTimeSlots.length === 0 ? (
+                <p className="text-xs text-brand-ink-muted py-2 px-3 rounded-xl border border-brand-border bg-brand-elevated">
+                  {loadingExistingBookings ? "Checking booked times…" : "No times available on that date."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {availableTimeSlots.map((slot) => (
+                    <button
+                      key={slot}
+                      onClick={() => setSelectedTime(slot)}
+                      className={cn(
+                        "py-1.5 px-2 rounded-xl border text-xs font-medium transition-all",
+                        selectedTime === slot
+                          ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
+                          : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
+                      )}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 pt-1">
               {packages.length > 1 && (
                 <Button variant="outline" className="flex-1" onClick={() => setStep("package")}>
                   ← Back

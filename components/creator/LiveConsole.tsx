@@ -26,6 +26,19 @@ import { LIVE_STAGE_MAX_MINUTES, LIVE_STAGE_MIN_SECONDS, LIVE_STAGE_SECONDS, get
 const LIVE_SESSION_HEARTBEAT_MS = 15000;
 const LIVE_SESSION_STALE_MS = 45000;
 
+function shouldRefreshQueueFromLiveSessionChange(payload: any) {
+  const previousSession = payload.old;
+  const nextSession = payload.new;
+
+  if (payload.eventType === "INSERT" || payload.eventType === "DELETE") return true;
+
+  return (
+    previousSession?.is_active !== nextSession?.is_active ||
+    previousSession?.ended_at !== nextSession?.ended_at ||
+    previousSession?.daily_room_url !== nextSession?.daily_room_url
+  );
+}
+
 function formatCountdown(totalSeconds: number) {
   const safeSeconds = Math.max(0, totalSeconds);
   const minutes = Math.floor(safeSeconds / 60);
@@ -201,10 +214,10 @@ function LiveVideoStage({
   }, [currentFan?.admittedDailySessionId, currentFan?.fanId, daily]);
 
   return (
-    <div className="h-full min-h-0 grid grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[minmax(0,1.5fr)_340px]">
-      <div className="h-full min-h-0 rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
+    <div className="grid grid-cols-1 gap-4 xl:h-full xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1.5fr)_340px]">
+      <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
             <Badge variant="live">
               <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
               LIVE
@@ -221,7 +234,7 @@ function LiveVideoStage({
             </span>
           </div>
           {currentFan?.admittedAt ? (
-              <div className="rounded-xl border border-brand-live/30 bg-brand-live/10 px-3 py-1.5 text-right">
+              <div className="rounded-xl border border-brand-live/30 bg-brand-live/10 px-3 py-1.5 text-left self-start md:self-auto md:text-right">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-brand-live">On Stage</p>
                 <p className="text-base font-black text-brand-live tabular-nums">{formatElapsed(activeFanElapsedSeconds)}</p>
                 <p className="text-[10px] text-brand-live/75">of {LIVE_STAGE_MAX_MINUTES}:00 max</p>
@@ -230,10 +243,15 @@ function LiveVideoStage({
         </div>
 
         <div className={cn(
-          "flex-1 min-h-0 grid auto-rows-fr items-stretch gap-4",
-          showActiveFanStage ? "lg:grid-cols-2" : "grid-cols-1"
+          "grid items-stretch gap-4 xl:flex-1 xl:min-h-0",
+          showActiveFanStage
+            ? "grid-rows-[minmax(280px,40vh)_minmax(280px,40vh)] lg:grid-rows-1 lg:grid-cols-2"
+            : "grid-cols-1 auto-rows-fr"
         )}>
-          <div className="relative h-full rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center min-h-0">
+          <div className={cn(
+            "relative h-full rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center",
+            showActiveFanStage ? "min-h-[280px] lg:min-h-0" : "min-h-[320px] lg:min-h-0"
+          )}>
             {localSessionId && camOn ? (
               <div className="daily-stage-video w-full h-full relative overflow-hidden">
                 <DailyVideo sessionId={localSessionId} type="video" className="w-full h-full object-cover z-10" />
@@ -262,7 +280,7 @@ function LiveVideoStage({
           </div>
 
           {showActiveFanStage ? (
-            <div className="relative h-full rounded-[24px] border border-brand-border bg-brand-elevated overflow-hidden min-h-0">
+            <div className="relative h-full min-h-[280px] lg:min-h-0 rounded-[24px] border border-brand-border bg-brand-elevated overflow-hidden">
               {fanSessionId && fanVideoActive ? (
                 <div className="daily-stage-video w-full h-full relative overflow-hidden">
                   <DailyVideo sessionId={fanSessionId} type="video" className="w-full h-full object-cover z-10" />
@@ -297,7 +315,7 @@ function LiveVideoStage({
 
       </div>
 
-      <div className="h-full min-h-0 rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden">
+      <div className="min-h-[420px] rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0">
         {/* Queue strip at top of chat column */}
         <div className="rounded-[20px] border border-brand-border bg-brand-elevated p-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2 mb-2">
@@ -576,7 +594,11 @@ export function LiveConsole() {
     const channel = supabase
       .channel(`lq-${currentUser.id}-${sessionId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "live_queue_entries", filter: `session_id=eq.${sessionId}` }, () => fetchQueue(sessionId))
-      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions", filter: `id=eq.${sessionId}` }, () => fetchQueue(sessionId))
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions", filter: `id=eq.${sessionId}` }, (payload: any) => {
+        if (shouldRefreshQueueFromLiveSessionChange(payload)) {
+          void fetchQueue(sessionId);
+        }
+      })
       .subscribe();
 
     function refreshIfVisible() {

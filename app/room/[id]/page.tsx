@@ -25,19 +25,31 @@ type BookingDetails = {
   id: string;
   topic?: string | null;
   status?: string | null;
+  duration?: number | null;
   creator?: BookingParticipant | null;
   fan?: BookingParticipant | null;
 };
+
+function formatCallTimer(totalSeconds: number) {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
 
 function BookingVideoStage({
   booking,
   isCreator,
   canUseMedia,
+  currentTime,
+  scheduledAt,
   onEndCall,
 }: {
   booking: BookingDetails | null;
   isCreator: boolean;
   canUseMedia: boolean;
+  currentTime: number;
+  scheduledAt: string | null;
   onEndCall: () => Promise<void>;
 }) {
   const daily = useDaily();
@@ -57,6 +69,34 @@ function BookingVideoStage({
     ? booking?.fan?.avatar_color ?? "bg-violet-600"
     : booking?.creator?.avatar_color ?? "bg-violet-600";
   const remoteImageUrl = isCreator ? booking?.fan?.avatar_url : booking?.creator?.avatar_url;
+  const bookingDurationSeconds = Math.max(0, Number(booking?.duration ?? 0) * 60);
+  const elapsedSeconds = scheduledAt
+    ? Math.min(
+        bookingDurationSeconds || Number.MAX_SAFE_INTEGER,
+        Math.max(0, Math.floor((currentTime - new Date(scheduledAt).getTime()) / 1000))
+      )
+    : 0;
+  const remainingSeconds = Math.max(0, bookingDurationSeconds - elapsedSeconds);
+  const showCreatorControlStrip = isCreator;
+  const dailyVideoFillStyles = {
+    __html: `
+      .booking-stage-video,
+      .booking-stage-video > div,
+      .booking-stage-video > div > div,
+      .booking-stage-video video {
+        width: 100% !important;
+        height: 100% !important;
+      }
+      .booking-stage-video video {
+        display: block !important;
+        object-fit: cover !important;
+        transform: none !important;
+      }
+      .booking-stage-video div[style*='position: absolute'] {
+        display: none !important;
+      }
+    `,
+  };
 
   useEffect(() => {
     if (!daily || typeof daily.meetingState !== "function") return;
@@ -107,7 +147,7 @@ function BookingVideoStage({
   };
 
   return (
-    <div className="flex-1 flex flex-col gap-3 min-h-0">
+    <div className="flex flex-1 flex-col gap-3 min-h-0">
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <Badge variant="live">
@@ -120,15 +160,16 @@ function BookingVideoStage({
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-2 gap-3 min-h-[420px]">
-        <div className="relative rounded-2xl bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center aspect-video">
+      <div className="grid flex-1 min-h-0 gap-3 auto-rows-fr md:grid-cols-2 md:items-stretch">
+        <div className={cn("flex min-h-0 flex-col", showCreatorControlStrip ? "gap-3" : "")}>
+        <div className="relative min-h-[240px] flex-1 md:min-h-0 rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center">
           {localSessionId && camOn ? (
-            <div className="w-full h-full relative overflow-hidden">
+            <div className="booking-stage-video w-full h-full relative overflow-hidden">
               <DailyVideo sessionId={localSessionId} type="video" mirror className="w-full h-full object-cover z-10" />
-              <style dangerouslySetInnerHTML={{ __html: ".daily-video-container div[style*='position: absolute'] { display: none !important; } .daily-video-container video { transform: none !important; }" }} />
+              <style dangerouslySetInnerHTML={dailyVideoFillStyles} />
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center gap-3 text-center px-4">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-center px-4 bg-[radial-gradient(circle_at_top,#1d4ed833,transparent_55%)]">
               <Avatar initials="You" size="xl" />
               {!canUseMedia ? (
                 <p className="text-xs text-brand-ink-muted">Camera and mic are locked until the scheduled start.</p>
@@ -137,21 +178,103 @@ function BookingVideoStage({
               )}
             </div>
           )}
-          <div className="absolute bottom-3 left-3 text-xs font-semibold text-white bg-black/50 rounded-lg px-2 py-1 z-20">
-            You ({localName})
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
+          <div className="absolute left-3 bottom-3 rounded-xl bg-black/50 px-3 py-2 text-white z-20 max-w-[calc(100%-7rem)]">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">You</p>
+            <p className="text-sm font-semibold truncate">{localName}</p>
+          </div>
+          <div className={cn("absolute right-3 bottom-3 flex items-center gap-2 z-20", showCreatorControlStrip && "md:hidden")}>
+            <button
+              onClick={toggleMic}
+              disabled={!canUseMedia}
+              title={canUseMedia ? "Toggle microphone" : "Microphone unlocks at the scheduled start time"}
+              className={cn(
+                "w-11 h-11 rounded-full border flex items-center justify-center transition-colors backdrop-blur-sm",
+                !canUseMedia
+                  ? "cursor-not-allowed border-brand-border bg-brand-surface/70 text-brand-ink-muted opacity-60"
+                  : micOn
+                  ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light"
+                  : "border-red-500/40 bg-red-500/20 text-red-400"
+              )}
+            >
+              {micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={toggleCam}
+              disabled={!canUseMedia}
+              title={canUseMedia ? "Toggle camera" : "Camera unlocks at the scheduled start time"}
+              className={cn(
+                "w-11 h-11 rounded-full border flex items-center justify-center transition-colors backdrop-blur-sm",
+                !canUseMedia
+                  ? "cursor-not-allowed border-brand-border bg-brand-surface/70 text-brand-ink-muted opacity-60"
+                  : camOn
+                  ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light"
+                  : "border-red-500/40 bg-red-500/20 text-red-400"
+              )}
+            >
+              {camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+            </button>
           </div>
         </div>
+        {showCreatorControlStrip ? (
+          <div className="hidden md:flex items-center justify-center gap-3 rounded-2xl border border-brand-border bg-brand-surface/80 px-4 py-3">
+            <button
+              onClick={toggleMic}
+              disabled={!canUseMedia}
+              title={canUseMedia ? "Toggle microphone" : "Microphone unlocks at the scheduled start time"}
+              className={cn(
+                "w-11 h-11 rounded-full border flex items-center justify-center transition-colors",
+                !canUseMedia
+                  ? "cursor-not-allowed border-brand-border bg-brand-surface/70 text-brand-ink-muted opacity-60"
+                  : micOn
+                  ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light"
+                  : "border-red-500/40 bg-red-500/20 text-red-400"
+              )}
+            >
+              {micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={toggleCam}
+              disabled={!canUseMedia}
+              title={canUseMedia ? "Toggle camera" : "Camera unlocks at the scheduled start time"}
+              className={cn(
+                "w-11 h-11 rounded-full border flex items-center justify-center transition-colors",
+                !canUseMedia
+                  ? "cursor-not-allowed border-brand-border bg-brand-surface/70 text-brand-ink-muted opacity-60"
+                  : camOn
+                  ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light"
+                  : "border-red-500/40 bg-red-500/20 text-red-400"
+              )}
+            >
+              {camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+            </button>
+            <div className="min-w-[120px] rounded-xl border border-brand-live/25 bg-brand-live/10 px-4 py-2 text-center">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-brand-live">Session Time</p>
+              <p className="text-lg font-black tabular-nums text-brand-live">{formatCallTimer(elapsedSeconds)}</p>
+              {bookingDurationSeconds > 0 ? (
+                <p className="text-[10px] text-brand-live/75">{formatCallTimer(remainingSeconds)} remaining</p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        </div>
 
-        <div className="relative rounded-2xl bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center aspect-video">
+        <div className="relative min-h-[240px] md:min-h-0 rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center">
           {remoteParticipantId ? (
             <>
-              <DailyVideo sessionId={remoteParticipantId} type="video" className="w-full h-full object-cover z-10" />
-              <div className="absolute bottom-3 left-3 text-xs font-semibold text-white bg-black/50 rounded-lg px-2 py-1 z-20">
+              <div className="booking-stage-video w-full h-full relative overflow-hidden">
+                <DailyVideo sessionId={remoteParticipantId} type="video" className="w-full h-full object-cover z-10" />
+                <style dangerouslySetInnerHTML={dailyVideoFillStyles} />
+              </div>
+              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
+              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
+              <div className="absolute bottom-3 left-3 text-xs font-semibold text-white bg-black/50 rounded-lg px-3 py-2 z-20">
                 {remoteName}
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center text-brand-ink-muted p-6 text-center z-10">
+            <div className="flex h-full w-full flex-col items-center justify-center text-brand-ink-muted p-6 text-center z-10 bg-[radial-gradient(circle_at_top,#1d4ed833,transparent_55%)]">
               <Avatar
                 initials={remoteInitials}
                 color={remoteColor}
@@ -159,51 +282,18 @@ function BookingVideoStage({
                 size="xl"
                 className="opacity-60 mb-3"
               />
-              <p className="text-sm font-medium text-brand-ink-subtle">Waiting for {remoteName}...</p>
+              <p className="text-sm font-medium text-brand-ink-subtle">Waiting for {remoteName} to join...</p>
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-1 mt-2">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={toggleMic}
-            disabled={!canUseMedia}
-            title={canUseMedia ? "Toggle microphone" : "Microphone unlocks at the scheduled start time"}
-            className={cn(
-              "w-12 h-12 rounded-full border flex items-center justify-center transition-colors",
-              !canUseMedia
-                ? "cursor-not-allowed border-brand-border bg-brand-surface text-brand-ink-muted opacity-60"
-                : micOn
-                ? "border-brand-border bg-brand-surface text-brand-ink-subtle"
-                : "border-red-500/40 bg-red-500/20 text-red-400"
-            )}
-          >
-            {micOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
-          </button>
-          <button
-            onClick={toggleCam}
-            disabled={!canUseMedia}
-            title={canUseMedia ? "Toggle camera" : "Camera unlocks at the scheduled start time"}
-            className={cn(
-              "w-12 h-12 rounded-full border flex items-center justify-center transition-colors",
-              !canUseMedia
-                ? "cursor-not-allowed border-brand-border bg-brand-surface text-brand-ink-muted opacity-60"
-                : camOn
-                ? "border-brand-border bg-brand-surface text-brand-ink-subtle"
-                : "border-red-500/40 bg-red-500/20 text-red-400"
-            )}
-          >
-            {camOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
-          </button>
-        </div>
-
+      <div className="mt-1 flex items-center justify-between gap-3 px-1">
         {!canUseMedia ? (
           <p className="text-xs text-brand-ink-muted">
             Camera and mic unlock at the scheduled start time.
           </p>
-        ) : null}
+        ) : <div />}
 
         {isCreator ? (
           <button
@@ -220,13 +310,21 @@ function BookingVideoStage({
             <PhoneOff className="w-5 h-5" />
           </button>
         ) : (
-          <Button
-            variant="outline"
-            onClick={() => router.push("/bookings")}
-            className="gap-2"
-          >
-            Back To Bookings
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => router.push("/bookings")}
+              className="gap-2"
+            >
+              Back To Bookings
+            </Button>
+            <button
+              onClick={() => router.push("/bookings")}
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-red-500/40 bg-red-500 text-white transition-colors hover:bg-red-600"
+            >
+              <PhoneOff className="w-5 h-5" />
+            </button>
+          </div>
         )}
       </div>
     </div>
@@ -262,7 +360,7 @@ export default function RoomPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("bookings")
-      .select("id, topic, status, scheduled_at, creator_present, fan_present, creator:profiles!creator_id(full_name, avatar_initials, avatar_color, avatar_url), fan:profiles!fan_id(full_name, avatar_initials, avatar_color, avatar_url)")
+      .select("id, topic, status, duration, scheduled_at, creator_present, fan_present, creator:profiles!creator_id(full_name, avatar_initials, avatar_color, avatar_url), fan:profiles!fan_id(full_name, avatar_initials, avatar_color, avatar_url)")
       .eq("id", bId)
       .single();
 
@@ -478,6 +576,11 @@ export default function RoomPage() {
   }, [autoCancelBooking, creatorPresent, fanPresent, scheduledAt]);
 
   useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     if (!scheduledAt || bookingHasStarted) return;
 
     const startTime = new Date(scheduledAt).getTime();
@@ -559,8 +662,8 @@ export default function RoomPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-brand-bg p-4 md:p-6">
-      <div className="flex items-center justify-between mb-4 md:mb-6">
+    <div className="flex min-h-screen flex-col bg-brand-bg p-4 md:p-6">
+      <div className="mb-3 md:mb-4">
         <div>
           <h2 className="text-lg font-bold text-brand-ink flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />
@@ -572,26 +675,35 @@ export default function RoomPage() {
         </div>
       </div>
 
-      <CallContainer
-        url={roomUrl}
-        token={token}
-        startAudio={canUseMedia}
-        startVideo={canUseMedia}
-        onJoin={() => {
-          if (isCreator) {
-            setCreatorPresent(true);
-          } else {
-            setFanPresent(true);
-          }
-          void markPresence(true);
-        }}
-        onLeave={handleLeave}
-        onError={handleJoinError}
-      >
-        <BookingVideoStage booking={booking} isCreator={isCreator} canUseMedia={canUseMedia} onEndCall={handleEndCall} />
-      </CallContainer>
+      <div className="flex flex-1 min-h-0 flex-col">
+        <CallContainer
+          url={roomUrl}
+          token={token}
+          startAudio={canUseMedia}
+          startVideo={canUseMedia}
+          onJoin={() => {
+            if (isCreator) {
+              setCreatorPresent(true);
+            } else {
+              setFanPresent(true);
+            }
+            void markPresence(true);
+          }}
+          onLeave={handleLeave}
+          onError={handleJoinError}
+        >
+          <BookingVideoStage
+            booking={booking}
+            isCreator={isCreator}
+            canUseMedia={canUseMedia}
+            currentTime={currentTime}
+            scheduledAt={scheduledAt}
+            onEndCall={handleEndCall}
+          />
+        </CallContainer>
+      </div>
 
-      <div className="mt-4 text-center">
+      <div className="mt-3 text-center">
         {rejoining ? (
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand-primary-light">
             Reconnecting to the video room...

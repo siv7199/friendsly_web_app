@@ -275,14 +275,14 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
 
   return (
     <>
-      <div className="px-4 md:px-6 py-4 md:py-5 h-[100dvh] overflow-hidden flex flex-col gap-4">
+      <div className="px-4 md:px-6 py-4 md:py-5 min-h-screen lg:h-[100dvh] overflow-x-hidden lg:overflow-hidden flex flex-col gap-4">
         <Link href={`/profile/${creatorState.id}`} className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors shrink-0">
           <ArrowLeft className="w-4 h-4" />
           Back to {creatorState.name}&apos;s profile
         </Link>
 
-        <div className="grid flex-1 min-h-0 gap-4 lg:grid-cols-[minmax(0,1.5fr)_420px]">
-          <div className="min-h-0">
+        <div className="grid gap-4 lg:flex-1 lg:min-h-0 lg:grid-cols-[minmax(0,1.5fr)_420px]">
+          <div className="lg:min-h-0">
             {roomUrl && token ? (
               <PublicLiveRoom
                 roomUrl={roomUrl}
@@ -316,7 +316,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             )}
           </div>
 
-          <div className="min-h-0">
+          <div className="min-h-[420px] lg:min-h-0">
             <WaitingRoom
               queue={[]}
               currentUserPosition={0}
