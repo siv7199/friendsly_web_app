@@ -110,17 +110,19 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
 
   return (
     <>
-      <article className="bg-white rounded-2xl overflow-hidden flex flex-col shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 ease-out-expo animate-card-enter group border border-brand-border/60">
+      <article className="bg-white rounded-[18px] overflow-hidden flex flex-col shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 ease-out-expo animate-card-enter group border border-brand-border/50">
 
         {/* ── Media area — large purple stage (matches reference) ── */}
         <div className="relative overflow-hidden" style={{ aspectRatio: "4/3" }}>
 
           {/* Purple gradient background — the signature card visual */}
           <div className="absolute inset-0 bg-gradient-card-media" />
+          {/* Subtle top highlight for depth */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/[0.12] to-transparent pointer-events-none" />
 
           {/* Creator photo or centered avatar — fallback always rendered beneath */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className={cn("w-20 h-20 rounded-full flex items-center justify-center", creator.avatarColor || "bg-white/25")}>
+            <div className={cn("w-20 h-20 rounded-full flex items-center justify-center ring-4 ring-white/50 shadow-lg", creator.avatarColor || "bg-white/25")}>
               <span className="text-3xl font-black text-white/90 font-display">
                 {creator.avatarInitials}
               </span>
@@ -186,7 +188,7 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
             <div className="min-w-0">
               <Link
                 href={`/profile/${creator.id}`}
-                className="text-base font-bold text-brand-ink hover:text-brand-primary transition-colors leading-tight font-display block"
+                className="text-base font-serif font-normal text-brand-ink hover:text-brand-primary transition-colors leading-tight block"
               >
                 {creator.name}
               </Link>
@@ -226,7 +228,7 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
             {creator.isLive && hasLiveRate && (
               <span className="flex items-center gap-0.5 text-[11px] font-semibold text-brand-primary ml-auto">
                 <Zap className="w-2.5 h-2.5" />
-                {formatCurrency(creator.liveJoinFee!)}/30s
+                {formatCurrency(creator.liveJoinFee!)} per minute
               </span>
             )}
           </div>
@@ -252,7 +254,7 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
               className="w-full rounded-full opacity-50 cursor-not-allowed"
               disabled
             >
-              No rate set
+              No amount set
             </Button>
           ) : hasPackages ? (
             <Button

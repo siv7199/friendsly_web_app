@@ -218,10 +218,10 @@ export default function SavedPage() {
   }
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-7xl mx-auto space-y-6">
+    <div className="px-4 md:px-8 py-3 max-w-7xl mx-auto space-y-4">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-black font-display text-brand-ink">Saved Creators</h1>
+        <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">Saved Creators</h1>
         <p className="text-brand-ink-subtle mt-1">
           Creators you&apos;ve saved for quick access.
         </p>

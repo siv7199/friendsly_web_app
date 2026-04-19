@@ -58,10 +58,10 @@ export default function AnalyticsPage() {
   }, [dailySeries]);
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-6xl mx-auto space-y-8">
+    <div className="px-4 md:px-8 py-3 max-w-6xl mx-auto space-y-5">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black font-display text-brand-ink">Analytics</h1>
+          <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">Analytics</h1>
           <p className="text-brand-ink-subtle mt-1">Track profile views, conversion, bookings, and public live guest interest.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -97,7 +97,7 @@ export default function AnalyticsPage() {
               return (
                 <div key={item.label} className="rounded-2xl border border-brand-border bg-brand-surface p-5">
                   <Icon className="w-5 h-5 text-brand-primary-light mb-3" />
-                  <p className="text-2xl font-black text-brand-ink">{item.value}</p>
+                  <p className="text-2xl font-display font-bold text-brand-ink">{item.value}</p>
                   <p className="text-xs text-brand-ink-subtle mt-1">{item.label}</p>
                 </div>
               );
@@ -137,7 +137,7 @@ export default function AnalyticsPage() {
 
               <div className="rounded-xl border border-brand-border bg-brand-elevated p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-subtle">Conversion</p>
-                <p className="text-3xl font-black text-brand-ink mt-2">{conversionRate}%</p>
+                <p className="text-3xl font-display font-bold text-brand-ink mt-2">{conversionRate}%</p>
                 <p className="text-sm text-brand-ink-subtle mt-2">
                   {uniqueConverters} unique converters from {uniqueViewers > 0 ? uniqueViewers : profileViews} viewers.
                 </p>
@@ -145,9 +145,9 @@ export default function AnalyticsPage() {
 
               <div className="rounded-xl border border-brand-border bg-brand-elevated p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-subtle">Creator Revenue</p>
-                <p className="text-3xl font-black text-brand-ink mt-2">{formatCurrency(grossRevenue)}</p>
+                <p className="text-3xl font-display font-bold text-brand-ink mt-2">{formatCurrency(grossRevenue)}</p>
                 <p className="text-sm text-brand-ink-subtle mt-2">
-                  Includes completed booking sessions and paid public live guest turns in the selected range.
+                  Includes completed booking sessions and paid live guest turns in the selected range.
                 </p>
               </div>
             </div>

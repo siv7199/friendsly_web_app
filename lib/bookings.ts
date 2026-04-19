@@ -121,3 +121,35 @@ export function getNextBookingRefreshDelay(
   if (nextTransitionMs === null) return null;
   return Math.max(1000, nextTransitionMs - nowMs + 1000);
 }
+
+export function getNextAutoCancelCheckDelay(
+  bookings: Array<{
+    status: string;
+    scheduledAt: string | Date;
+    creatorPresent?: boolean | null;
+    fanPresent?: boolean | null;
+  }>,
+  now: Date = new Date()
+) {
+  const nowMs = now.getTime();
+  let nextDeadlineMs: number | null = null;
+
+  for (const booking of bookings) {
+    if (booking.status === "completed" || booking.status === "cancelled") continue;
+    if (Boolean(booking.creatorPresent) && Boolean(booking.fanPresent)) continue;
+
+    const { noShowDeadline } = getBookingWindow(booking.scheduledAt, 0);
+    const deadlineMs = noShowDeadline.getTime();
+
+    if (deadlineMs <= nowMs) {
+      return 0;
+    }
+
+    if (nextDeadlineMs === null || deadlineMs < nextDeadlineMs) {
+      nextDeadlineMs = deadlineMs;
+    }
+  }
+
+  if (nextDeadlineMs === null) return null;
+  return Math.max(1000, nextDeadlineMs - nowMs + 1000);
+}

@@ -21,12 +21,19 @@ import {
   getBrowserTimeZone,
   zonedTimeToUtc,
 } from "@/lib/timezones";
-import { LIVE_MIN_JOIN_FEE, LIVE_STAGE_SECONDS } from "@/lib/live";
+import { LIVE_STAGE_MAX_MINUTES, LIVE_STAGE_MIN_SECONDS, LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds, getLiveStageRemainingSeconds } from "@/lib/live";
 
 const LIVE_SESSION_HEARTBEAT_MS = 15000;
 const LIVE_SESSION_STALE_MS = 45000;
 
 function formatCountdown(totalSeconds: number) {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function formatElapsed(totalSeconds: number) {
   const safeSeconds = Math.max(0, totalSeconds);
   const minutes = Math.floor(safeSeconds / 60);
   const seconds = safeSeconds % 60;
@@ -95,6 +102,7 @@ function LiveVideoStage({
   initialMic,
   initialCam,
   activeFanRemainingSeconds,
+  activeFanElapsedSeconds,
   creatorJoined,
 }: any) {
   const localSessionId = useLocalSessionId();
@@ -202,7 +210,7 @@ function LiveVideoStage({
               LIVE
             </Badge>
             <span className="text-sm text-brand-ink-muted">
-              {currentFan ? `Now with ${currentFan.fanName}` : "Public live is open"}
+              {currentFan ? `Now with ${currentFan.fanName}` : "Live is open"}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full border border-brand-border bg-brand-elevated px-2.5 py-1 text-xs text-brand-ink-muted">
               <Users className="w-3.5 h-3.5" />
@@ -213,11 +221,12 @@ function LiveVideoStage({
             </span>
           </div>
           {currentFan?.admittedAt ? (
-            <div className="rounded-xl border border-brand-live/30 bg-brand-live/10 px-3 py-1.5 text-right">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-brand-live">On Stage</p>
-              <p className="text-base font-black text-brand-live tabular-nums">{formatCountdown(activeFanRemainingSeconds)}</p>
-            </div>
-          ) : null}
+              <div className="rounded-xl border border-brand-live/30 bg-brand-live/10 px-3 py-1.5 text-right">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-brand-live">On Stage</p>
+                <p className="text-base font-black text-brand-live tabular-nums">{formatElapsed(activeFanElapsedSeconds)}</p>
+                <p className="text-[10px] text-brand-live/75">of {LIVE_STAGE_MAX_MINUTES}:00 max</p>
+              </div>
+            ) : null}
         </div>
 
         <div className={cn(
@@ -296,9 +305,11 @@ function LiveVideoStage({
               Queue · {queueCount}
             </p>
             <div className="flex items-center gap-1.5">
-              <Button variant="outline" size="sm" onClick={admitNext} disabled={queueCount < 1} className="h-8 gap-1 px-2.5 text-[11px]">
+              <Button variant="outline" size="sm" onClick={admitNext} disabled={queueCount < 1 || (Boolean(currentFan) && activeFanElapsedSeconds < LIVE_STAGE_MIN_SECONDS)} className="h-8 gap-1 px-2.5 text-[11px]">
                 <SkipForward className="w-3.5 h-3.5" />
-                Admit
+                {currentFan && activeFanElapsedSeconds < LIVE_STAGE_MIN_SECONDS
+                  ? `Min ${formatCountdown(LIVE_STAGE_MIN_SECONDS - activeFanElapsedSeconds)}`
+                  : "Admit"}
               </Button>
               <Button variant="danger" size="sm" onClick={endSession} className="h-8 gap-1 px-2.5 text-[11px]">
                 <StopCircle className="w-3.5 h-3.5" />
@@ -371,9 +382,8 @@ export function LiveConsole() {
   const creatorInitials = user?.avatar_initials ?? "??";
   const creatorColor = user?.avatar_color ?? "bg-violet-600";
   const creatorAvatarUrl = creatorProfileAvatarUrl ?? user?.avatar_url ?? undefined;
-  const activeFanRemainingSeconds = currentFan?.admittedAt
-    ? Math.max(0, LIVE_STAGE_SECONDS - Math.floor((currentTime - new Date(currentFan.admittedAt).getTime()) / 1000))
-    : LIVE_STAGE_SECONDS;
+  const activeFanRemainingSeconds = getLiveStageRemainingSeconds(currentFan?.admittedAt, currentTime);
+  const activeFanElapsedSeconds = getLiveStageElapsedSeconds(currentFan?.admittedAt, currentTime);
 
   function isRecentHeartbeat(value?: string | null) {
     if (!value) return false;
@@ -524,9 +534,7 @@ export function LiveConsole() {
       if (!data) return;
 
       const active = data.find((e: any) => e.status === "active");
-      const activeRemainingSeconds = active?.admitted_at
-        ? Math.max(0, LIVE_STAGE_SECONDS - Math.floor((Date.now() - new Date(active.admitted_at).getTime()) / 1000))
-        : 0;
+      const activeRemainingSeconds = getLiveStageRemainingSeconds(active?.admitted_at, Date.now());
       const waiting = data.filter((e: any) => e.status === "waiting");
 
       setQueue(waiting.map((e: any, idx: number) => ({
@@ -634,7 +642,7 @@ export function LiveConsole() {
     setCreatorJoined(false);
     const latestSettings = await fetchLatestLiveSettings(user.id);
     if (!hasConfiguredLiveRate(latestSettings.liveRate)) {
-      setStartError(`Set a live join fee of at least $${LIVE_MIN_JOIN_FEE} in Management first.`);
+      setStartError("Set an amount per minute in Management before going live.");
       return;
     }
     if (previewStreamRef.current) {
@@ -685,6 +693,7 @@ export function LiveConsole() {
 
   async function admitNext() {
     if (queue.length === 0 || !user || !sessionId || finishingFanRef.current || !creatorJoined) return;
+    if (currentFan && activeFanElapsedSeconds < LIVE_STAGE_MIN_SECONDS) return;
     const supabase = createClient();
     const nextFan = queue[0];
     if (currentFan) {
@@ -836,7 +845,7 @@ export function LiveConsole() {
           </div>
           {!hasConfiguredLiveRate(liveRate) ? (
             <p className="text-sm text-amber-700 mb-4">
-              Set a live join fee in Management before going live.
+              Set an amount per minute in Management before going live.
             </p>
           ) : null}
           <Button variant="live" size="xl" onClick={startSession} className="shadow-glow-live">Start Live Session</Button>
@@ -881,6 +890,7 @@ export function LiveConsole() {
               initialMic={micOn}
               initialCam={camOn}
               activeFanRemainingSeconds={activeFanRemainingSeconds}
+              activeFanElapsedSeconds={activeFanElapsedSeconds}
               creatorJoined={creatorJoined}
             />
           </div>

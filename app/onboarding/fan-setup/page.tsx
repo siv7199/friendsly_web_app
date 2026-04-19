@@ -102,7 +102,7 @@ export default function FanSetupPage() {
             <Compass className="w-3.5 h-3.5 text-brand-primary-light" />
             <span className="text-xs text-brand-ink-subtle font-medium">Fan Setup — Almost done!</span>
           </div>
-          <h1 className="text-2xl font-black text-brand-ink">One last thing</h1>
+          <h1 className="text-2xl font-serif font-normal text-brand-ink">One last thing</h1>
           <p className="text-brand-ink-subtle text-sm mt-1">Pick your avatar color and confirm your username.</p>
         </div>
 

@@ -24,7 +24,7 @@ import type { CreatorStats } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { deriveBookingStatus, getBookingGrossAmount, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable, shouldAutoCancelBooking } from "@/lib/bookings";
+import { deriveBookingStatus, getBookingGrossAmount, getNextAutoCancelCheckDelay, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
 import { getCreatorAnalyticsSnapshot } from "@/lib/analytics";
 import { getCreatorInsights, type CreatorInsight } from "@/lib/creator-insights";
 import { localDateKey } from "@/lib/timezones";
@@ -127,6 +127,7 @@ export default function DashboardPage() {
     const creatorName = user.full_name || "Creator";
     const supabase = createClient();
     let refreshTimer: number | null = null;
+    let autoCancelTimer: number | null = null;
     supabase
       .from("reviews")
       .select("id, rating, comment, created_at, fan:profiles!fan_id(full_name, avatar_initials, avatar_color, avatar_url)")
@@ -155,6 +156,28 @@ export default function DashboardPage() {
       });
 
     // ── Load Bookings & Compute Stats ──
+    async function scheduleAutoCancelCheck(bookings: any[]) {
+      if (autoCancelTimer) {
+        window.clearTimeout(autoCancelTimer);
+        autoCancelTimer = null;
+      }
+
+      const delay = getNextAutoCancelCheckDelay(
+        bookings.map((booking: any) => ({
+          status: booking.status,
+          scheduledAt: booking.scheduled_at,
+          creatorPresent: booking.creator_present,
+          fanPresent: booking.fan_present,
+        }))
+      );
+
+      if (delay === null) return;
+
+      autoCancelTimer = window.setTimeout(() => {
+        void loadDashboard();
+      }, delay);
+    }
+
     async function loadDashboard() {
       if (refreshTimer) {
         window.clearTimeout(refreshTimer);
@@ -162,8 +185,6 @@ export default function DashboardPage() {
       }
 
       try {
-        await fetch("/api/bookings/auto-cancel", { method: "POST" }).catch(() => null);
-
         // 1. Fetch bookings, live queue joins, profile views, and raw reviews
         const [bookingsRes, liveRes, reviewsRes, analyticsSnapshot, packagesRes, availabilityRes] = await Promise.all([
           supabase
@@ -196,6 +217,7 @@ export default function DashboardPage() {
         ]);
 
       const bookings = bookingsRes.data || [];
+      void scheduleAutoCancelCheck(bookings);
       const expiredBookingIds: string[] = [];
       
       let totalEarnedGross = 0;
@@ -396,6 +418,7 @@ export default function DashboardPage() {
 
     return () => {
       if (refreshTimer) window.clearTimeout(refreshTimer);
+      if (autoCancelTimer) window.clearTimeout(autoCancelTimer);
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
       supabase.removeChannel(channel);
@@ -415,13 +438,13 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-6xl mx-auto space-y-8">
+    <div className="px-4 md:px-8 py-3 max-w-6xl mx-auto space-y-5">
       {/* ── Status Banner ── */}
       {/* ── Header ── */}
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-brand-ink-subtle text-sm">Good afternoon,</p>
-          <h1 className="text-3xl font-black font-display text-brand-ink">{displayName} 👋</h1>
+          <p className="text-sm font-serif italic text-brand-ink-muted">Good afternoon,</p>
+          <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">{displayName} 👋</h1>
         </div>
         <Link href="/live">
           <Button variant="live" className="gap-2 shadow-glow-live">
@@ -605,7 +628,7 @@ export default function DashboardPage() {
             <h3 className="text-sm font-semibold text-brand-ink-muted mb-3">Quick Actions</h3>
             <div className="space-y-2">
               {[
-                { label: "Manage Offerings", href: "/management", icon: "⚙️" },
+                { label: "Bookings / Offerings", href: "/management", icon: "⚙️" },
                 { label: "View Calendar", href: "/calendar", icon: "📅" },
                 { label: "Update Availability", href: "/calendar", icon: "🕐" },
               ].map((action) => (

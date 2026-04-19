@@ -73,7 +73,7 @@ export function getRefundAmountForReason(
   }
 
   if (reason === "auto_cancel_fan_no_show") {
-    return roundCurrency(price * 0.5);
+    return roundCurrency(price * 0.75);
   }
 
   if (reason === "auto_cancel_both_absent" || reason === "auto_cancel_creator_no_show") {

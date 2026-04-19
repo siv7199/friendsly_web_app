@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/utils";
-import { deriveBookingStatus, getBookingGrossAmount, getNextBookingRefreshDelay, hasBookingEnded, shouldAutoCancelBooking } from "@/lib/bookings";
+import { deriveBookingStatus, getBookingGrossAmount, getNextAutoCancelCheckDelay, getNextBookingRefreshDelay, hasBookingEnded } from "@/lib/bookings";
 import { localDateKey } from "@/lib/timezones";
 import type { Booking } from "@/types";
 
@@ -61,14 +61,35 @@ export default function CalendarPage() {
     const creatorId = user.id;
     const creatorName = user.full_name || "Creator";
     let refreshTimer: number | null = null;
+    let autoCancelTimer: number | null = null;
+
+    async function scheduleAutoCancelCheck(bookings: any[]) {
+      if (autoCancelTimer) {
+        window.clearTimeout(autoCancelTimer);
+        autoCancelTimer = null;
+      }
+
+      const delay = getNextAutoCancelCheckDelay(
+        bookings.map((booking: any) => ({
+          status: booking.status,
+          scheduledAt: booking.scheduled_at,
+          creatorPresent: booking.creator_present,
+          fanPresent: booking.fan_present,
+        }))
+      );
+
+      if (delay === null) return;
+
+      autoCancelTimer = window.setTimeout(() => {
+        void loadBookings();
+      }, delay);
+    }
 
     async function loadBookings() {
       if (refreshTimer) {
         window.clearTimeout(refreshTimer);
         refreshTimer = null;
       }
-
-      await fetch("/api/bookings/auto-cancel", { method: "POST" }).catch(() => null);
 
       const { data: packageData } = await supabase
         .from("call_packages")
@@ -96,6 +117,8 @@ export default function CalendarPage() {
         `)
         .eq("creator_id", creatorId)
         .order("scheduled_at", { ascending: true });
+
+      void scheduleAutoCancelCheck(data ?? []);
 
       const now = new Date();
       const expiredIds: string[] = [];
@@ -191,6 +214,7 @@ export default function CalendarPage() {
 
     return () => {
       if (refreshTimer) window.clearTimeout(refreshTimer);
+      if (autoCancelTimer) window.clearTimeout(autoCancelTimer);
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
       supabase.removeChannel(channel);
@@ -202,9 +226,9 @@ export default function CalendarPage() {
   const totalCompletedEarnings = completed.reduce((sum, booking) => sum + booking.price, 0);
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-4xl mx-auto space-y-8">
+    <div className="px-4 md:px-8 py-3 max-w-4xl mx-auto space-y-5">
       <div>
-        <h1 className="text-3xl font-black font-display text-brand-ink">Calendar</h1>
+        <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">Calendar</h1>
         <p className="text-brand-ink-subtle mt-1">Your availability plus upcoming and completed sessions.</p>
       </div>
 
@@ -226,7 +250,7 @@ export default function CalendarPage() {
           return (
             <div key={item.label} className="rounded-2xl border border-brand-border bg-brand-surface p-4">
               <Icon className="w-4 h-4 text-brand-ink-subtle mb-2" />
-              <p className="text-xl font-black text-brand-ink">{item.value}</p>
+              <p className="text-xl font-display font-bold text-brand-ink">{item.value}</p>
               <p className="text-xs text-brand-ink-subtle mt-0.5">{item.label}</p>
             </div>
           );

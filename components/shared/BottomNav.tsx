@@ -18,7 +18,7 @@ const FAN_ITEMS = [
 const CREATOR_ITEMS = [
   { label: "Dashboard", href: "/dashboard",  icon: LayoutDashboard },
   { label: "Earnings",  href: "/earnings",   icon: DollarSign },
-  { label: "Manage",    href: "/management", icon: Settings2 },
+  { label: "Offerings", href: "/management", icon: Settings2 },
   { label: "Calendar",  href: "/calendar",   icon: CalendarDays },
   { label: "Go Live",   href: "/live",       icon: Radio, highlight: true },
 ];

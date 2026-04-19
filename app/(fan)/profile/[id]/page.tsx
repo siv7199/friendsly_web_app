@@ -555,7 +555,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
   return (
     <>
-      <div className="px-4 md:px-8 py-6 max-w-4xl mx-auto space-y-6">
+      <div className="px-4 md:px-8 py-3 max-w-4xl mx-auto space-y-3">
         {/* ── Back ── */}
         <Link
           href="/discover"
@@ -566,115 +566,101 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         </Link>
 
         {/* ── Profile Hero ── */}
-        <div className="rounded-2xl border border-brand-border bg-brand-surface">
-          <div className="h-24 rounded-t-2xl bg-gradient-to-br from-brand-primary/20 via-purple-900/10 to-transparent" />
-          <div className="px-6 pb-6">
-            <div className="flex items-end justify-between -mt-8 mb-4">
-              <Avatar
-                initials={creator.avatarInitials}
-                color={creator.avatarColor}
-                imageUrl={creator.avatarUrl}
-                size="xl"
-                isLive={creator.isLive}
-                className="border-4 border-brand-surface ring-2 ring-brand-border"
-              />
-              {creator.isLive && (
-                <Badge variant="live" className="mb-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
-                  LIVE NOW
-                </Badge>
-              )}
-            </div>
+        <div className="rounded-2xl border border-brand-border bg-brand-surface p-4">
+          <div className="flex items-start gap-4">
+            <Avatar
+              initials={creator.avatarInitials}
+              color={creator.avatarColor}
+              imageUrl={creator.avatarUrl}
+              size="lg"
+              isLive={creator.isLive}
+              className="shrink-0 border-2 border-brand-surface ring-1 ring-brand-border"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h1 className="text-xl font-serif font-normal text-brand-ink leading-tight">{creator.name}</h1>
+                  <p className="text-brand-ink-subtle text-xs mt-0.5">{creator.username}</p>
+                </div>
+                {creator.isLive && (
+                  <Badge variant="live" className="shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
+                    LIVE NOW
+                  </Badge>
+                )}
+              </div>
 
-            <h1 className="text-2xl font-black text-brand-ink">{creator.name}</h1>
-            <p className="text-brand-ink-subtle text-sm">{creator.username}</p>
-
-            <div className="flex flex-wrap items-center gap-4 mt-3">
               {creator.rating > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <Star className="w-4 h-4 fill-brand-gold text-brand-gold" />
-                  <span className="font-bold text-brand-gold">{creator.rating}</span>
-                  <span className="text-sm text-brand-ink-subtle">({creator.reviewCount} reviews)</span>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <Star className="w-3.5 h-3.5 fill-brand-gold text-brand-gold" />
+                  <span className="font-bold text-sm text-brand-gold">{creator.rating}</span>
+                  <span className="text-xs text-brand-ink-subtle">({creator.reviewCount} reviews)</span>
                 </div>
               )}
-            </div>
 
-            {creator.bio && (
-              <p className="mt-4 text-brand-ink-muted leading-relaxed">{creator.bio}</p>
-            )}
+              {creator.bio && (
+                <p className="mt-1.5 text-xs text-brand-ink-muted leading-relaxed line-clamp-2">{creator.bio}</p>
+              )}
 
-            {socialLinks.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
                 {socialLinks.map(({ key, label, href, icon: Icon }) => (
                   <a
                     key={key}
                     href={href}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-brand-elevated px-3 py-1.5 text-xs font-medium text-brand-ink-muted transition-colors hover:border-brand-primary/50 hover:text-brand-ink"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-brand-border bg-brand-elevated px-2.5 py-1 text-xs font-medium text-brand-ink-muted transition-colors hover:border-brand-primary/50 hover:text-brand-ink"
                   >
-                    <Icon className="h-3.5 w-3.5" />
+                    <Icon className="h-3 w-3" />
                     <span>{getSocialHandleLabel(href) || label}</span>
                   </a>
                 ))}
+                {creator.tags.slice(0, 3).map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-xs px-2.5 py-1 rounded-full bg-brand-elevated border border-brand-border text-brand-ink-subtle"
+                  >
+                    {tag}
+                  </span>
+                ))}
               </div>
-            )}
 
-            <div className="flex flex-wrap gap-2 mt-4">
-              {creator.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="text-xs px-3 py-1.5 rounded-full bg-brand-elevated border border-brand-border text-brand-ink-subtle"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-
-            {/* Pricing summary strip */}
-            <div className="mt-5 flex flex-wrap gap-3">
-              {scheduledLiveCountdown && (
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-info/10 border border-brand-info/30">
-                    <Calendar className="w-4 h-4 text-brand-info" />
-                    <span className="text-sm font-bold text-brand-info">
-                      {scheduledLiveCountdown}
-                      {scheduledLiveLabel ? (
-                        <span className="block text-xs font-medium text-brand-ink-muted mt-0.5">{scheduledLiveLabel}</span>
-                      ) : null}
-                    </span>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {scheduledLiveCountdown && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-info/10 border border-brand-info/30">
+                    <Calendar className="w-3.5 h-3.5 text-brand-info" />
+                    <span className="text-xs font-bold text-brand-info">{scheduledLiveCountdown}</span>
+                    {scheduledLiveLabel && <span className="text-xs text-brand-ink-muted">{scheduledLiveLabel}</span>}
                   </div>
                 )}
-              {hasLiveRate && (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-live/10 border border-brand-live/30">
-                  <Zap className="w-4 h-4 text-brand-live" />
-                  <span className="text-sm font-bold text-brand-live">
-                    {formatCurrency(creator.liveJoinFee!)}
-                  </span>
-                  <span className="text-xs text-brand-ink-subtle">to join live for 30s</span>
-                </div>
-              )}
-              {hasPackages && (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary/10 border border-brand-primary/30">
-                  <Calendar className="w-4 h-4 text-brand-primary-light" />
-                  <span className="text-sm font-bold text-brand-primary-light">
-                    Starts at {formatCurrency(creator.callPrice)}
-                  </span>
-                  <span className="text-xs text-brand-ink-subtle">per session</span>
-                </div>
-              )}
+                {hasLiveRate && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-live/10 border border-brand-live/30">
+                    <Zap className="w-3.5 h-3.5 text-brand-live" />
+                    <span className="text-xs font-bold text-brand-live">{formatCurrency(creator.liveJoinFee!)}</span>
+                    <span className="text-xs text-brand-ink-subtle">/ min</span>
+                  </div>
+                )}
+                {hasPackages && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary/10 border border-brand-primary/30">
+                    <Calendar className="w-3.5 h-3.5 text-brand-primary-light" />
+                    <span className="text-xs font-bold text-brand-primary-light">from {formatCurrency(creator.callPrice)}</span>
+                    <span className="text-xs text-brand-ink-subtle">/ session</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* ── Main Grid ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
           {/* ── Left: Sessions + Calendar ── */}
-          <div className="md:col-span-2 space-y-4">
+          <div className="md:col-span-2 space-y-3">
 
             {/* Available sessions */}
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
-              <h2 className="text-lg font-bold text-brand-ink mb-4">Book a Session</h2>
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-4">
+              <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
               {!hasPackages ? (
                 <div className="p-4 rounded-xl border border-brand-border bg-brand-elevated text-center py-8">
                   <p className="text-brand-ink-subtle text-sm">No booking packages available yet.</p>
@@ -702,7 +688,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                           </div>
                         </div>
                         <div className="text-right shrink-0 ml-4">
-                          <p className="text-xl font-black text-gradient-gold">{formatCurrency(pkg.price)}</p>
+                          <p className="text-xl font-display font-bold text-gradient-gold">{formatCurrency(pkg.price)}</p>
                           <p className="text-[11px] text-brand-ink-subtle mt-0.5">per session</p>
                         </div>
                       </div>
@@ -713,9 +699,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             </div>
 
             {/* Availability Calendar */}
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-brand-ink flex items-center gap-2">
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-brand-ink flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-brand-primary-light" />
                   Availability
                 </h2>
@@ -831,10 +817,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           </div>
 
           {/* ── Right: CTA + Trust Signals ── */}
-          <div className="space-y-4">
+          <div className="space-y-3">
 
             {/* CTA Card */}
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-6 flex flex-col gap-4">
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-4 flex flex-col gap-3">
               {/* Live queue CTA */}
               {creator.isLive && hasLiveRate && (
                 <div className="p-3 rounded-xl bg-brand-live/10 border border-brand-live/30 text-center">
@@ -842,9 +828,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     <span className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />
                     <span className="text-xs font-bold text-brand-live uppercase tracking-wider">Live Right Now</span>
                   </div>
-                  <p className="text-xl font-black text-brand-live">
+                  <p className="text-xl font-display font-bold text-brand-live">
                     {formatCurrency(creator.liveJoinFee!)}
                   </p>
+                  <p className="text-xs text-brand-ink-subtle">amount per minute</p>
                   <p className="text-[11px] text-brand-ink-subtle mt-1">
                     {creator.queueCount > 0 ? `${creator.queueCount} in queue` : "Watch now and request a turn"}
                   </p>
@@ -853,12 +840,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
               {/* Booking price */}
               {hasPackages && (
-                <div className="text-center py-2">
-                  <p className="text-sm font-bold text-brand-ink-subtle uppercase tracking-wider mb-1">Starts at</p>
-                  <p className="text-4xl font-black text-brand-ink">
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-display font-bold text-brand-ink">
                     {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
                   </p>
-                  <p className="text-xs text-brand-ink-subtle mt-1">per session</p>
+                  <p className="text-xs text-brand-ink-subtle">per session</p>
                 </div>
               )}
 
@@ -877,7 +863,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 {hasLiveRate && (
                   <div className="flex items-center gap-2 text-brand-ink-subtle">
                     <CheckCircle2 className="w-4 h-4 text-brand-live shrink-0" />
-                    <span>Live: free to watch, paid 30-second guest turns</span>
+                    <span>Live: free to watch, paid by the minute when you are on stage</span>
                   </div>
                 )}
               </div>
@@ -939,7 +925,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
         {/* ── Reviews ── */}
         <section>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold text-brand-ink">
               Reviews{" "}
               <span className="text-brand-ink-subtle font-normal">({creator.reviewCount})</span>

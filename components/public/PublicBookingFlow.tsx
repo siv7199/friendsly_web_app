@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getAvailableStartTimesForViewerDate, getBrowserTimeZone, getTimeZoneAbbreviation } from "@/lib/timezones";
+import { RefundPolicyModal } from "@/components/shared/RefundPolicyModal";
 
 type CreatorPayload = {
   id: string;
@@ -271,6 +272,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const [successMessage, setSuccessMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [clientOrigin, setClientOrigin] = useState("");
+  const [showRefundPolicyOnSuccess, setShowRefundPolicyOnSuccess] = useState(false);
   const paymentInitKeyRef = useRef<string | null>(null);
 
   const draftKey = getDraftKey(creatorSlug);
@@ -466,6 +468,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     window.sessionStorage.removeItem(draftKey);
     setSuccessMessage(`Your call with ${creator.name} is confirmed.`);
     setSuccessAccessUrl(null);
+    setShowRefundPolicyOnSuccess(true);
     setStep("success");
   }
 
@@ -487,6 +490,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     window.sessionStorage.removeItem(draftKey);
     setSuccessMessage(`Your call with ${creator?.name ?? "the creator"} is booked. Save your private booking link below.`);
     setSuccessAccessUrl(data.accessUrl ?? null);
+    setShowRefundPolicyOnSuccess(true);
     setStep("success");
   }
 
@@ -633,7 +637,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-primary-light">
                   Shareable Booking Link
                 </p>
-                <h1 className="mt-2 text-3xl font-black font-display text-brand-ink">{creator.name}</h1>
+                <h1 className="mt-2 text-3xl font-serif font-normal text-brand-ink">{creator.name}</h1>
                 <p className="mt-1 text-sm text-brand-ink-subtle">{creator.category}</p>
                 {creator.bio && (
                   <p className="mt-4 max-w-2xl text-sm leading-relaxed text-brand-ink-subtle">
@@ -853,17 +857,13 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                 </div>
               )}
 
-              <div className="rounded-2xl border border-amber-300/40 bg-amber-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-800">
-                  Refund policy
-                </p>
-                <p className="mt-2 text-sm text-amber-900">
-                  Fans get a full refund when they cancel more than 24 hours before the call and a 50% refund within 24 hours.
-                </p>
-                <p className="mt-2 text-sm text-amber-900">
-                  If the creator does not join within 10 minutes, the fan gets a full refund. If the creator is waiting and the fan does not join within 10 minutes, the booking auto-cancels and the fan gets a 50% refund. A 10% late fee applies only when the creator is already waiting and the fan joins more than 5 minutes after the start time.
-                </p>
-                <p className="mt-2 text-sm text-amber-900">
+              <div className="rounded-2xl border border-brand-border bg-brand-surface p-4">
+                <RefundPolicyModal
+                  trigger="inline"
+                  title="Booking refund policy"
+                  description="Review the cancellation and no-show rules tied to this booking before you pay."
+                />
+                <p className="mt-3 text-xs leading-relaxed text-brand-ink-subtle">
                   Guests can book without an account, but they must create or sign in to a Friendsly fan account before joining the call.
                 </p>
               </div>
@@ -954,7 +954,10 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
           {step === "payment" && (
             <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 space-y-4">
-              <h2 className="text-lg font-bold text-brand-ink">Complete payment</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-brand-ink">Complete payment</h2>
+                <RefundPolicyModal trigger="link" />
+              </div>
               {paymentError && (
                 <div className="rounded-2xl border border-red-300/40 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {paymentError}
@@ -988,6 +991,23 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                 <div>
                   <h2 className="text-lg font-bold text-brand-ink">You&apos;re booked</h2>
                   <p className="text-sm text-brand-ink-subtle">{successMessage}</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-brand-border bg-brand-surface p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-brand-ink">Refund policy available any time</p>
+                    <p className="mt-1 text-xs leading-relaxed text-brand-ink-subtle">
+                      Your booking is confirmed. You can reopen the policy here if you need the cancellation, no-show, or late-fee details.
+                    </p>
+                  </div>
+                  <RefundPolicyModal
+                    trigger="icon"
+                    open={showRefundPolicyOnSuccess}
+                    onOpenChange={setShowRefundPolicyOnSuccess}
+                    title="Booking refund policy"
+                    description="This policy applies to the booking you just confirmed."
+                  />
                 </div>
               </div>
 

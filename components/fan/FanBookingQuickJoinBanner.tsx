@@ -7,7 +7,7 @@ import { Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { getBookingWindow, isBookingJoinable } from "@/lib/bookings";
+import { getBookingWindow, getNextAutoCancelCheckDelay, isBookingJoinable } from "@/lib/bookings";
 
 type ReadyBooking = {
   id: string;
@@ -26,21 +26,43 @@ export function FanBookingQuickJoinBanner() {
     const currentUser = user;
     const supabase = createClient();
     let refreshTimer: number | null = null;
+    let autoCancelTimer: number | null = null;
+
+    async function scheduleAutoCancelCheck(bookings: any[]) {
+      if (autoCancelTimer) {
+        window.clearTimeout(autoCancelTimer);
+        autoCancelTimer = null;
+      }
+
+      const delay = getNextAutoCancelCheckDelay(
+        bookings.map((booking: any) => ({
+          status: booking.status,
+          scheduledAt: booking.scheduled_at,
+          creatorPresent: booking.creator_present,
+          fanPresent: booking.fan_present,
+        }))
+      );
+
+      if (delay === null) return;
+
+      autoCancelTimer = window.setTimeout(() => {
+        void loadReadyBooking();
+      }, delay);
+    }
 
     async function loadReadyBooking() {
       if (refreshTimer) { window.clearTimeout(refreshTimer); refreshTimer = null; }
 
-      await fetch("/api/bookings/auto-cancel", { method: "POST" }).catch(() => null);
-
       const { data } = await supabase
         .from("bookings")
-        .select("id, scheduled_at, duration, status, creator:profiles!creator_id(full_name)")
+        .select("id, scheduled_at, duration, status, creator_present, fan_present, creator:profiles!creator_id(full_name)")
         .eq("fan_id", currentUser.id)
         .in("status", ["upcoming", "live"])
         .order("scheduled_at", { ascending: true })
         .limit(10);
 
       const bookings = data ?? [];
+      void scheduleAutoCancelCheck(bookings);
       const match = bookings.find((booking: any) =>
         isBookingJoinable(booking.status, booking.scheduled_at, booking.duration)
       );
@@ -77,6 +99,7 @@ export function FanBookingQuickJoinBanner() {
 
     return () => {
       if (refreshTimer) window.clearTimeout(refreshTimer);
+      if (autoCancelTimer) window.clearTimeout(autoCancelTimer);
       supabase.removeChannel(channel);
     };
   }, [user]);

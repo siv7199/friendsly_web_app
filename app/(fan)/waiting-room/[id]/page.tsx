@@ -11,7 +11,7 @@ import { PublicLiveRoom } from "@/components/fan/PublicLiveRoom";
 import { LiveJoinModal } from "@/components/fan/LiveJoinModal";
 import type { QueueEntry } from "@/types";
 import { Button } from "@/components/ui/button";
-import { LIVE_STAGE_SECONDS } from "@/lib/live";
+import { LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds, getLiveStageRemainingSeconds } from "@/lib/live";
 
 type CreatorState = {
   id: string;
@@ -45,6 +45,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [reportedDailySessionId, setReportedDailySessionId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
 
   const loadLiveState = useCallback(async () => {
     const supabase = createClient();
@@ -123,9 +124,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     );
 
     const waitingEntries = (entries ?? []).filter((entry: any) => entry.status === "waiting");
-    const activeRemainingSeconds = activeEntry?.admitted_at
-      ? Math.max(0, LIVE_STAGE_SECONDS - Math.floor((Date.now() - new Date(activeEntry.admitted_at).getTime()) / 1000))
-      : LIVE_STAGE_SECONDS;
+    const activeRemainingSeconds = getLiveStageRemainingSeconds(activeEntry?.admitted_at, Date.now()) || LIVE_STAGE_SECONDS;
 
     const nextQueue: QueueEntry[] = (entries ?? []).map((entry: any) => {
       const position = waitingEntries.findIndex((candidate: any) => candidate.id === entry.id) + 1;
@@ -154,6 +153,11 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   useEffect(() => {
     void loadLiveState();
   }, [loadLiveState]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!liveSessionId || !roomUrl || !user) {
@@ -225,9 +229,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     } catch {}
   }, [liveSessionId, myActiveEntry, reportedDailySessionId]);
 
-  const secondsRemaining = activeFanAdmittedAt
-    ? Math.max(0, LIVE_STAGE_SECONDS - Math.floor((Date.now() - new Date(activeFanAdmittedAt).getTime()) / 1000))
-    : LIVE_STAGE_SECONDS;
+  const stageElapsedSeconds = getLiveStageElapsedSeconds(activeFanAdmittedAt, currentTime);
   const waitingQueue = queue.filter((entry) => entry.status === "waiting");
 
   if (loading) {
@@ -247,11 +249,11 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
           <CheckCircle2 className="w-10 h-10 text-brand-primary-light" />
         </div>
         <div>
-          <h1 className="text-3xl font-black font-display text-white mb-2">
+          <h1 className="text-3xl font-serif font-normal text-white mb-2">
             {creatorState.name}&apos;s live has ended
           </h1>
           <p className="text-white/60 max-w-sm mx-auto">
-            Any paid queue spots that were never admitted are automatically refunded in full.
+            Any holds for fans who were never admitted are released automatically.
           </p>
         </div>
         <div className="flex flex-col w-full max-w-xs gap-3">
@@ -294,7 +296,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
                 viewerColor={user?.avatar_color ?? "bg-brand-primary"}
                 viewerAvatarUrl={user?.avatar_url ?? undefined}
                 isAdmitted={Boolean(myActiveEntry)}
-                secondsRemaining={secondsRemaining}
+                stageElapsedSeconds={stageElapsedSeconds}
                 onJoinQueue={() => setShowJoinModal(true)}
                 joinDisabled={Boolean(myWaitingEntry || myActiveEntry)}
                 queueCount={waitingQueue.length}
@@ -305,7 +307,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             ) : (
               <div className="rounded-[28px] border border-brand-border bg-brand-surface h-full flex items-center justify-center p-10 text-center">
                 <div>
-                  <p className="text-2xl font-black text-brand-ink">Waiting for the live to start</p>
+                  <p className="text-2xl font-serif font-normal text-brand-ink">Waiting for the live to start</p>
                   <p className="mt-2 text-sm text-brand-ink-subtle">
                     This page will update automatically when {creatorState.name} goes live.
                   </p>

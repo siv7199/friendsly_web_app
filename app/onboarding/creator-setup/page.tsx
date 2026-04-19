@@ -158,7 +158,7 @@ export default function CreatorSetupPage() {
             <Sparkles className="w-3.5 h-3.5 text-brand-gold" />
             <span className="text-xs text-brand-ink-subtle font-medium">Creator Setup — Step {step} of 3</span>
           </div>
-          <h1 className="text-2xl font-black text-brand-ink">Set up your creator profile</h1>
+          <h1 className="text-2xl font-serif font-normal text-brand-ink">Set up your creator profile</h1>
           <p className="text-brand-ink-muted text-sm mt-1">You&apos;ll set your call prices in your dashboard after signup.</p>
         </div>
 

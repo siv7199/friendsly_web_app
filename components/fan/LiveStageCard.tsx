@@ -48,7 +48,7 @@ export function LiveStageCard({ creator }: LiveStageCardProps) {
 
         {/* Bottom info */}
         <div className="absolute bottom-0 inset-x-0 bg-gradient-stage px-3 pt-8 pb-3">
-          <p className="text-white text-[13px] font-bold leading-tight truncate font-display">{creator.name}</p>
+          <p className="text-white text-[13px] font-serif font-normal leading-tight truncate">{creator.name}</p>
           {creator.category && (
             <p className="text-white/55 text-[10px] mt-0.5 truncate">{creator.category}</p>
           )}
@@ -56,7 +56,7 @@ export function LiveStageCard({ creator }: LiveStageCardProps) {
             {hasLiveRate ? (
               <span className="text-[11px] font-bold text-brand-primary-light flex items-center gap-0.5">
                 <Zap className="w-2.5 h-2.5" />
-                {formatCurrency(creator.liveJoinFee!)}
+                {formatCurrency(creator.liveJoinFee!)} / min
               </span>
             ) : (
               <span className="text-[11px] text-white/40">Free</span>

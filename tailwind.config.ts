@@ -58,6 +58,7 @@ const config: Config = {
         sans:    ["var(--font-sans)", "Nunito Sans", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "Barlow", "system-ui", "sans-serif"],
         brand:   ["var(--font-brand)", "serif"],
+        serif:   ["var(--font-serif)", "Cormorant Garamond", "Georgia", "serif"],
       },
       backgroundImage: {
         "gradient-radial":    "radial-gradient(var(--tw-gradient-stops))",
@@ -76,8 +77,10 @@ const config: Config = {
         "lg-light":    "0 8px 32px 0 rgba(108,92,231,0.14), 0 4px 12px 0 rgba(0,0,0,0.06)",
         "xl-light":    "0 16px 48px 0 rgba(108,92,231,0.18), 0 6px 16px 0 rgba(0,0,0,0.08)",
         // Elevated card hover
-        "card":        "0 2px 8px 0 rgba(0,0,0,0.06), 0 0 0 1px rgba(108,92,231,0.06)",
-        "card-hover":  "0 8px 24px 0 rgba(108,92,231,0.16), 0 2px 6px 0 rgba(0,0,0,0.06)",
+        "card":        "0 1px 2px rgba(108,92,231,0.04), 0 4px 18px -6px rgba(108,92,231,0.08)",
+        "card-hover":  "0 6px 16px -4px rgba(108,92,231,0.18), 0 18px 40px -16px rgba(108,92,231,0.20)",
+        // Active nav pill — gradient pill glow + inner top highlight
+        "nav-active":  "0 4px 14px -2px rgba(108,92,231,0.35), inset 0 1px 0 rgba(255,255,255,0.20)",
         // Glow effects — used sparingly
         "glow-primary":"0 0 24px 0 rgba(108,92,231,0.30)",
         "glow-live":   "0 0 20px 0 rgba(34,197,94,0.25)",
@@ -130,6 +133,17 @@ const config: Config = {
           "0%":   { opacity: "0", transform: "scale(0.8)" },
           "100%": { opacity: "1", transform: "scale(1)" },
         },
+      },
+      letterSpacing: {
+        "tightest": "-0.04em",
+        "tighter":  "-0.02em",
+        "tight":    "-0.01em",
+        "snug":     "-0.005em",
+        "normal":   "0em",
+        "wide":     "0.02em",
+        "wider":    "0.05em",
+        "widest":   "0.1em",
+        "caps":     "0.18em",
       },
       transitionTimingFunction: {
         "out-expo": "cubic-bezier(0.22, 1, 0.36, 1)",

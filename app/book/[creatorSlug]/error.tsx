@@ -20,7 +20,7 @@ export default function ShareableBookingError({
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-red-700">
           Booking Page Error
         </p>
-        <h1 className="mt-3 text-3xl font-black font-display text-brand-ink">
+        <h1 className="mt-3 text-3xl font-serif font-normal text-brand-ink">
           This booking page hit an error
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-red-700/80">

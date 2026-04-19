@@ -121,7 +121,7 @@ export default function CreatorRequestPage() {
             <Sparkles className="w-3.5 h-3.5 text-brand-gold" />
             <span className="text-xs font-medium text-brand-ink-subtle">Creator access is manually approved</span>
           </div>
-          <h1 className="text-3xl font-black font-display text-brand-ink">Apply for a creator account</h1>
+          <h1 className="text-3xl font-serif font-normal text-brand-ink">Apply for a creator account</h1>
           <p className="mt-2 text-sm text-brand-ink-subtle">
             Share your contact info and any socials you want us to review. Social links are optional.
           </p>

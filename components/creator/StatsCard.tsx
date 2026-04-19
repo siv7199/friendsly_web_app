@@ -76,7 +76,7 @@ export function StatsCard({
       </div>
 
       <p className="text-sm text-brand-ink-muted mb-1">{title}</p>
-      <p className="text-2xl font-black text-brand-ink">{value}</p>
+      <p className="text-2xl font-display font-bold text-brand-ink">{value}</p>
       {subtext && <p className="text-xs text-brand-ink-muted mt-1">{subtext}</p>}
     </div>
   );

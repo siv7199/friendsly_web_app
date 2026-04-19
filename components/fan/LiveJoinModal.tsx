@@ -12,7 +12,7 @@ import type { Creator } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { LIVE_MIN_JOIN_FEE, LIVE_STAGE_SECONDS } from "@/lib/live";
+import { LIVE_PREAUTH_MINUTES, LIVE_STAGE_MAX_MINUTES, getLivePreauthAmount } from "@/lib/live";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 const LIVE_SESSION_STALE_MS = 45000;
@@ -101,11 +101,11 @@ function PaymentForm({
       <PaymentElement options={{ layout: "tabs" }} onReady={() => setIsReady(true)} />
       <Button variant="live" size="lg" className="w-full gap-2" onClick={handleSubmit} disabled={isSubmitting || !stripe || !isReady}>
         {isSubmitting ? (
-          <><Loader2 className="w-4 h-4 animate-spin" /> Paying...</>
+          <><Loader2 className="w-4 h-4 animate-spin" /> Placing hold...</>
         ) : !isReady ? (
           <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</>
         ) : (
-          <><Zap className="w-4 h-4" /> Pay And Join Queue</>
+          <><Zap className="w-4 h-4" /> Place Hold And Join Queue</>
         )}
       </Button>
     </div>
@@ -283,8 +283,8 @@ export function LiveJoinModal({
       fan_id: user.id,
       status: "waiting",
       position: 0,
-      amount_pre_authorized: joinFee,
-      amount_charged: joinFee,
+      amount_pre_authorized: getLivePreauthAmount(joinFee),
+      amount_charged: null,
       stripe_pre_auth_id: intentId,
       joined_at: new Date().toISOString(),
     });
@@ -348,9 +348,9 @@ export function LiveJoinModal({
         title={step === "success" ? "You're In The Queue" : `Join ${creator.name}'s Live`}
         description={
           step === "info"
-            ? "Watch for free, then pay once if you want the creator to bring you on stage."
+            ? "Watch for free, then place a temporary card hold at the per-minute rate if you want to join on stage."
             : step === "payment"
-            ? "You pay the live join fee now. If the live ends before you're admitted, you receive a full refund."
+            ? "A temporary hold is placed at the per-minute rate. You are charged only for time actually used on stage."
             : undefined
         }
       >
@@ -362,7 +362,7 @@ export function LiveJoinModal({
             <div>
               <p className="text-brand-ink-muted text-sm leading-relaxed">
                 You&apos;re in the queue for <strong className="text-brand-ink">{creator.name}</strong>.
-                The creator can admit you live for {LIVE_STAGE_SECONDS} seconds when it&apos;s your turn.
+                The creator can admit you live for between 30 seconds and {LIVE_STAGE_MAX_MINUTES} minutes when it&apos;s your turn.
               </p>
               <p className="text-brand-ink-subtle text-xs mt-2">Redirecting you back to the live...</p>
             </div>
@@ -384,8 +384,8 @@ export function LiveJoinModal({
                 </div>
               </div>
               <div className="ml-auto text-right">
-                <p className="text-lg font-black text-brand-live">{formatCurrency(joinFee)}</p>
-                <p className="text-[11px] text-brand-ink-subtle">for {LIVE_STAGE_SECONDS} seconds</p>
+                <p className="text-lg font-serif font-semibold text-brand-live">{formatCurrency(joinFee)}</p>
+                <p className="text-[11px] text-brand-ink-subtle">per minute</p>
               </div>
             </div>
 
@@ -394,18 +394,18 @@ export function LiveJoinModal({
               {[
                 {
                   icon: Zap,
-                  title: "Pay once to enter the queue",
-                  desc: "You can already watch and chat for free. This fee is only for a chance to go on stage.",
+                  title: "Place a temporary hold",
+                  desc: "You can already watch and chat for free. Joining the queue only places a temporary hold on your card at the per-minute rate.",
                 },
                 {
                   icon: Clock,
-                  title: "Wait in the public live",
-                  desc: "Your queue position updates live while the creator admits guests one by one.",
+                  title: "Wait in the live",
+                  desc: "Your queue position updates live while the creator brings guests on one by one.",
                 },
                 {
                   icon: Info,
-                  title: `${LIVE_STAGE_SECONDS} seconds on stage`,
-                  desc: "If admitted, you go live with the creator for a single 30-second turn.",
+                  title: "Go live when admitted",
+                  desc: `If admitted, you go live with the creator for at least 30 seconds and up to ${LIVE_STAGE_MAX_MINUTES} minutes, and are billed only for the time you actually spend on stage.`,
                 },
               ].map(({ icon: Icon, title, desc }) => (
                 <div key={title} className="flex gap-3 p-3 rounded-xl bg-brand-elevated border border-brand-border">
@@ -421,12 +421,12 @@ export function LiveJoinModal({
             </div>
 
             <div className="rounded-xl border border-brand-live/20 bg-brand-live/10 p-3 text-[11px] text-brand-ink-muted">
-              If the live ends before you&apos;re admitted, your queue fee is refunded in full. If you are admitted for any amount of time, the fee is not refunded.
+              If the live ends before you&apos;re admitted, the hold is released automatically. If you go on stage, your final charge is based only on the time you actually use.
             </div>
 
             <div className="flex gap-3 pt-1">
               <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-              <Button variant="live" className="flex-1 gap-2" onClick={() => setStep("payment")} disabled={joinFee < LIVE_MIN_JOIN_FEE}>
+              <Button variant="live" className="flex-1 gap-2" onClick={() => setStep("payment")} disabled={joinFee <= 0}>
                 <Zap className="w-4 h-4" />
                 Continue
               </Button>
@@ -436,22 +436,16 @@ export function LiveJoinModal({
 
         {step === "payment" ? (
           <div className="space-y-4">
-            <div className="rounded-xl border border-brand-border bg-brand-surface p-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-brand-ink-subtle">Live join fee</span>
-                <span className="text-brand-ink">{formatCurrency(joinFee)}</span>
+            <div className="rounded-xl border border-brand-border bg-brand-surface p-4 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-brand-ink-muted">Rate</span>
+                <span className="text-sm font-semibold text-brand-ink">{formatCurrency(joinFee)} / min</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-brand-ink-subtle">On-stage time</span>
-                <span className="text-brand-ink">{LIVE_STAGE_SECONDS} seconds</span>
+              <div className="pt-2 border-t border-brand-border/60">
+                <p className="text-xs text-brand-ink-subtle leading-relaxed">
+                  A temporary hold is placed on your card at the per-minute rate for up to {LIVE_PREAUTH_MINUTES} minutes. You are charged only for the time you actually spend on stage, and any unused hold is released automatically.
+                </p>
               </div>
-              <div className="border-t border-brand-border pt-2 flex justify-between text-sm font-bold">
-                <span className="text-brand-ink-muted">Charged today</span>
-                <span className="text-brand-live">{formatCurrency(joinFee)}</span>
-              </div>
-              <p className="text-[11px] text-brand-ink-subtle">
-                Friendsly requires live join fees to be at least {formatCurrency(LIVE_MIN_JOIN_FEE)}.
-              </p>
             </div>
 
             {payError && !clientSecret ? (
@@ -498,9 +492,9 @@ export function LiveJoinModal({
                 </button>
                 <Button variant="live" size="lg" className="w-full gap-2" onClick={handleSavedPaymentSubmit} disabled={isSubmitting || !selectedPaymentMethodId}>
                   {isSubmitting ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Paying...</>
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Placing hold...</>
                   ) : (
-                    <><Zap className="w-4 h-4" /> Pay And Join Queue</>
+                    <><Zap className="w-4 h-4" /> Place Hold And Join Queue</>
                   )}
                 </Button>
               </div>

@@ -466,7 +466,7 @@ export default function SettingsPage() {
   const isCreator = isCreatorProfile(user);
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-3xl mx-auto space-y-6">
+    <div className="px-4 md:px-8 py-3 max-w-3xl mx-auto space-y-4">
       {/* ── Header ── */}
       <div>
         <button
@@ -476,7 +476,7 @@ export default function SettingsPage() {
           <ArrowLeft className="w-4 h-4" />
           Back
         </button>
-        <h1 className="text-3xl font-black font-display text-brand-ink">Settings</h1>
+        <h1 className="text-3xl font-serif font-normal text-brand-ink">Settings</h1>
         <p className="text-brand-ink-subtle mt-1">Manage your account and preferences.</p>
       </div>
 
@@ -835,7 +835,7 @@ export default function SettingsPage() {
                   { label: "Total Earned", value: formatCurrency(earnings.totalEarned), accent: "text-brand-primary-light" },
                 ].map((s) => (
                   <div key={s.label} className="p-4 rounded-xl bg-brand-elevated border border-brand-border">
-                    <p className={cn("text-xl font-black", s.accent)}>{s.value}</p>
+                    <p className={cn("text-xl font-display font-bold", s.accent)}>{s.value}</p>
                     <p className="text-[11px] text-brand-ink-muted mt-1 uppercase tracking-wider font-semibold">{s.label}</p>
                   </div>
                 ))}

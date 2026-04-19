@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { formatCurrency } from "@/lib/utils";
+import { RefundPolicyModal } from "@/components/shared/RefundPolicyModal";
 import { getTimeZoneAbbreviation } from "@/lib/timezones";
 
 type AccessPayload = {
@@ -198,7 +199,7 @@ export default function BookingAccessPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-primary-light">
             Guest Booking Access
           </p>
-          <h1 className="mt-2 text-3xl font-black font-display text-brand-ink leading-tight">
+          <h1 className="mt-2 text-3xl font-serif font-normal text-brand-ink leading-tight">
             {isCancelled
               ? "This booking was cancelled"
               : isCompleted
@@ -215,30 +216,21 @@ export default function BookingAccessPage() {
         </div>
 
         {!isCancelled && !isCompleted && (
-          <div className="rounded-3xl border border-amber-300/40 bg-amber-50 p-5 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-800">
-              Booking policies
-            </p>
-            <p className="text-sm text-amber-900">
-              Cancel more than 24 hours before the call for a full refund. Cancel within 24 hours for a 50% refund.
-            </p>
-            <p className="text-sm text-amber-900">
-              Auto-cancel after 10 minutes: if neither participant joins, the booking is cancelled automatically and the fan gets a full refund.
-            </p>
-            <p className="text-sm text-amber-900">
-              If the creator does not join within 10 minutes, the fan gets a full refund. If the creator is waiting and the fan does not join within 10 minutes, the booking auto-cancels and the fan gets a 50% refund. A 10% late fee is required only when the creator is already waiting and the fan joins more than 5 minutes after the start time.
-            </p>
-            <p className="text-sm text-amber-900">
-              Guest bookings must be claimed into a Friendsly fan account before joining. If you do not want to create an account, you can cancel and receive the refund that applies under this policy.
-            </p>
-            <p className="text-sm font-semibold text-amber-800">
-              If you cancel now, your refund will be {formatCurrency(booking.refundAmount)}.
-            </p>
-            {booking.lateFeeRequired && (
-              <p className="text-sm font-semibold text-amber-800">
-                A late fee of {formatCurrency(booking.lateFeeAmount)} is required because the creator is already waiting and this booking is more than 5 minutes past its start time.
+          <div className="rounded-2xl border border-brand-border bg-brand-surface p-4 flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-brand-ink">
+                Cancel now → refund of {formatCurrency(booking.refundAmount)}
               </p>
-            )}
+              {booking.lateFeeRequired && (
+                <p className="text-xs text-amber-600 font-medium">
+                  Late fee of {formatCurrency(booking.lateFeeAmount)} required — creator is waiting
+                </p>
+              )}
+              <p className="text-xs text-brand-ink-subtle">
+                Guest bookings must be claimed into a fan account before joining.
+              </p>
+            </div>
+            <RefundPolicyModal trigger="icon" />
           </div>
         )}
 

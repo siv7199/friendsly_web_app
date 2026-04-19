@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Barlow, Nunito_Sans } from "next/font/google";
+import { Barlow, Cormorant_Garamond, Nunito_Sans } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/lib/context/AuthContext";
@@ -10,6 +10,14 @@ const displayFont = Barlow({
   variable: "--font-display",
   display: "swap",
   weight: ["400", "500", "600", "700", "800", "900"],
+});
+
+const serifFont = Cormorant_Garamond({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  display: "swap",
+  weight: ["300", "400", "500", "600"],
+  style: ["normal", "italic"],
 });
 
 const brandFont = localFont({
@@ -42,7 +50,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${brandFont.variable}`}>
+    <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${brandFont.variable} ${serifFont.variable}`}>
       <body className="bg-brand-bg text-brand-ink antialiased min-h-screen font-sans">
         <AuthProvider>
           <GlobalLiveStatusManager />

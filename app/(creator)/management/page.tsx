@@ -14,8 +14,6 @@ import type { CallPackage } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { LIVE_MIN_JOIN_FEE } from "@/lib/live";
-
 export default function ManagementPage() {
   const { user } = useAuthContext();
 
@@ -30,7 +28,7 @@ export default function ManagementPage() {
   const [liveRateSaved, setLiveRateSaved] = useState(false);
   const parsedLiveRate = parseFloat(liveRate);
   const isLiveRateFilled = liveRate.trim().length > 0;
-  const isLiveRateValid = !isLiveRateFilled || (Number.isFinite(parsedLiveRate) && parsedLiveRate >= LIVE_MIN_JOIN_FEE);
+  const isLiveRateValid = !isLiveRateFilled || (Number.isFinite(parsedLiveRate) && parsedLiveRate > 0);
 
   const supabase = createClient();
 
@@ -128,7 +126,7 @@ export default function ManagementPage() {
     if (!isLiveRateValid) return;
     setLiveRateSaving(true);
     const parsedRate = parseFloat(liveRate);
-    const rate = Number.isFinite(parsedRate) && parsedRate >= LIVE_MIN_JOIN_FEE ? parsedRate : null;
+    const rate = Number.isFinite(parsedRate) && parsedRate > 0 ? parsedRate : null;
     const rateRes = await supabase
       .from("creator_profiles")
       .upsert({ id: user.id, live_join_fee: rate }, { onConflict: "id" });
@@ -194,10 +192,10 @@ export default function ManagementPage() {
 
   return (
     <>
-      <div className="px-4 md:px-8 py-6 max-w-4xl mx-auto space-y-8">
+      <div className="px-4 md:px-8 py-3 max-w-4xl mx-auto space-y-5">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-black font-display text-brand-ink">Manage Offerings</h1>
+            <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">Manage Offerings</h1>
             <p className="text-brand-ink-subtle mt-1">Set your call packages, pricing, and availability.</p>
           </div>
           <Button variant="primary" onClick={openNew} className="gap-2">
@@ -216,7 +214,7 @@ export default function ManagementPage() {
             return (
               <div key={s.label} className="rounded-2xl border border-brand-border bg-brand-surface p-5">
                 <Icon className="w-5 h-5 text-brand-primary-light mb-3" />
-                <p className="text-2xl font-black text-brand-ink">{s.value}</p>
+                <p className="text-2xl font-display font-bold text-brand-ink">{s.value}</p>
                 <p className="text-xs text-brand-ink-subtle mt-1">{s.label}</p>
               </div>
             );
@@ -248,34 +246,31 @@ export default function ManagementPage() {
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
           <div className="flex items-center gap-2 mb-1">
             <Zap className="w-5 h-5 text-brand-live" />
-            <h2 className="text-lg font-bold text-brand-ink">Public Live Join Fee</h2>
+            <h2 className="text-lg font-bold text-brand-ink">Amount Per Minute</h2>
           </div>
           <p className="text-sm text-brand-ink-subtle mb-5">
-            Fans can watch and chat for free. This is the one-time fee they pay to request a 30-second on-stage spot during your live.
+            Fans can watch and chat for free. Set the amount charged per minute when a fan is brought on stage during your live.
           </p>
           <div className="flex items-end gap-4">
             <div className="flex-1 max-w-xs">
               <label className="text-sm font-medium text-brand-ink-muted mb-2 block">
-                Join fee (USD, minimum $10)
+                Amount per minute (USD)
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink-subtle text-sm">$</span>
                 <input
                   type="number"
-                  min={String(LIVE_MIN_JOIN_FEE)}
+                  min="0.01"
                   step="0.10"
-                  placeholder={`Minimum ${LIVE_MIN_JOIN_FEE.toFixed(2)}`}
+                  placeholder="Enter amount"
                   value={liveRate}
                   onChange={(e) => setLiveRate(e.target.value)}
                   className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated pl-7 pr-3 text-sm text-brand-ink placeholder:text-brand-ink-subtle focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
                 />
               </div>
-              <p className="mt-2 text-xs text-amber-300">
-                Minimum live join fee: {formatCurrency(LIVE_MIN_JOIN_FEE)}
-              </p>
               {isLiveRateFilled && !isLiveRateValid && (
                 <p className="mt-2 text-xs text-red-400">
-                  Enter at least {formatCurrency(LIVE_MIN_JOIN_FEE)} to save a live join fee.
+                  Enter an amount greater than $0 to save your per-minute rate.
                 </p>
               )}
             </div>
@@ -290,7 +285,7 @@ export default function ManagementPage() {
           </div>
           {liveRate && parseFloat(liveRate) > 0 && (
             <p className="text-xs text-brand-live mt-3">
-              Fans will see &quot;{formatCurrency(parseFloat(liveRate))} to join live for 30 seconds&quot; on your profile and discover card. Fees below {formatCurrency(LIVE_MIN_JOIN_FEE)} won&apos;t be used for live joining.
+              Fans will see &quot;{formatCurrency(parseFloat(liveRate))} per minute&quot; on your profile and discover card.
             </p>
           )}
         </div>
@@ -368,6 +363,11 @@ export default function ManagementPage() {
 function PackageCard({ pkg, onEdit, onToggle, onDelete }: {
   pkg: CallPackage; onEdit: () => void; onToggle: () => void; onDelete: () => void;
 }) {
+  const formattedPackagePrice = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(pkg.price);
+
   return (
     <div className={cn("rounded-2xl border bg-brand-surface p-5 transition-all", pkg.isActive ? "border-brand-border hover:border-brand-primary/30" : "border-brand-border opacity-60")}>
       <div className="flex items-start justify-between gap-4">
@@ -381,7 +381,7 @@ function PackageCard({ pkg, onEdit, onToggle, onDelete }: {
           <p className="text-sm text-brand-ink-subtle leading-relaxed">{pkg.description}</p>
           <div className="flex items-center gap-4 mt-3 text-xs text-brand-ink-subtle">
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{pkg.duration} min</span>
-            <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" />{formatCurrency(pkg.price)} per session</span>
+            <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" />{formattedPackagePrice} per session</span>
             <span>{pkg.bookingsCount} bookings</span>
           </div>
         </div>

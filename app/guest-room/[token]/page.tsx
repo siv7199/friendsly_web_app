@@ -317,7 +317,7 @@ export default function GuestRoomPage() {
           <PhoneOff className="w-8 h-8 text-red-500" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-brand-ink">Room Unavailable</h1>
+          <h1 className="text-2xl font-serif font-normal text-brand-ink">Room Unavailable</h1>
           <p className="mt-2 max-w-md text-brand-ink-subtle">{error || "Missing booking room details."}</p>
         </div>
         <Button variant="outline" onClick={() => router.push(`/booking-access/${rawToken}`)}>

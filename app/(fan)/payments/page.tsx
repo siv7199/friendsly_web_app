@@ -101,7 +101,7 @@ export default function PaymentsPage() {
             status: booking.status ?? "completed",
             description: pkg?.name ? `Booked call: ${pkg.name}` : "Booked 1-on-1 call",
             meta: booking.late_fee_paid_at
-              ? `${booking.duration ?? 0} min session Â· includes ${formatCurrency(Number(booking.late_fee_amount ?? 0))} late fee`
+              ? `${booking.duration ?? 0} min session · includes ${formatCurrency(Number(booking.late_fee_amount ?? 0))} late fee`
               : `${booking.duration ?? 0} min session`,
           };
         });
@@ -168,26 +168,26 @@ export default function PaymentsPage() {
   }
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-5xl mx-auto space-y-6">
+    <div className="px-4 md:px-8 py-3 max-w-5xl mx-auto space-y-4">
       <div>
-        <h1 className="text-3xl font-black font-display text-brand-ink">Payment History</h1>
+        <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">Payment History</h1>
         <p className="text-brand-ink-subtle mt-1">Every booking and live-session charge tied to your fan account.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
           <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Total Spent</p>
-          <p className="mt-2 text-3xl font-black text-brand-ink">{formatCurrency(totals.totalSpent)}</p>
+          <p className="mt-2 text-3xl font-display font-bold text-brand-ink">{formatCurrency(totals.totalSpent)}</p>
           <p className="mt-2 text-sm text-brand-ink-muted">{payments.length} total charges</p>
         </div>
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
           <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Booked Calls</p>
-          <p className="mt-2 text-3xl font-black text-brand-ink">{formatCurrency(totals.bookingSpent)}</p>
+          <p className="mt-2 text-3xl font-display font-bold text-brand-ink">{formatCurrency(totals.bookingSpent)}</p>
           <p className="mt-2 text-sm text-brand-ink-muted">Prepaid 1-on-1 sessions</p>
         </div>
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
           <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Live Sessions</p>
-          <p className="mt-2 text-3xl font-black text-brand-ink">{formatCurrency(totals.liveSpent)}</p>
+          <p className="mt-2 text-3xl font-display font-bold text-brand-ink">{formatCurrency(totals.liveSpent)}</p>
           <p className="mt-2 text-sm text-brand-ink-muted">Pay-per-minute live receipts</p>
         </div>
       </div>
@@ -240,7 +240,7 @@ export default function PaymentsPage() {
                       </div>
 
                       <div className="text-right">
-                        <p className="text-xl font-black text-brand-ink">{formatCurrency(payment.amount)}</p>
+                        <p className="text-xl font-display font-bold text-brand-ink">{formatCurrency(payment.amount)}</p>
                         <Badge
                           variant="default"
                           className={cn(

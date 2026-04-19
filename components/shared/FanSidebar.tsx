@@ -126,7 +126,7 @@ export function FanSidebar() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
                 isActive
-                  ? "bg-brand-primary text-white shadow-sm"
+                  ? "bg-gradient-primary text-white shadow-nav-active"
                   : "text-brand-ink-muted hover:text-brand-ink hover:bg-brand-elevated"
               )}
             >

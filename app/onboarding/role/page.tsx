@@ -76,7 +76,7 @@ export default function RoleSelectionPage() {
           <Zap className="w-3.5 h-3.5 text-brand-gold" />
           <span className="text-xs text-brand-ink-subtle font-medium">Step 1 of 2 - Choose your role</span>
         </div>
-        <h1 className="text-3xl md:text-4xl font-black text-brand-ink">
+        <h1 className="text-3xl md:text-4xl font-serif font-normal text-brand-ink">
           How will you use <span className="text-gradient-primary">Friendsly</span>?
         </h1>
         <p className="text-brand-ink-subtle mt-2">

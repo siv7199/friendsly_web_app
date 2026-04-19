@@ -7,7 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
 import { cn } from "@/lib/utils";
-import { LIVE_STAGE_SECONDS } from "@/lib/live";
+import { LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
+
+function formatStageElapsed(totalSeconds: number) {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
 import { DailyVideo, useDaily, useLocalSessionId } from "@daily-co/daily-react";
 
 type QueuePreviewEntry = {
@@ -77,7 +84,7 @@ function LiveStage({
   viewerAvatarUrl,
   activeFan,
   isAdmitted,
-  secondsRemaining,
+  stageElapsedSeconds,
   onJoinQueue,
   joinDisabled,
   queueCount,
@@ -101,7 +108,7 @@ function LiveStage({
     admittedDailySessionId?: string;
   } | null;
   isAdmitted: boolean;
-  secondsRemaining: number;
+  stageElapsedSeconds: number;
   onJoinQueue: () => void;
   joinDisabled: boolean;
   queueCount: number;
@@ -242,11 +249,11 @@ function LiveStage({
   }, [camOn, daily, isAdmitted, micOn]);
 
   const stageLabel = useMemo(() => {
-    if (isAdmitted) return `You're on stage for ${Math.max(0, secondsRemaining)}s`;
+    if (isAdmitted) return `You're on stage for ${formatStageElapsed(stageElapsedSeconds)} of ${LIVE_STAGE_MAX_MINUTES}:00`;
     if (activeFan?.fanName && activeFanVideoActive) return `${activeFan.fanName} is live with ${creatorName}`;
     if (queueCount > 0) return `${queueCount} ${queueCount === 1 ? "fan" : "fans"} waiting to join`;
-    return "Public live chat is open";
-  }, [activeFan?.fanName, activeFanVideoActive, creatorName, isAdmitted, queueCount, secondsRemaining]);
+    return "Live chat is open";
+  }, [activeFan?.fanName, activeFanVideoActive, creatorName, isAdmitted, queueCount, stageElapsedSeconds]);
 
   const showRemoteGuestStage = Boolean(!isAdmitted && activeFan);
 
@@ -299,7 +306,8 @@ function LiveStage({
               </button>
               <div className="text-right pl-1">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-brand-live">On Stage</p>
-                <p className="text-xl font-black text-brand-live tabular-nums">{Math.max(0, secondsRemaining)}s</p>
+                <p className="text-xl font-black text-brand-live tabular-nums">{formatStageElapsed(stageElapsedSeconds)}</p>
+                <p className="text-[10px] text-brand-live/75">of {LIVE_STAGE_MAX_MINUTES}:00 max</p>
               </div>
             </>
           ) : (
@@ -409,7 +417,7 @@ export function PublicLiveRoom({
   viewerAvatarUrl,
   activeFan,
   isAdmitted,
-  secondsRemaining,
+  stageElapsedSeconds,
   onJoinQueue,
   joinDisabled,
   queueCount,
@@ -435,7 +443,7 @@ export function PublicLiveRoom({
     admittedDailySessionId?: string;
   } | null;
   isAdmitted: boolean;
-  secondsRemaining: number;
+  stageElapsedSeconds: number;
   onJoinQueue: () => void;
   joinDisabled: boolean;
   queueCount: number;
@@ -455,7 +463,7 @@ export function PublicLiveRoom({
         viewerAvatarUrl={viewerAvatarUrl}
         activeFan={activeFan}
         isAdmitted={isAdmitted}
-        secondsRemaining={secondsRemaining}
+        stageElapsedSeconds={stageElapsedSeconds}
         onJoinQueue={onJoinQueue}
         joinDisabled={joinDisabled}
         queueCount={queueCount}

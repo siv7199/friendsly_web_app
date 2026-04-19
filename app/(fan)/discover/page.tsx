@@ -301,7 +301,7 @@ export default function DiscoverPage() {
         <div className="flex items-end justify-between gap-4 mb-5">
           <div>
             <p className="text-label text-brand-primary mb-1">Friendsly</p>
-            <h1 className="font-display text-[1.75rem] font-black text-brand-ink tracking-tight leading-none">
+            <h1 className="font-serif font-normal text-[1.65rem] text-brand-ink tracking-tight leading-tight">
               {activeCategory === "All" ? "Discover" : activeCategory}
             </h1>
           </div>

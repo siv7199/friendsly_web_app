@@ -187,9 +187,9 @@ export default function EarningsPage() {
   const withdrawDisabled = earnings.withdrawable <= 0 || isWithdrawing || loadingFinancials || needsStripeSetup;
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-5xl mx-auto space-y-6">
+    <div className="px-4 md:px-8 py-3 max-w-5xl mx-auto space-y-4">
       <div>
-        <h1 className="text-3xl font-black font-display text-brand-ink">Earnings</h1>
+        <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">Earnings</h1>
         <p className="text-brand-ink-subtle mt-1">Track your balance, payouts, and creator revenue in one place.</p>
       </div>
 
@@ -231,7 +231,7 @@ export default function EarningsPage() {
             { label: "Total Earned", value: formatCurrency(earnings.totalEarned), accent: "text-brand-primary" },
           ].map((s) => (
             <div key={s.label} className="p-4 rounded-xl bg-brand-elevated border border-brand-border">
-              <p className={cn("text-xl font-black", s.accent)}>{s.value}</p>
+              <p className={cn("text-xl font-display font-bold", s.accent)}>{s.value}</p>
               <p className="text-[11px] text-brand-ink-muted mt-1 uppercase tracking-wider font-semibold">{s.label}</p>
             </div>
           ))}

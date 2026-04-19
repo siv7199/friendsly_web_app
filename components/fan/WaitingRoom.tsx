@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { QueueEntry, ChatMessage } from "@/types";
 import { timeAgo, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { LIVE_STAGE_SECONDS } from "@/lib/live";
+import { LIVE_STAGE_SECONDS, getLiveStageRemainingSeconds } from "@/lib/live";
 
 interface WaitingRoomProps {
   queue: QueueEntry[];
@@ -117,9 +117,7 @@ export function WaitingRoom({
     return () => window.clearInterval(interval);
   }, []);
 
-  const activeFanRemainingSeconds = activeFanAdmittedAt
-    ? Math.max(0, LIVE_STAGE_SECONDS - Math.floor((currentTime - new Date(activeFanAdmittedAt).getTime()) / 1000))
-    : 0;
+  const activeFanRemainingSeconds = getLiveStageRemainingSeconds(activeFanAdmittedAt, currentTime);
 
   const queueWithCountdown = queue.map((entry) => {
     const fallbackSeconds = Math.max(0, (entry.position - 1) * LIVE_STAGE_SECONDS);
@@ -164,7 +162,7 @@ export function WaitingRoom({
           <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="sm" isLive />
           <div className="min-w-0">
             <p className="text-sm font-bold text-white truncate leading-tight">{creatorName} is Live</p>
-            <p className="text-[11px] text-white/45 truncate">Live chat · paid 30s queue</p>
+            <p className="text-[11px] text-white/45 truncate">Live chat · amount per minute</p>
           </div>
         </div>
         <Badge variant="live" className="shrink-0 text-[11px] border-orange-500/30 bg-orange-500/15 text-orange-400">

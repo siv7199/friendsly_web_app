@@ -22,7 +22,7 @@ const NAV_ITEMS = [
   { label: "Dashboard",        href: "/dashboard",  icon: LayoutDashboard, highlight: false },
   { label: "Analytics",        href: "/analytics",  icon: BarChart3,       highlight: false },
   { label: "Earnings",         href: "/earnings",   icon: DollarSign,      highlight: false },
-  { label: "Manage Offerings", href: "/management", icon: Settings2,       highlight: false },
+  { label: "Bookings / Offerings", href: "/management", icon: Settings2,       highlight: false },
   { label: "Calendar",         href: "/calendar",   icon: CalendarDays,    highlight: false },
   { label: "Go Live",          href: "/live",       icon: Radio,           highlight: true  },
 ];
@@ -61,7 +61,7 @@ export function CreatorSidebar() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
                 isActive
-                  ? "bg-brand-primary text-white shadow-sm"
+                  ? "bg-gradient-primary text-white shadow-nav-active"
                   : isGoLive
                     ? "text-brand-live hover:bg-brand-live/10"
                     : "text-brand-ink-muted hover:text-brand-ink hover:bg-brand-elevated"

@@ -19,7 +19,8 @@ import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
-import { deriveBookingStatus, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable, shouldAutoCancelBooking } from "@/lib/bookings";
+import { deriveBookingStatus, getNextAutoCancelCheckDelay, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
+import { RefundPolicyModal } from "@/components/shared/RefundPolicyModal";
 
 type Tab = "upcoming" | "completed" | "cancelled";
 
@@ -51,14 +52,35 @@ export default function BookingsPage() {
     const userId = user.id;
     const supabase = createClient();
     let refreshTimer: number | null = null;
+    let autoCancelTimer: number | null = null;
+
+    async function scheduleAutoCancelCheck(rawBookings: any[]) {
+      if (autoCancelTimer) {
+        window.clearTimeout(autoCancelTimer);
+        autoCancelTimer = null;
+      }
+
+      const delay = getNextAutoCancelCheckDelay(
+        rawBookings.map((booking: any) => ({
+          status: booking.status,
+          scheduledAt: booking.scheduled_at,
+          creatorPresent: booking.creator_present,
+          fanPresent: booking.fan_present,
+        }))
+      );
+
+      if (delay === null) return;
+
+      autoCancelTimer = window.setTimeout(() => {
+        void loadBookings();
+      }, delay);
+    }
 
     async function loadBookings() {
       if (refreshTimer) {
         window.clearTimeout(refreshTimer);
         refreshTimer = null;
       }
-
-      await fetch("/api/bookings/auto-cancel", { method: "POST" }).catch(() => null);
 
       const { data } = await supabase
         .from("bookings")
@@ -71,6 +93,7 @@ export default function BookingsPage() {
         .order("scheduled_at", { ascending: false });
 
       if (data) {
+        void scheduleAutoCancelCheck(data);
         const now = new Date();
         const expiredIds: string[] = [];
 
@@ -165,6 +188,7 @@ export default function BookingsPage() {
 
     return () => {
       if (refreshTimer) window.clearTimeout(refreshTimer);
+      if (autoCancelTimer) window.clearTimeout(autoCancelTimer);
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
       supabase.removeChannel(channel);
@@ -211,17 +235,11 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-4xl mx-auto space-y-6">
+    <div className="px-4 md:px-8 py-3 max-w-4xl mx-auto space-y-4">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-black font-display text-brand-ink">My Bookings</h1>
+        <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">My Bookings</h1>
         <p className="text-brand-ink-subtle mt-1">Manage your upcoming and past sessions.</p>
-        <p className="text-xs text-brand-ink-muted mt-2">
-          Refund policy: cancel more than 24 hours before the call for a full refund. Cancel within 24 hours for a 50% refund.
-        </p>
-        <p className="text-xs text-brand-ink-muted mt-1">
-          Auto-cancel after 10 minutes: if the creator still has not joined, you get a full refund. If the creator is waiting and you do not join within 10 minutes, the booking auto-cancels and you get a 50% refund. A 10% late fee applies only when the creator is already waiting and you join more than 5 minutes after the start time.
-        </p>
       </div>
 
       {/* Tabs */}
@@ -260,7 +278,7 @@ export default function BookingsPage() {
               Your booking with {nextJoinableBooking.creatorName} is ready now.
             </p>
             <p className="mt-1 text-xs text-brand-ink-subtle">
-              {new Date(nextJoinableBooking.scheduledAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} Â· {nextJoinableBooking.duration} min
+              {new Date(nextJoinableBooking.scheduledAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} · {nextJoinableBooking.duration} min
             </p>
           </div>
           <Link href={`/room/${nextJoinableBooking.id}`}>
@@ -374,7 +392,7 @@ export default function BookingsPage() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
-                        {timeStr} Â· {booking.duration} min
+                        {timeStr} · {booking.duration} min
                       </span>
                       <span className="font-semibold text-brand-ink">
                         {formatCurrency(booking.price)}
@@ -409,12 +427,7 @@ export default function BookingsPage() {
                               <XCircle className="w-3.5 h-3.5" />
                               {cancellingId === booking.id ? "Cancelling..." : "Cancel"}
                             </Button>
-                            <p className="text-[11px] text-brand-ink-muted">
-                              Full refund until 24h before. 50% refund after that.
-                            </p>
-                            <p className="text-[11px] text-brand-ink-muted">
-                              Auto-cancel after 10 minutes if the creator still has not joined. If the creator is waiting and you do not join within 10 minutes, the booking auto-cancels and you get a 50% refund. Late fee applies only if the creator is waiting and you join more than 5 minutes after start.
-                            </p>
+                            <RefundPolicyModal trigger="link" />
                           </div>
                         )}
                         {isJoinable && (

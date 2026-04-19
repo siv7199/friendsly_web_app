@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureStripeCustomer, stripe } from "@/lib/server/stripe";
-import { getLiveJoinFeeCents, isValidLiveJoinFee, normalizeLiveJoinFee } from "@/lib/live";
+import {
+  getLivePreauthAmount,
+  getLivePreauthAmountCents,
+  isValidLiveJoinFee,
+  normalizeLiveJoinFee,
+} from "@/lib/live";
 
 export async function POST(request: Request) {
   try {
@@ -23,11 +28,12 @@ export async function POST(request: Request) {
     } = body;
 
     if (!isValidLiveJoinFee(ratePerMinute)) {
-      return NextResponse.json({ error: "Invalid live join fee." }, { status: 400 });
+      return NextResponse.json({ error: "Invalid amount per minute." }, { status: 400 });
     }
 
     const joinFee = normalizeLiveJoinFee(ratePerMinute);
-    const amount = getLiveJoinFeeCents(joinFee);
+    const amount = getLivePreauthAmountCents(joinFee);
+    const preauthAmount = getLivePreauthAmount(joinFee);
     const shouldUseCustomer = Boolean(saveForFuture || paymentMethodId);
     const customerId = shouldUseCustomer
       ? await ensureStripeCustomer({
@@ -45,11 +51,14 @@ export async function POST(request: Request) {
         payment_method: paymentMethodId,
         off_session: true,
         confirm: true,
-        description: `Live queue join - ${creatorName}`,
+        capture_method: "manual",
+        description: `Live call hold - ${creatorName}`,
         metadata: {
-          type: "live_queue_join",
+          type: "live_call_hold",
           creator_name: creatorName,
-          live_join_fee: String(joinFee),
+          live_rate_per_minute: String(joinFee),
+          hold_minutes: "5",
+          hold_amount: String(preauthAmount),
           user_id: user.id,
         },
       });
@@ -64,13 +73,16 @@ export async function POST(request: Request) {
       amount,
       currency: "usd",
       customer: customerId,
+      capture_method: "manual",
       automatic_payment_methods: { enabled: true },
       setup_future_usage: saveForFuture ? "off_session" : undefined,
-      description: `Live queue join - ${creatorName}`,
+      description: `Live call hold - ${creatorName}`,
       metadata: {
-        type: "live_queue_join",
+        type: "live_call_hold",
         creator_name: creatorName,
-        live_join_fee: String(joinFee),
+        live_rate_per_minute: String(joinFee),
+        hold_minutes: "5",
+        hold_amount: String(preauthAmount),
         user_id: user.id,
       },
     });

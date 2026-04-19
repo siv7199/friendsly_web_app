@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { refundPaymentIntent } from "@/lib/server/stripe";
-import { LIVE_STAGE_SECONDS } from "@/lib/live";
+import { refundPaymentIntent, settleManualCapturePaymentIntent } from "@/lib/server/stripe";
+import { getLiveChargeAmount, getLiveChargeAmountCents, getLiveStageElapsedSeconds, LIVE_PREAUTH_MINUTES, LIVE_STAGE_SECONDS } from "@/lib/live";
 
 export async function POST(req: Request) {
   try {
@@ -25,10 +25,16 @@ export async function POST(req: Request) {
 
       for (const entry of sessionEntries ?? []) {
         if (entry.status === "active") {
-          const durationSeconds = entry.admitted_at
-            ? Math.max(0, Math.min(LIVE_STAGE_SECONDS, Math.floor((Date.now() - new Date(entry.admitted_at).getTime()) / 1000)))
-            : 0;
-          const amountCharged = Number(entry.amount_charged ?? entry.amount_pre_authorized ?? 0);
+          const durationSeconds = Math.max(0, Math.min(LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds(entry.admitted_at, Date.now())));
+          const ratePerMinute = Number(entry.amount_pre_authorized ?? 0) / LIVE_PREAUTH_MINUTES;
+          const amountCharged = getLiveChargeAmount({ ratePerMinute, durationSeconds });
+
+          if (entry.stripe_pre_auth_id) {
+            await settleManualCapturePaymentIntent({
+              paymentIntentId: entry.stripe_pre_auth_id,
+              amountToCaptureCents: getLiveChargeAmountCents({ ratePerMinute, durationSeconds }),
+            });
+          }
 
           await supabase
             .from("live_queue_entries")

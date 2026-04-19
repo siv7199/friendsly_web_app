@@ -136,6 +136,27 @@ input[type="password"]::-webkit-textfield-decoration-container { display: none !
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
+
+  /* Serif heading — Cormorant Garamond for page titles and display moments */
+  .text-serif-heading {
+    font-family: var(--font-serif, "Cormorant Garamond", Georgia, serif);
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    font-feature-settings: "kern" 1, "liga" 1, "onum" 1;
+  }
+
+  /* Numbers in serif context — proportional oldstyle figures */
+  .text-serif-num {
+    font-family: var(--font-serif, "Cormorant Garamond", Georgia, serif);
+    font-weight: 600;
+    font-feature-settings: "kern" 1, "onum" 1, "pnum" 1;
+    letter-spacing: -0.01em;
+  }
+
+  /* Solid gold text — replaces any gradient-text usage */
+  .text-gradient-gold    { color: #D97706; }
+  .text-gradient-primary { color: #6C5CE7; }
 }
 
 /* ── Animations ───────────────────────────────────────────────────────── */
