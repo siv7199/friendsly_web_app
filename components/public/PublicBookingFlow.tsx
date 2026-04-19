@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import {
@@ -15,7 +15,6 @@ import {
   Lock,
   Mail,
   MessageSquare,
-  Phone,
   Radio,
   User,
 } from "lucide-react";
@@ -70,18 +69,12 @@ type DraftState = {
   selectedDateIso: string | null;
   selectedTime: string | null;
   topic: string;
-  identityMode: "guest" | null;
-  guestName: string;
-  guestEmail: string;
-  guestPhone: string;
 };
 
 type PaymentInitKey = {
-  mode: "fan" | "guest";
   creatorId: string;
   packageId: string;
   scheduledAtIso: string;
-  guestEmail: string;
 };
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -245,9 +238,15 @@ function PaymentForm({
 
 export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, isLoading: authLoading } = useAuthContext();
+  const {
+    user,
+    isLoading: authLoading,
+    login,
+    signup,
+    setRole,
+    error: authError,
+  } = useAuthContext();
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -261,24 +260,25 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [topic, setTopic] = useState("");
-  const [identityMode, setIdentityMode] = useState<"guest" | null>(null);
-  const [guestName, setGuestName] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
-  const [guestPhone, setGuestPhone] = useState("");
   const [weekOffset, setWeekOffset] = useState(0);
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
   const [fetchingIntent, setFetchingIntent] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successAccessUrl, setSuccessAccessUrl] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [clientOrigin, setClientOrigin] = useState("");
   const [showRefundPolicyOnSuccess, setShowRefundPolicyOnSuccess] = useState(false);
+  const [authTab, setAuthTab] = useState<"signin" | "signup">("signin");
+  const [authIntent, setAuthIntent] = useState<"booking" | "live" | null>(null);
+  const [signInEmail, setSignInEmail] = useState("");
+  const [signInPassword, setSignInPassword] = useState("");
+  const [signUpName, setSignUpName] = useState("");
+  const [signUpEmail, setSignUpEmail] = useState("");
+  const [signUpPassword, setSignUpPassword] = useState("");
+  const [settingFanRole, setSettingFanRole] = useState(false);
   const paymentInitKeyRef = useRef<string | null>(null);
   const hasHandledLiveIntentRef = useRef(false);
+  const authCardRef = useRef<HTMLDivElement | null>(null);
 
   const draftKey = getDraftKey(creatorSlug);
   const viewerTimeZone = getBrowserTimeZone();
@@ -297,7 +297,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const availableDates = getAvailableDates(weekOffset);
   const canReviewAndPay = Boolean(selectedPackage && selectedDate && selectedTime);
   const needsPackageSelection = packages.length > 1 && !selectedPackage;
-  const currentStepLabel = step === "success" ? "Done" : step === "payment" ? "4" : step === "identity" ? "3" : "2";
+  const currentStepLabel = step === "success" ? "Done" : step === "payment" ? "3" : step === "identity" ? "2" : "1";
   const packageAvailability = availability.filter((slot) =>
     !selectedPackage?.id ? slot.package_id == null : slot.package_id == null || slot.package_id === selectedPackage.id
   );
@@ -380,10 +380,6 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   }, [creatorSlug]);
 
   useEffect(() => {
-    setClientOrigin(window.location.origin);
-  }, []);
-
-  useEffect(() => {
     const rawDraft = window.sessionStorage.getItem(draftKey);
     if (!rawDraft) return;
     try {
@@ -392,10 +388,6 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
       if (draft.selectedDateIso) setSelectedDate(new Date(draft.selectedDateIso));
       if (draft.selectedTime) setSelectedTime(draft.selectedTime);
       if (draft.topic) setTopic(draft.topic);
-      if (draft.identityMode) setIdentityMode(draft.identityMode);
-      if (draft.guestName) setGuestName(draft.guestName);
-      if (draft.guestEmail) setGuestEmail(draft.guestEmail);
-      if (draft.guestPhone) setGuestPhone(draft.guestPhone);
     } catch {
       window.sessionStorage.removeItem(draftKey);
     }
@@ -407,22 +399,17 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
       selectedDateIso: selectedDate?.toISOString() ?? null,
       selectedTime,
       topic,
-      identityMode,
-      guestName,
-      guestEmail,
-      guestPhone,
     };
 
     window.sessionStorage.setItem(draftKey, JSON.stringify(draft));
-  }, [draftKey, guestEmail, guestName, guestPhone, identityMode, selectedDate, selectedPackage?.id, selectedTime, topic]);
+  }, [draftKey, selectedDate, selectedPackage?.id, selectedTime, topic]);
 
   useEffect(() => {
     setClientSecret(null);
     setPaymentError("");
-    setCheckoutSessionId(null);
     setFetchingIntent(false);
     paymentInitKeyRef.current = null;
-  }, [selectedPackage?.id, selectedDate?.toISOString(), selectedTime, topic, identityMode, guestName, guestEmail, guestPhone, user?.id]);
+  }, [selectedPackage?.id, selectedDate?.toISOString(), selectedTime, topic, user?.id]);
 
   const availableDateKeys = new Set(
     availableDates
@@ -460,33 +447,6 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
       })
     : [];
 
-  async function createGuestCheckoutSession() {
-    if (!creator || !selectedPackage || !selectedDate || !selectedTime) {
-      throw new Error("Missing booking details.");
-    }
-
-    const response = await fetch("/api/public/guest-checkout/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        creatorId: creator.id,
-        packageId: selectedPackage.id,
-        scheduledAt: parseSlotToIso(selectedDate, selectedTime),
-        topic,
-        guestName,
-        guestEmail,
-        guestPhone,
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error ?? "Could not start guest checkout.");
-    }
-
-    setCheckoutSessionId(data.guestCheckoutSessionId);
-    return data.guestCheckoutSessionId as string;
-  }
-
   async function handleAuthenticatedBookingSuccess(paymentIntentId: string) {
     if (!creator || !selectedPackage || !selectedDate || !selectedTime) {
       throw new Error("Missing booking details.");
@@ -510,49 +470,28 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
     window.sessionStorage.removeItem(draftKey);
     setSuccessMessage(`Your call with ${creator.name} is confirmed.`);
-    setSuccessAccessUrl(null);
     setShowRefundPolicyOnSuccess(true);
     setStep("success");
   }
 
-  async function handleGuestBookingSuccess(paymentIntentId: string) {
-    const sessionId = checkoutSessionId ?? await createGuestCheckoutSession();
-    const response = await fetch("/api/public/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        guestCheckoutSessionId: sessionId,
-        paymentIntentId,
-      }),
+  function focusAuthCard() {
+    window.requestAnimationFrame(() => {
+      authCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error ?? "Could not create booking.");
-    }
-
-    window.sessionStorage.removeItem(draftKey);
-    setSuccessMessage(`Your call with ${creator?.name ?? "the creator"} is booked. Save your private booking link below.`);
-    setSuccessAccessUrl(data.accessUrl ?? null);
-    setShowRefundPolicyOnSuccess(true);
-    setStep("success");
-  }
-
-  function handleAuthRedirect(tab: "signin" | "signup", nextTarget?: string) {
-    router.push(`/?tab=${tab}&next=${encodeURIComponent(nextTarget ?? pathname)}`);
   }
 
   function handleJoinLive() {
     if (!creator?.isLive) return;
 
-    const liveNextPath = `${pathname}?intent=live`;
     if (user?.role === "fan") {
       router.push(`/waiting-room/${creator.id}`);
       return;
     }
 
-    setIdentityMode(null);
+    setAuthIntent("live");
+    setAuthTab("signin");
     setStep("identity");
-    handleAuthRedirect("signin", liveNextPath);
+    focusAuthCard();
   }
 
   function handleContinueFromDetails() {
@@ -560,14 +499,23 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
       setStep("payment");
       return;
     }
+
+    setAuthIntent("booking");
+    setAuthTab("signin");
     setStep("identity");
+    focusAuthCard();
   }
 
-  async function copyAccessLink() {
-    if (!successAccessUrl) return;
-    await navigator.clipboard.writeText(`${window.location.origin}${successAccessUrl}`);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
+  async function handleSignInSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!signInEmail.trim() || !signInPassword) return;
+    await login(signInEmail.trim(), signInPassword);
+  }
+
+  async function handleSignUpSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!signUpName.trim() || !signUpEmail.trim() || !signUpPassword) return;
+    await signup(signUpEmail.trim(), signUpPassword, signUpName.trim());
   }
 
   useEffect(() => {
@@ -576,16 +524,12 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     }
     if (authLoading) return;
 
-    const isFan = user?.role === "fan";
-    const isGuest = identityMode === "guest" && !isFan;
-    if (!isFan && !isGuest) return;
+    if (user?.role !== "fan") return;
 
     const nextPaymentInitKey = JSON.stringify({
-      mode: isFan ? "fan" : "guest",
       creatorId: creator?.id ?? "",
       packageId: selectedPackage.id,
       scheduledAtIso: parseSlotToIso(selectedDate, selectedTime),
-      guestEmail,
     } satisfies PaymentInitKey);
 
     if (paymentInitKeyRef.current === nextPaymentInitKey) {
@@ -600,34 +544,19 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         setPaymentError("");
         paymentInitKeyRef.current = nextPaymentInitKey;
 
-        if (isFan) {
-          const response = await fetch("/api/create-payment-intent", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              amount: totalCents,
-              creatorName: creator?.name,
-              packageName: selectedPackage?.name ?? "Call",
-              saveForFuture: false,
-            }),
-          });
-          const data = await response.json();
-          if (!response.ok || !data.clientSecret) {
-            throw new Error(data.error ?? "Could not initialise payment.");
-          }
-          if (!cancelled) setClientSecret(data.clientSecret);
-          return;
-        }
-
-        const sessionId = checkoutSessionId ?? await createGuestCheckoutSession();
-        const response = await fetch("/api/public/create-payment-intent", {
+        const response = await fetch("/api/create-payment-intent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guestCheckoutSessionId: sessionId }),
+          body: JSON.stringify({
+            amount: totalCents,
+            creatorName: creator?.name,
+            packageName: selectedPackage?.name ?? "Call",
+            saveForFuture: false,
+          }),
         });
         const data = await response.json();
         if (!response.ok || !data.clientSecret) {
-          throw new Error(data.error ?? "Could not initialise guest payment.");
+          throw new Error(data.error ?? "Could not initialise payment.");
         }
         if (!cancelled) setClientSecret(data.clientSecret);
       } catch (error) {
@@ -649,10 +578,6 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     clientSecret,
     creator?.name,
     creator?.id,
-    guestEmail,
-    guestName,
-    guestPhone,
-    identityMode,
     selectedDate,
     selectedPackage,
     selectedTime,
@@ -660,6 +585,62 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     topic,
     totalCents,
     user?.role,
+  ]);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (liveIntentRequested && user?.role !== "fan" && (authIntent !== "live" || step !== "identity")) {
+      setAuthIntent("live");
+      setStep("identity");
+    }
+
+    if (!authIntent) return;
+
+    if (user && !user.role && !settingFanRole) {
+      let cancelled = false;
+
+      const promoteToFan = async () => {
+        try {
+          setSettingFanRole(true);
+          await setRole("fan");
+        } finally {
+          if (!cancelled) {
+            setSettingFanRole(false);
+          }
+        }
+      };
+
+      void promoteToFan();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (user?.role !== "fan") return;
+
+    if (authIntent === "live" && creator?.isLive && creator.id && !hasHandledLiveIntentRef.current) {
+      hasHandledLiveIntentRef.current = true;
+      setAuthIntent(null);
+      router.replace(`/waiting-room/${creator.id}`);
+      return;
+    }
+
+    if (authIntent === "booking" && step !== "payment") {
+      setAuthIntent(null);
+      setStep("payment");
+    }
+  }, [
+    authIntent,
+    authLoading,
+    creator?.id,
+    creator?.isLive,
+    liveIntentRequested,
+    router,
+    setRole,
+    settingFanRole,
+    step,
+    user,
   ]);
 
   useEffect(() => {
@@ -726,7 +707,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-brand-ink">Choose your session</h2>
               <span className="text-xs text-brand-ink-muted">
-                Step {currentStepLabel} of 4
+                Step {currentStepLabel} of 3
               </span>
             </div>
 
@@ -947,18 +928,8 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
               <div className="mt-5 space-y-3">
                 <Button variant="live" className="w-full gap-2" onClick={handleJoinLive}>
                   <Radio className="w-4 h-4" />
-                  {user?.role === "fan" ? "Join Live Now" : "Sign In To Join Live"}
+                  {user?.role === "fan" ? "Join Live Now" : "Sign in or create account to join"}
                 </Button>
-                {!user && (
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2"
-                    onClick={() => handleAuthRedirect("signup", `${pathname}?intent=live`)}
-                  >
-                    <BadgeCheck className="w-4 h-4" />
-                    Create Fan Account To Watch
-                  </Button>
-                )}
               </div>
             </div>
           )}
@@ -1014,7 +985,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                   description="Review the cancellation and no-show rules tied to this booking before you pay."
                 />
                 <p className="mt-3 text-xs leading-relaxed text-brand-ink-subtle">
-                  Guests can book without an account, but they must create or sign in to a Friendsly fan account before joining the call.
+                  You&apos;ll sign in or create a Friendsly fan account here before payment, then we&apos;ll keep you in this flow.
                 </p>
               </div>
             </div>
@@ -1039,63 +1010,134 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
           )}
 
           {step === "identity" && (
-            <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 space-y-4">
-              <h2 className="text-lg font-bold text-brand-ink">Choose how to continue</h2>
+            <div ref={authCardRef} className="rounded-3xl border border-brand-border bg-brand-surface p-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-brand-ink">Continue with a fan account</h2>
+                <p className="mt-1 text-sm text-brand-ink-subtle">
+                  {authIntent === "live"
+                    ? "Sign in or create your fan account below. As soon as you&apos;re in, we&apos;ll take you straight into the live room."
+                    : "Sign in or create your fan account below. As soon as you&apos;re in, we&apos;ll bring you right back to payment."}
+                </p>
+              </div>
               {user?.role === "fan" ? (
-                <Button variant="gold" className="w-full" onClick={() => setStep("payment")}>
+                <Button
+                  variant="gold"
+                  className="w-full"
+                  onClick={() => {
+                    if (authIntent === "live") {
+                      void handleJoinLive();
+                      return;
+                    }
+                    setStep("payment");
+                  }}
+                >
                   Continue as {user.full_name}
                 </Button>
+              ) : settingFanRole ? (
+                <div className="flex items-center justify-center gap-3 rounded-2xl border border-brand-border bg-brand-elevated px-4 py-5 text-sm text-brand-ink-subtle">
+                  <Loader2 className="h-4 w-4 animate-spin text-brand-primary" />
+                  Finalising your fan account...
+                </div>
               ) : (
                 <>
-                  <Button variant="outline" className="w-full" onClick={() => handleAuthRedirect("signin")}>
-                    <Lock className="w-4 h-4" />
-                    Sign in to your fan account
-                  </Button>
-                  <Button variant="outline" className="w-full" onClick={() => handleAuthRedirect("signup")}>
-                    <User className="w-4 h-4" />
-                    Create a fan account
-                  </Button>
-                  <Button
-                    variant={identityMode === "guest" ? "primary" : "surface"}
-                    className="w-full"
-                    onClick={() => setIdentityMode("guest")}
-                  >
-                    Continue as guest
-                  </Button>
+                  <div className="flex rounded-2xl border border-brand-border bg-brand-elevated p-1">
+                    {(["signin", "signup"] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setAuthTab(tab)}
+                        className={cn(
+                          "flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition-all",
+                          authTab === tab
+                            ? "bg-brand-primary/15 text-brand-primary-light"
+                            : "text-brand-ink-muted hover:text-brand-ink"
+                        )}
+                      >
+                        {tab === "signin" ? "Sign in" : "Create account"}
+                      </button>
+                    ))}
+                  </div>
 
-                  {identityMode === "guest" && (
-                    <div className="space-y-3 rounded-2xl border border-brand-border bg-brand-elevated p-4">
+                  {authError && (
+                    <div className="rounded-2xl border border-red-300/40 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {authError}
+                    </div>
+                  )}
+
+                  {authTab === "signin" ? (
+                    <form className="space-y-3 rounded-2xl border border-brand-border bg-brand-elevated p-4" onSubmit={handleSignInSubmit}>
+                      <Input
+                        label="Email"
+                        type="email"
+                        value={signInEmail}
+                        onChange={(event) => setSignInEmail(event.target.value)}
+                        icon={<Mail className="w-4 h-4" />}
+                        placeholder="you@example.com"
+                        autoComplete="email"
+                      />
+                      <Input
+                        label="Password"
+                        type="password"
+                        value={signInPassword}
+                        onChange={(event) => setSignInPassword(event.target.value)}
+                        icon={<Lock className="w-4 h-4" />}
+                        placeholder="Your password"
+                        autoComplete="current-password"
+                      />
+                      <Button
+                        type="submit"
+                        variant="gold"
+                        className="w-full"
+                        disabled={authLoading || !signInEmail.trim() || !signInPassword}
+                      >
+                        {authLoading ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> Signing in...</>
+                        ) : (
+                          "Sign in and continue"
+                        )}
+                      </Button>
+                    </form>
+                  ) : (
+                    <form className="space-y-3 rounded-2xl border border-brand-border bg-brand-elevated p-4" onSubmit={handleSignUpSubmit}>
                       <Input
                         label="Full Name"
-                        value={guestName}
-                        onChange={(event) => setGuestName(event.target.value)}
+                        value={signUpName}
+                        onChange={(event) => setSignUpName(event.target.value)}
                         icon={<User className="w-4 h-4" />}
                         placeholder="Jordan Kim"
+                        autoComplete="name"
                       />
                       <Input
                         label="Email"
                         type="email"
-                        value={guestEmail}
-                        onChange={(event) => setGuestEmail(event.target.value)}
+                        value={signUpEmail}
+                        onChange={(event) => setSignUpEmail(event.target.value)}
                         icon={<Mail className="w-4 h-4" />}
                         placeholder="you@example.com"
+                        autoComplete="email"
                       />
                       <Input
-                        label="Phone"
-                        value={guestPhone}
-                        onChange={(event) => setGuestPhone(event.target.value)}
-                        icon={<Phone className="w-4 h-4" />}
-                        placeholder="Optional"
+                        label="Password"
+                        type="password"
+                        value={signUpPassword}
+                        onChange={(event) => setSignUpPassword(event.target.value)}
+                        icon={<Lock className="w-4 h-4" />}
+                        placeholder="Create a password"
+                        autoComplete="new-password"
                       />
                       <Button
+                        type="submit"
                         variant="gold"
                         className="w-full"
-                        disabled={!guestName.trim() || !guestEmail.trim()}
-                        onClick={() => setStep("payment")}
+                        disabled={authLoading || !signUpName.trim() || !signUpEmail.trim() || !signUpPassword}
                       >
-                        Continue to payment
+                        {authLoading ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> Creating account...</>
+                        ) : (
+                          <><BadgeCheck className="w-4 h-4" /> Create account and continue</>
+                        )}
                       </Button>
-                    </div>
+                    </form>
                   )}
                 </>
               )}
@@ -1121,8 +1163,8 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
               ) : clientSecret ? (
                 <Elements stripe={stripePromise} options={{ ...STRIPE_OPTIONS, clientSecret }}>
                   <PaymentForm
-                    onBack={() => setStep(user?.role === "fan" ? "details" : "identity")}
-                    onSubmit={user?.role === "fan" ? handleAuthenticatedBookingSuccess : handleGuestBookingSuccess}
+                    onBack={() => setStep("select")}
+                    onSubmit={handleAuthenticatedBookingSuccess}
                     isSubmitting={isSubmitting}
                     setIsSubmitting={setIsSubmitting}
                     setError={setPaymentError}
@@ -1160,27 +1202,9 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                   />
                 </div>
               </div>
-
-              {successAccessUrl ? (
-                <div className="rounded-2xl border border-brand-border bg-brand-surface p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Private booking link</p>
-                  <div className="mt-3 rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-3 text-sm text-amber-900 font-medium">
-                    Save this private booking link. You&apos;ll need it later to return and join your call.
-                  </div>
-                  <p className="mt-2 break-all text-sm text-brand-ink">
-                    {clientOrigin && successAccessUrl ? `${clientOrigin}${successAccessUrl}` : successAccessUrl}
-                  </p>
-                  <div className="mt-4">
-                    <Button variant="gold" className="w-full" onClick={copyAccessLink}>
-                      {copied ? "Copied" : "Copy link"}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button variant="gold" className="w-full" onClick={() => router.push("/bookings")}>
-                  View your bookings
-                </Button>
-              )}
+              <Button variant="gold" className="w-full" onClick={() => router.push("/bookings")}>
+                View your bookings
+              </Button>
             </div>
           )}
         </aside>
