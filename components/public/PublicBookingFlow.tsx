@@ -764,19 +764,19 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
             )}
 
             {(step === "select" || step === "details" || step === "identity" || step === "payment") && (
-              <div className="mt-6 space-y-5">
+              <div className="mt-6 min-w-0 space-y-5">
                 {selectedPackage && (
                   <>
-                    <div>
+                    <div className="min-w-0">
                       <p className="mb-2 text-xs text-brand-ink-muted">
                         Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}).
                       </p>
-                      <div className="mb-3 flex items-center justify-between">
+                      <div className="mb-3 flex flex-col gap-2 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between">
                         <label className="flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
                           <Calendar className="w-4 h-4 text-brand-primary-light" />
                           Select Date
                         </label>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex shrink-0 items-center gap-1.5 self-end min-[380px]:self-auto">
                           <button
                             onClick={() => setWeekOffset((value) => Math.max(0, value - 1))}
                             disabled={weekOffset === 0}
@@ -793,7 +793,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                           </button>
                         </div>
                       </div>
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="grid min-w-0 grid-cols-4 gap-1 min-[380px]:gap-2">
                         {availableDates.map((date) => {
                           const isSelected = selectedDate?.toDateString() === date.toDateString();
                           const hasTimes = availableDateKeys.has(date.toDateString());
@@ -807,7 +807,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                               }}
                               disabled={!hasTimes}
                               className={cn(
-                                "flex flex-col items-center rounded-xl border p-2 text-xs font-medium transition-all",
+                                "flex min-w-0 flex-col items-center rounded-xl border px-1 py-2 text-xs font-medium transition-all min-[380px]:p-2",
                                 isSelected
                                   ? "border-brand-primary bg-brand-primary/20 text-brand-primary-light ring-1 ring-brand-primary/30"
                                   : hasTimes
@@ -826,7 +826,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                     </div>
 
                     {selectedDate && (
-                      <div>
+                      <div className="min-w-0">
                         <label className="mb-3 flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
                           <Clock className="w-4 h-4 text-brand-primary-light" />
                           Select Time
@@ -836,13 +836,13 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                             No times available on that date.
                           </p>
                         ) : (
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid min-w-0 grid-cols-2 gap-2 min-[380px]:grid-cols-3">
                             {availableTimeSlots.map((slot) => (
                               <button
                                 key={slot}
                                 onClick={() => setSelectedTime(slot)}
                                 className={cn(
-                                  "rounded-xl border px-3 py-2 text-xs font-medium transition-all",
+                                  "min-w-0 rounded-xl border px-2 py-2 text-xs font-medium transition-all min-[380px]:px-3",
                                   selectedTime === slot
                                     ? "border-brand-primary bg-brand-primary/20 text-brand-primary-light"
                                     : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
@@ -891,10 +891,10 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                         </div>
 
                         {(step === "select" || step === "details") && (
-                          <div className="rounded-2xl border border-brand-border bg-brand-surface p-4 lg:hidden">
+                          <div className="min-w-0 rounded-2xl border border-brand-border bg-brand-surface p-4 lg:hidden">
                             <Button
                               variant="gold"
-                              className="w-full"
+                              className="w-full min-w-0 px-3"
                               onClick={handleContinueFromDetails}
                               disabled={!canReviewAndPay}
                             >

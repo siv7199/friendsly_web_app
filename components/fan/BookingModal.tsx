@@ -475,7 +475,7 @@ export function BookingModal({
   return (
     <Dialog open={open} onClose={handleReset}>
       <DialogContent
-        className="w-full max-w-md"
+        className="mx-auto w-[calc(100vw-1rem)] max-w-md"
         onClose={step !== "success" ? handleReset : undefined}
         title={step === "success" ? "You're booked! 🎉" : `Book a call with ${creator.name}`}
         description={
@@ -512,7 +512,7 @@ export function BookingModal({
 
         {/* ── STEP 0: Package picker ── */}
         {step === "package" && (
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             {packages.map((pkg) => (
               <button
                 key={pkg.id}
@@ -545,7 +545,7 @@ export function BookingModal({
         {step === "select" && (
           <div className="space-y-3">
             {/* Compact session summary */}
-            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-brand-surface border border-brand-border">
+            <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-brand-border bg-brand-surface p-2.5">
               <Avatar initials={creator.avatarInitials} color={creator.avatarColor} imageUrl={creator.avatarUrl} size="sm" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-brand-ink leading-tight">{creator.name}</p>
@@ -557,18 +557,18 @@ export function BookingModal({
             </div>
 
             {/* Date picker */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
+            <div className="min-w-0">
+              <div className="mb-2 flex flex-col gap-2 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-brand-primary-light" />
                   <span className="text-xs font-medium text-brand-ink-subtle">
                     Select Date
                   </span>
-                  <span className="text-[10px] text-brand-ink-muted ml-1">
+                  <span className="text-[10px] text-brand-ink-muted">
                     ({weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : `+${weekOffset}w`} · {getTimeZoneAbbreviation(new Date(), viewerTimeZone)})
                   </span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex shrink-0 items-center gap-1 self-end min-[380px]:self-auto">
                   <button
                     onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
                     disabled={weekOffset === 0}
@@ -585,7 +585,7 @@ export function BookingModal({
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid min-w-0 grid-cols-4 gap-1">
                 {availableDates.map((date) => {
                   const isSelected = selectedDate?.toDateString() === date.toDateString();
                   const hasTimes = availableDateKeys.has(date.toDateString());
@@ -598,7 +598,7 @@ export function BookingModal({
                       }}
                       disabled={!hasTimes}
                       className={cn(
-                        "flex flex-col items-center py-1.5 rounded-xl border text-xs font-medium transition-all",
+                        "flex min-w-0 flex-col items-center rounded-xl border px-1 py-1.5 text-xs font-medium transition-all",
                         isSelected
                           ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light ring-1 ring-brand-primary/30"
                           : hasTimes
@@ -617,7 +617,7 @@ export function BookingModal({
             </div>
 
             {/* Time picker — always rendered, prompts to pick date if none selected */}
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5 mb-2">
                 <Clock className="w-3.5 h-3.5 text-brand-primary-light" />
                 <span className="text-xs font-medium text-brand-ink-subtle">Select Time</span>
@@ -631,13 +631,13 @@ export function BookingModal({
                   {loadingExistingBookings ? "Checking booked times…" : "No times available on that date."}
                 </p>
               ) : (
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid min-w-0 grid-cols-2 gap-1.5 min-[380px]:grid-cols-3">
                   {availableTimeSlots.map((slot) => (
                     <button
                       key={slot}
                       onClick={() => setSelectedTime(slot)}
                       className={cn(
-                        "py-1.5 px-2 rounded-xl border text-xs font-medium transition-all",
+                        "min-w-0 rounded-xl border px-2 py-1.5 text-xs font-medium transition-all",
                         selectedTime === slot
                           ? "bg-brand-primary/20 border-brand-primary text-brand-primary-light"
                           : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
@@ -650,15 +650,15 @@ export function BookingModal({
               )}
             </div>
 
-            <div className="flex gap-3 pt-1">
+            <div className="flex min-w-0 gap-2 pt-1">
               {packages.length > 1 && (
-                <Button variant="outline" className="flex-1" onClick={() => setStep("package")}>
+                <Button variant="outline" className="min-w-0 flex-1 px-3" onClick={() => setStep("package")}>
                   ← Back
                 </Button>
               )}
               <Button
                 variant="primary"
-                className="flex-1"
+                className="min-w-0 flex-1 px-3"
                 disabled={!selectedDate || !selectedTime}
                 onClick={() => setStep("details")}
               >

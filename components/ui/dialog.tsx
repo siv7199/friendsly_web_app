@@ -14,6 +14,7 @@
  */
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,12 @@ interface DialogContentProps {
 }
 
 export function Dialog({ open, onClose, children }: DialogProps) {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Close on Escape key
   React.useEffect(() => {
     if (!open) return;
@@ -44,15 +51,28 @@ export function Dialog({ open, onClose, children }: DialogProps) {
 
   // Prevent body scroll when modal is open
   React.useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    if (!open) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyWidth = document.body.style.width;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.width = "100%";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.width = previousBodyWidth;
+    };
   }, [open]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-x-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:items-center sm:p-4"
       aria-modal="true"
       role="dialog"
       onClick={onClose}
@@ -60,8 +80,9 @@ export function Dialog({ open, onClose, children }: DialogProps) {
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/70" />
       {/* Modal content — positioned above backdrop */}
-      <div className="relative z-10 w-full sm:w-auto sm:animate-slide-up" onClick={(e) => e.stopPropagation()}>{children}</div>
-    </div>
+      <div className="relative z-10 w-full max-w-[100vw] sm:w-auto sm:animate-slide-up" onClick={(e) => e.stopPropagation()}>{children}</div>
+    </div>,
+    document.body
   );
 }
 
@@ -75,8 +96,8 @@ export function DialogContent({
   return (
     <div
       className={cn(
-        "w-full max-w-lg rounded-t-2xl sm:rounded-2xl border border-brand-border bg-brand-elevated shadow-card",
-        "max-h-[90vh] overflow-y-scroll overscroll-contain",
+        "w-[calc(100vw-1rem)] max-w-lg sm:w-full rounded-t-2xl sm:rounded-2xl border border-brand-border bg-brand-elevated shadow-card",
+        "max-h-[90vh] overflow-x-hidden overflow-y-scroll overscroll-contain",
         className
       )}
     >
@@ -99,7 +120,7 @@ export function DialogContent({
           )}
         </div>
       )}
-      <div className="p-5">{children}</div>
+      <div className="min-w-0 p-4 sm:p-5">{children}</div>
     </div>
   );
 }
