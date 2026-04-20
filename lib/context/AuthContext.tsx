@@ -32,7 +32,7 @@ interface AuthContextValue {
   isLoading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, full_name: string, nextPath?: string | null) => Promise<void>;
+  signup: (email: string, password: string, full_name: string, nextPath?: string | null, captchaToken?: string | null) => Promise<void>;
   signInWithOAuth: (provider: OAuthProvider, nextPath?: string | null) => Promise<void>;
   logout: () => void;
   deleteAccount: () => void;

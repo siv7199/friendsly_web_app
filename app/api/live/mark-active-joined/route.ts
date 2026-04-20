@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { isUuid, readJsonBody, stringField } from "@/lib/server/request-security";
 
 export async function POST(request: Request) {
   try {
@@ -13,9 +14,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sessionId, dailySessionId } = await request.json();
+    const body = await readJsonBody(request);
+    const sessionId = stringField(body, "sessionId", 80);
+    const dailySessionId = stringField(body, "dailySessionId", 120) || null;
 
-    if (!sessionId) {
+    if (!sessionId || !isUuid(sessionId)) {
       return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
     }
 

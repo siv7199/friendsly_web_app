@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { refundPaymentIntent, settleManualCapturePaymentIntent } from "@/lib/server/stripe";
 import { getLiveChargeAmount, getLiveChargeAmountCents, getLiveStageElapsedSeconds, LIVE_PREAUTH_MINUTES, LIVE_STAGE_SECONDS } from "@/lib/live";
 
@@ -8,15 +8,28 @@ export async function POST(req: Request) {
     const { creatorId } = await req.json();
     if (!creatorId) return NextResponse.json({ ok: false }, { status: 400 });
 
-    const supabase = createServiceClient();
-    const { data: sessions } = await supabase
+    const supabase = createClient();
+    const serviceSupabase = createServiceClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (user.id !== creatorId) {
+      return NextResponse.json({ error: "Only the creator can end this live session." }, { status: 403 });
+    }
+
+    const { data: sessions } = await serviceSupabase
       .from("live_sessions")
       .select("id")
-      .eq("creator_id", creatorId)
+      .eq("creator_id", user.id)
       .eq("is_active", true);
 
     for (const session of sessions ?? []) {
-      const { data: sessionEntries } = await supabase
+      const { data: sessionEntries } = await serviceSupabase
         .from("live_queue_entries")
         .select("id, admitted_at, duration_seconds, amount_pre_authorized, amount_charged, stripe_pre_auth_id, status")
         .eq("session_id", session.id)
@@ -36,7 +49,7 @@ export async function POST(req: Request) {
             });
           }
 
-          await supabase
+          await serviceSupabase
             .from("live_queue_entries")
             .update({
               status: "completed",
@@ -55,7 +68,7 @@ export async function POST(req: Request) {
             amountToRefundCents: Math.round(Number(entry.amount_pre_authorized ?? 0) * 100),
           });
 
-          await supabase
+          await serviceSupabase
             .from("live_queue_entries")
             .update({
               status: "skipped",
@@ -69,10 +82,10 @@ export async function POST(req: Request) {
       }
     }
 
-    await supabase
+    await serviceSupabase
       .from("live_sessions")
       .update({ is_active: false, ended_at: new Date().toISOString(), last_heartbeat_at: null })
-      .eq("creator_id", creatorId)
+      .eq("creator_id", user.id)
       .eq("is_active", true);
 
     // Trigger handles creator_profiles.is_live automatically.

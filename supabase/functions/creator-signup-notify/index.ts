@@ -42,10 +42,10 @@ Deno.serve(async (request) => {
     const notifyEmail = Deno.env.get("CREATOR_REQUEST_NOTIFICATION_EMAIL");
     const appBaseUrl = Deno.env.get("APP_BASE_URL");
 
-    console.log("creator-signup-notify: Config loaded", { 
-      hasKey: !!resendApiKey, 
-      from: fromEmail, 
-      notify: notifyEmail 
+    console.log("creator-signup-notify: Config loaded", {
+      hasKey: !!resendApiKey,
+      hasFrom: !!fromEmail,
+      hasNotify: !!notifyEmail,
     });
 
     if (!resendApiKey || !fromEmail || !notifyEmail || !appBaseUrl) {
@@ -149,11 +149,10 @@ Deno.serve(async (request) => {
       signal: AbortSignal.timeout(8000),
     });
 
-    const resendBody = await resendResponse.text();
+    await resendResponse.text();
     console.log("creator-signup-notify: Resend response received", {
       status: resendResponse.status,
       ok: resendResponse.ok,
-      body: resendBody,
     });
 
     return jsonResponse({

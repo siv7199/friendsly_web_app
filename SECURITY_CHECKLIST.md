@@ -12,7 +12,7 @@ Order:
 Current status:
 
 - Basic functionality: mostly done
-- Security hardening: next
+- Security hardening: in progress
 - Stress testing: after security
 - Final deployment: tomorrow
 - New Supabase project: required before final launch
@@ -40,11 +40,11 @@ Status: start here now.
 
 ## 2.1 Immediate Secret Response
 
-- [ ] Treat the current exposed `SUPABASE_SERVICE_ROLE_KEY` as compromised
+- [x] Treat the current exposed `SUPABASE_SERVICE_ROLE_KEY` as compromised
 - [ ] Stop using the old Supabase project for final production
-- [ ] Remove any leaked service-role key values from files still in the repo/workspace
-- [ ] Make sure no server secret is in any `NEXT_PUBLIC_*` variable
-- [ ] Check for other leaked secrets in repo files and git history references
+- [x] Remove any leaked service-role key values from files still in the repo/workspace
+- [x] Make sure no server secret is in any `NEXT_PUBLIC_*` variable
+- [x] Check for other leaked secrets in repo files and git history references
 
 Definition of done:
 
@@ -73,52 +73,61 @@ Definition of done:
 
 Required runtime values:
 
-- [ ] `NEXT_PUBLIC_SUPABASE_URL`
-- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- [ ] `SUPABASE_SERVICE_ROLE_KEY`
-- [ ] `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- [ ] `STRIPE_SECRET_KEY`
-- [ ] `DAILY_API_KEY`
-- [ ] `APP_BASE_URL`
+- [x] `NEXT_PUBLIC_SUPABASE_URL`
+- [x] `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- [x] `SUPABASE_SERVICE_ROLE_KEY`
+- [x] `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- [x] `STRIPE_SECRET_KEY`
+- [x] `DAILY_API_KEY`
+- [x] `APP_BASE_URL`
+- [ ] `NEXT_PUBLIC_HCAPTCHA_SITE_KEY` if Supabase CAPTCHA is enabled
 
 Environment hygiene:
 
-- [ ] `.env.local` stays out of git
+- [x] `.env.local` stays out of git
 - [ ] Production env values are not reused in local unnecessarily
 - [ ] Preview and production are separated where possible
-- [ ] No secrets are hardcoded in source files
-- [ ] No secrets live in seed/test helper files
+- [x] No secrets are hardcoded in source files
+- [x] No secrets live in seed/test helper files
 
 ## 2.4 Supabase and Database Security
 
 ### Core checks
 
-- [ ] RLS enabled on all exposed tables
-- [ ] Policies reviewed table by table
-- [ ] Service-role key is only used on the server
-- [ ] Client-side code only uses anon/authenticated access where intended
+- [x] RLS enabled on all exposed tables
+- [x] Policies reviewed table by table
+- [x] Service-role key is only used on the server
+- [x] Client-side code only uses anon/authenticated access where intended
 
 ### Tables to review
 
-- [ ] `profiles`
-- [ ] `creator_profiles`
-- [ ] `bookings`
-- [ ] `reviews`
-- [ ] `live_sessions`
-- [ ] `live_queue`
-- [ ] `call_packages`
-- [ ] creator availability tables
-- [ ] guest/public access tables if any still remain
-- [ ] payout-related tables if any exist
+- [x] `profiles`
+- [x] `creator_profiles`
+- [x] `bookings`
+- [x] `reviews`
+- [x] `live_sessions`
+- [x] `live_queue`
+- [x] `call_packages`
+- [x] creator availability tables
+- [x] guest/public access tables if any still remain
+- [x] payout-related tables if any exist
 
 For each table:
 
-- [ ] Who can `select`
-- [ ] Who can `insert`
-- [ ] Who can `update`
-- [ ] Who can `delete`
-- [ ] `USING` and `WITH CHECK` logic is correct where needed
+- [x] Who can `select`
+- [x] Who can `insert`
+- [x] Who can `update`
+- [x] Who can `delete`
+- [x] `USING` and `WITH CHECK` logic is correct where needed
 - [ ] One user cannot access another user's rows unless intended
+
+Notes:
+
+- Guest checkout/access tables are now explicitly service-only via migration `036`.
+- Direct client booking inserts and updates are blocked; booking mutations now go through server routes via migration `037`.
+- Direct live queue inserts and direct analytics inserts are blocked via migration `038`.
+- Supabase linter warnings for mutable function search paths and broad avatar bucket listing are fixed via migration `039`.
+- Public read policies remain intentional for creator discovery, packages, availability, reviews, live sessions, and live chat.
 
 Definition of done:
 
@@ -127,34 +136,45 @@ Definition of done:
 
 ## 2.5 Auth and Authorization
 
-- [ ] Every write route checks authenticated user server-side
-- [ ] Every protected route checks role/ownership server-side
-- [ ] Client-submitted role/user IDs are not trusted
-- [ ] Booking ownership is enforced on server
-- [ ] Creator-only actions are enforced on server
-- [ ] Review submission rules are enforced on server
-- [ ] Live room access rules are enforced on server
-- [ ] Logout/settings/profile access work correctly on both fan and creator sides
+- [x] Every high-risk write route checks authenticated user server-side
+- [x] Every protected payment/booking/live route checks role/ownership server-side
+- [x] Client-submitted role/user IDs are not trusted for creator/fan route authorization
+- [x] Booking ownership is enforced on server
+- [x] Creator-only actions are enforced on server
+- [x] Review submission rules are enforced on server
+- [x] Live room access rules are enforced on server
+- [x] Legacy guest checkout mutation routes are retired
+- [x] Logout/settings/profile access work correctly on both fan and creator sides
+- [ ] Manual cross-account tampering tests pass
 
 Definition of done:
 
 - Users can only act on data and rooms they truly own or are allowed to access
 
+Notes:
+
+- Creator-only route checks now verify the database `profiles.role` plus creator profile existence.
+- Fan-only claim checks now verify the database `profiles.role` instead of trusting user metadata.
+- Old guest checkout/payment/booking endpoints now return a retired-flow response so booking requires a signed-in fan account.
+- Token-only guest actions for cancel, presence, and late fee no longer mutate bookings without sign-in.
+
 ## 2.6 Stripe Security
 
-- [ ] Price is determined server-side
-- [ ] Client cannot override amount
-- [ ] PaymentIntent is verified server-side
-- [ ] Booking is created only after verified successful payment
-- [ ] Refund logic is server-enforced
-- [ ] Late-fee logic is server-enforced
+- [x] Price is determined server-side
+- [x] Client cannot override amount for bookings
+- [x] PaymentIntent is verified server-side
+- [x] Booking is created only after verified successful payment
+- [x] Refund logic is server-enforced
+- [x] Late-fee logic is server-enforced
 - [ ] Stripe Connect is configured for creator payouts
 - [ ] Stripe Connect onboarding flow works
-- [ ] Connected account status is validated server-side
-- [ ] Payout-related routes only work for eligible connected creators
+- [x] Connected account status is validated server-side
+- [x] Payout-related routes only work for eligible connected creators
 - [ ] Stripe webhook secret is configured
-- [ ] Webhook signature verification is implemented
+- [x] Webhook signature verification is implemented
 - [ ] Webhook handlers are idempotent
+- [x] Live preauth amount is derived server-side
+- [x] Live queue entry creation is now server-enforced
 
 Definition of done:
 
@@ -162,10 +182,12 @@ Definition of done:
 
 ## 2.7 Daily / Video Security
 
-- [ ] Daily room/tokens are created server-side
-- [ ] Tokens include expiration
-- [ ] Tokens are scoped to the right room
-- [ ] Creator/fan room access is enforced by booking/live state
+- [x] Daily room/tokens are created server-side
+- [x] Tokens include expiration for booking room creation
+- [x] Tokens are scoped to the right room
+- [x] Creator/fan room access is enforced by booking/live state for booking rooms
+- [x] Generic Daily room/token routes now require auth and creator ownership checks
+- [x] Live finalize/disconnect/end routes now require the real creator
 - [ ] Users cannot join another room by changing IDs or tokens
 
 Definition of done:
@@ -174,43 +196,66 @@ Definition of done:
 
 ## 2.8 Validation and Input Safety
 
-- [ ] Important request bodies are validated on the server
-- [ ] IDs, enums, timestamps, and money-related values are validated
-- [ ] User-generated text is rendered safely
-- [ ] No unsafe HTML rendering path exists
+- [x] Important request bodies are validated on the server
+- [x] IDs, enums, timestamps, and money-related values are validated on high-risk routes
+- [x] User-generated text is rendered safely
+- [x] No user-controlled unsafe HTML rendering path exists
+- [ ] Manual invalid-input testing passes
 
 ## 2.9 Rate Limiting and Abuse Protection
 
-- [ ] Sign in endpoint limited
-- [ ] Sign up endpoint limited
-- [ ] Booking creation limited
-- [ ] Live join endpoints limited
-- [ ] Payment-related endpoints limited
-- [ ] Review submission limited
-- [ ] Any email/OTP endpoints limited
+- [x] Sign in/pre-login endpoint limited
+- [x] Creator sign-up request endpoint limited
+- [x] Booking creation limited
+- [x] Live join endpoints limited
+- [x] Payment-related endpoints limited
+- [x] Review submission limited
+- [x] Avatar upload limited
+- [x] Creator payout onboarding/withdraw routes limited
+- [x] hCaptcha is wired into Supabase signup flows
+- [ ] Any future email/OTP endpoints limited
+- [ ] Replace in-memory limiter with shared production limiter if hosting runs multiple instances
 
 Definition of done:
 
 - Repeated abuse or spam attempts hit limits before harming the app
 
+Notes:
+
+- Added shared request-security helpers for safe JSON parsing, ID/date/payment validation, text length bounds, and basic rate limits.
+- Current rate limits are in-memory process limits. They are useful immediately, but a shared limiter such as Redis/Upstash/Vercel KV is stronger for production scale.
+- Unsafe HTML scan only found static Daily video style injection, not user-generated HTML rendering.
+
 ## 2.10 Headers and Browser Security
 
-- [ ] `Strict-Transport-Security`
-- [ ] `X-Content-Type-Options: nosniff`
-- [ ] `Referrer-Policy`
-- [ ] `Permissions-Policy`
-- [ ] CSP added or planned carefully
-- [ ] CORS is not overly broad on sensitive endpoints
-- [ ] Source maps are not unintentionally exposed in production
+- [x] `Strict-Transport-Security`
+- [x] `X-Content-Type-Options: nosniff`
+- [x] `Referrer-Policy`
+- [x] `Permissions-Policy`
+- [x] CSP added or planned carefully
+- [x] CORS is not overly broad on sensitive endpoints
+- [x] Source maps are not unintentionally exposed in production
+
+Notes:
+
+- Added global security headers in `next.config.mjs`.
+- Disabled production browser source maps through Next config.
+- CSP is intentionally planned, not enforced yet, because Stripe, Daily, Supabase storage, and inline Daily video styles need a careful allowlist to avoid breaking payments/video.
 
 ## 2.11 Logging and Recovery
 
-- [ ] Auth failures logged
-- [ ] Payment failures logged
-- [ ] Webhook failures logged
+- [x] Auth failures return explicit server-side errors
+- [x] Payment failures return explicit server-side errors
+- [x] Webhook failures logged
 - [ ] High-risk admin/role changes logged
-- [ ] Secret rotation process written down
-- [ ] Rollback/recovery process written down
+- [x] Secret rotation process written down
+- [x] Rollback/recovery process written down
+
+Notes:
+
+- Added `docs/SECURITY_RUNBOOK.md` for secret rotation, rollback, webhook recovery, Supabase recovery, logging checks, and manual security smoke tests.
+- Stripe webhook signature/config/processing failures now write server logs.
+- There is no full admin dashboard yet, so high-risk admin/role-change logging stays open until those tools exist.
 
 ## Phase 3: Stress Testing
 

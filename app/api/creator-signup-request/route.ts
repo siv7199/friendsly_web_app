@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sanitizeSocialUrl } from "@/lib/social";
+import { checkRateLimit, readJsonBody } from "@/lib/server/request-security";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[0-9+\-().\s]{7,20}$/;
@@ -73,7 +74,13 @@ async function notifyCreatorRequest(details: {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const limited = checkRateLimit(request, "creator-signup-request", {
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (limited) return limited;
+
+    const body = await readJsonBody(request);
     const fullName = normalizeText(body.fullName);
     const email = normalizeText(body.email).toLowerCase();
     const phone = normalizeText(body.phone);
@@ -87,6 +94,10 @@ export async function POST(request: Request) {
         { error: "Full name, email, and phone number are required." },
         { status: 400 }
       );
+    }
+
+    if (fullName.length > 120 || notes.length > 2000) {
+      return NextResponse.json({ error: "Please shorten your request details." }, { status: 400 });
     }
 
     if (!EMAIL_REGEX.test(email)) {

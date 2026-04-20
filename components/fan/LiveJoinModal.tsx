@@ -12,7 +12,7 @@ import type { Creator } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { LIVE_PREAUTH_MINUTES, LIVE_STAGE_MAX_MINUTES, getLivePreauthAmount } from "@/lib/live";
+import { LIVE_PREAUTH_MINUTES, LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 const LIVE_SESSION_STALE_MS = 45000;
@@ -236,7 +236,8 @@ export function LiveJoinModal({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ratePerMinute: joinFee,
+        creatorId: creator.id,
+        currentSessionId,
         creatorName: creator.name,
         saveForFuture: saveNewCard,
       }),
@@ -277,19 +278,18 @@ export function LiveJoinModal({
       return;
     }
 
-    const supabase = createClient();
-    const { error } = await supabase.from("live_queue_entries").insert({
-      session_id: currentSessionId,
-      fan_id: user.id,
-      status: "waiting",
-      position: 0,
-      amount_pre_authorized: getLivePreauthAmount(joinFee),
-      amount_charged: null,
-      stripe_pre_auth_id: intentId,
-      joined_at: new Date().toISOString(),
+    const response = await fetch("/api/live/join-queue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: currentSessionId,
+        paymentIntentId: intentId,
+      }),
     });
-
-    if (error) throw error;
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error ?? "Could not join the live queue.");
+    }
 
     setStep("success");
     window.setTimeout(() => {
@@ -308,7 +308,8 @@ export function LiveJoinModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ratePerMinute: joinFee,
+          creatorId: creator.id,
+          currentSessionId,
           creatorName: creator.name,
           paymentMethodId: selectedPaymentMethodId,
         }),

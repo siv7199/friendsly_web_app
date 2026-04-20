@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { validateBookingSelection, findBookingConflicts } from "@/lib/server/bookings";
 import { refundPaymentIntent, stripe } from "@/lib/server/stripe";
+import {
+  checkRateLimit,
+  isIsoDate,
+  isPaymentIntentId,
+  isUuid,
+  readJsonBody,
+  stringField,
+} from "@/lib/server/request-security";
 
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
@@ -18,17 +26,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const limited = checkRateLimit(request, "bookings-create", {
+    key: user.id,
+    limit: 10,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (limited) return limited;
+
   let paymentIntentId: string | null = null;
 
   try {
-    const body = await request.json();
-    const creatorId = String(body.creatorId ?? "");
-    const packageId = String(body.packageId ?? "");
-    const scheduledAt = String(body.scheduledAt ?? "");
-    const topic = typeof body.topic === "string" ? body.topic.trim() : "";
-    paymentIntentId = typeof body.paymentIntentId === "string" ? body.paymentIntentId : null;
+    const body = await readJsonBody(request);
+    const creatorId = stringField(body, "creatorId", 80);
+    const packageId = stringField(body, "packageId", 80);
+    const scheduledAt = stringField(body, "scheduledAt", 80);
+    const topic = stringField(body, "topic", 500);
+    paymentIntentId = stringField(body, "paymentIntentId", 120) || null;
 
-    if (!creatorId || !packageId || !scheduledAt || !paymentIntentId) {
+    if (
+      !isUuid(creatorId) ||
+      !isUuid(packageId) ||
+      !isIsoDate(scheduledAt) ||
+      !paymentIntentId ||
+      !isPaymentIntentId(paymentIntentId)
+    ) {
       return NextResponse.json({ error: "Missing booking details." }, { status: 400 });
     }
 

@@ -422,6 +422,7 @@ export function BookingModal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         amount: totalCents,
+        packageId: selectedPackage?.id,
         creatorName: creator.name,
         packageName: selectedPackage?.name ?? "Call",
         saveForFuture: saveNewCard,
@@ -447,6 +448,7 @@ export function BookingModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: totalCents,
+          packageId: selectedPackage?.id,
           creatorName: creator.name,
           packageName: selectedPackage?.name ?? "Call",
           paymentMethodId: selectedPaymentMethodId,

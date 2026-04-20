@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureStripeCustomer, stripe } from "@/lib/server/stripe";
+import {
+  booleanField,
+  checkRateLimit,
+  isPaymentMethodId,
+  isSafeMoneyCents,
+  isUuid,
+  numberField,
+  readJsonBody,
+  stringField,
+} from "@/lib/server/request-security";
 
 export async function POST(request: Request) {
   try {
@@ -13,13 +23,48 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { amount, creatorName, packageName, saveForFuture, paymentMethodId } = await request.json();
+    const limited = checkRateLimit(request, "create-payment-intent", {
+      key: user.id,
+      limit: 20,
+      windowMs: 10 * 60 * 1000,
+    });
+    if (limited) return limited;
 
-    if (!amount || typeof amount !== "number" || amount < 50) {
+    const body = await readJsonBody(request);
+    let amount = numberField(body, "amount");
+    const packageId = stringField(body, "packageId", 80);
+    const creatorName = stringField(body, "creatorName", 120);
+    const packageName = stringField(body, "packageName", 120);
+    const saveForFuture = booleanField(body, "saveForFuture");
+    const paymentMethodId = stringField(body, "paymentMethodId", 120);
+
+    // If the caller provides a packageId, derive the amount server-side from the
+    // real package price so the client cannot submit an incorrect charge amount.
+    if (packageId && isUuid(packageId)) {
+      const { data: pkg } = await supabase
+        .from("call_packages")
+        .select("price")
+        .eq("id", packageId)
+        .maybeSingle();
+
+      if (pkg?.price) {
+        amount = Math.round(Number(pkg.price) * 1.025 * 100);
+      }
+    }
+
+    if (!isSafeMoneyCents(amount, 500_000)) {
       return NextResponse.json(
         { error: "Invalid amount. Minimum charge is $0.50." },
         { status: 400 }
       );
+    }
+
+    if (!creatorName || !packageName) {
+      return NextResponse.json({ error: "Missing payment details." }, { status: 400 });
+    }
+
+    if (paymentMethodId && !isPaymentMethodId(paymentMethodId)) {
+      return NextResponse.json({ error: "Invalid payment method." }, { status: 400 });
     }
 
     const shouldUseCustomer = Boolean(saveForFuture || paymentMethodId);
@@ -33,7 +78,7 @@ export async function POST(request: Request) {
 
     if (paymentMethodId) {
       const paymentIntent = await stripe.paymentIntents.create({
-        amount,
+        amount: amount!,
         currency: "usd",
         customer: customerId,
         payment_method: paymentMethodId,
@@ -54,7 +99,7 @@ export async function POST(request: Request) {
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount,
+      amount: amount!,
       currency: "usd",
       customer: customerId,
       automatic_payment_methods: { enabled: true },

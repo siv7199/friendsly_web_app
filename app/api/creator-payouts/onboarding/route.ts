@@ -1,16 +1,32 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { requireCreatorUser } from "@/lib/server/authz";
 import { getOrCreateStripeConnectAccount, syncStripeConnectAccountStatus } from "@/lib/server/payouts";
 import { stripe } from "@/lib/server/stripe";
+import { checkRateLimit } from "@/lib/server/request-security";
 
 export async function POST(request: Request) {
   try {
     const supabase = createClient();
+    const serviceSupabase = createServiceClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    try {
+      await requireCreatorUser(serviceSupabase, user.id);
+    } catch {
+      return NextResponse.json({ error: "Only creators can set up payouts." }, { status: 403 });
+    }
+
+    const limited = checkRateLimit(request, "creator-payout-onboarding", {
+      key: user.id,
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (limited) return limited;
 
     const accountId = await getOrCreateStripeConnectAccount({
       userId: user.id,

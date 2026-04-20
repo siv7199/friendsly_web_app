@@ -7,10 +7,12 @@ import { Mail, Lock, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BrandLogo } from "@/components/shared/BrandLogo";
+import { HCaptchaWidget } from "@/components/shared/HCaptchaWidget";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 type Tab = "signin" | "signup";
+const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY;
 
 export default function AuthPage() {
   const router = useRouter();
@@ -26,6 +28,8 @@ export default function AuthPage() {
   const [suName, setSuName] = useState("");
   const [suEmail, setSuEmail] = useState("");
   const [suPassword, setSuPassword] = useState("");
+  const [suCaptchaToken, setSuCaptchaToken] = useState("");
+  const [captchaResetSignal, setCaptchaResetSignal] = useState(0);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user?.role) {
@@ -57,7 +61,8 @@ export default function AuthPage() {
 
   async function handleSignUp(e: FormEvent) {
     e.preventDefault();
-    await signup(suEmail, suPassword, suName, next);
+    await signup(suEmail, suPassword, suName, next, suCaptchaToken);
+    setCaptchaResetSignal((value) => value + 1);
     router.push(next ? `/onboarding/role?next=${encodeURIComponent(next)}` : "/onboarding/role");
   }
 
@@ -161,13 +166,26 @@ export default function AuthPage() {
                 </button>
               </div>
 
+              <HCaptchaWidget
+                siteKey={HCAPTCHA_SITE_KEY}
+                onVerify={setSuCaptchaToken}
+                onExpire={() => setSuCaptchaToken("")}
+                resetSignal={captchaResetSignal}
+              />
+
               {error && (
                 <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
                   {error}
                 </p>
               )}
 
-              <Button type="submit" variant="primary" size="lg" className="w-full" disabled={isLoading || !suName || !suEmail || !suPassword}>
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="w-full"
+                disabled={isLoading || !suName || !suEmail || !suPassword || !suCaptchaToken}
+              >
                 {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating account…</> : "Create Fan Account"}
               </Button>
 

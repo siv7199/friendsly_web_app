@@ -1,8 +1,26 @@
 import { NextResponse } from "next/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { requireCreatorUser } from "@/lib/server/authz";
 
 export async function POST(req: Request) {
   try {
     const { exp } = await req.json();
+
+    const supabase = createClient();
+    const serviceSupabase = createServiceClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      await requireCreatorUser(serviceSupabase, user.id);
+    } catch {
+      return NextResponse.json({ error: "Only creators can start live rooms." }, { status: 403 });
+    }
 
     const DAILY_API_KEY = process.env.DAILY_API_KEY;
     if (!DAILY_API_KEY) {
@@ -51,6 +69,7 @@ export async function POST(req: Request) {
         properties: {
           room_name: roomName,
           is_owner: true,
+          user_name: user.id,
         },
       }),
     });

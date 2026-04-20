@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { ensureStripeCustomer, stripe } from "@/lib/server/stripe";
 import { getLateFeeAmountForPrice, isLateFeeRequired } from "@/lib/server/bookings";
+import {
+  checkRateLimit,
+  isPaymentIntentId,
+  isUuid,
+  readJsonBody,
+  stringField,
+} from "@/lib/server/request-security";
 
 export async function POST(
   request: Request,
@@ -18,10 +25,21 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const limited = checkRateLimit(request, "booking-late-fee", {
+      key: user.id,
+      limit: 10,
+      windowMs: 10 * 60 * 1000,
+    });
+    if (limited) return limited;
+
     const bookingId = params.id;
-    const body = await request.json().catch(() => ({}));
+    if (!isUuid(bookingId)) {
+      return NextResponse.json({ error: "Invalid booking." }, { status: 400 });
+    }
+
+    const body = await readJsonBody(request);
     const mode = body?.mode === "confirm" ? "confirm" : "create";
-    const paymentIntentId = typeof body?.paymentIntentId === "string" ? body.paymentIntentId : null;
+    const paymentIntentId = stringField(body, "paymentIntentId", 120) || null;
 
     const { data: booking, error } = await serviceSupabase
       .from("bookings")
@@ -54,7 +72,7 @@ export async function POST(
     const lateFeeAmountCents = Math.round(lateFeeAmount * 100);
 
     if (mode === "confirm") {
-      if (!paymentIntentId) {
+      if (!paymentIntentId || !isPaymentIntentId(paymentIntentId)) {
         return NextResponse.json({ error: "Missing payment intent." }, { status: 400 });
       }
 

@@ -1,25 +1,52 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getLiveChargeAmount, getLiveChargeAmountCents, getLiveStageElapsedSeconds, LIVE_PREAUTH_MINUTES, LIVE_STAGE_SECONDS } from "@/lib/live";
 import { settleManualCapturePaymentIntent } from "@/lib/server/stripe";
 
 export async function POST(request: Request) {
   try {
-    const { queueEntryId, status } = await request.json();
+    const supabase = createClient();
+    const serviceSupabase = createServiceClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const queueEntryId = typeof body?.queueEntryId === "string" ? body.queueEntryId.trim() : "";
+    const status = typeof body?.status === "string" ? body.status.trim() : "";
+
+    const VALID_FINAL_STATUSES = ["completed", "skipped", "no_show"];
 
     if (!queueEntryId) {
       return NextResponse.json({ error: "queueEntryId is required" }, { status: 400 });
     }
 
-    const supabase = createServiceClient();
-    const { data: entry, error } = await supabase
+    if (status && !VALID_FINAL_STATUSES.includes(status)) {
+      return NextResponse.json({ error: "Invalid status value." }, { status: 400 });
+    }
+
+    const { data: entry, error } = await serviceSupabase
       .from("live_queue_entries")
-      .select("id, admitted_at, duration_seconds, amount_pre_authorized, amount_charged, stripe_pre_auth_id, status, ended_at")
+      .select("id, session_id, admitted_at, duration_seconds, amount_pre_authorized, amount_charged, stripe_pre_auth_id, status, ended_at")
       .eq("id", queueEntryId)
       .single();
 
     if (error || !entry) {
       return NextResponse.json({ error: "Queue entry not found" }, { status: 404 });
+    }
+
+    const { data: session } = await serviceSupabase
+      .from("live_sessions")
+      .select("id, creator_id")
+      .eq("id", entry.session_id)
+      .maybeSingle();
+
+    if (!session || session.creator_id !== user.id) {
+      return NextResponse.json({ error: "Only the creator can finalize this charge." }, { status: 403 });
     }
 
     let durationSeconds = Number(entry.duration_seconds ?? 0);
@@ -47,7 +74,7 @@ export async function POST(request: Request) {
         });
       }
 
-      await supabase
+      await serviceSupabase
         .from("live_queue_entries")
         .update({
           status,

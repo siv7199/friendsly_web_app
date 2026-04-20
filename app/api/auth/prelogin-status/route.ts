@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { checkRateLimit, readJsonBody, stringField } from "@/lib/server/request-security";
 
 function normalizeEmail(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -7,8 +8,14 @@ function normalizeEmail(value: unknown): string {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const email = normalizeEmail(body.email);
+    const limited = checkRateLimit(request, "prelogin-status", {
+      limit: 20,
+      windowMs: 10 * 60 * 1000,
+    });
+    if (limited) return limited;
+
+    const body = await readJsonBody(request);
+    const email = normalizeEmail(stringField(body, "email", 320));
 
     if (!email) {
       return NextResponse.json({ error: "Email is required." }, { status: 400 });

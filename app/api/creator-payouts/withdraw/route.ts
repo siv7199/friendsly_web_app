@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { requireCreatorUser } from "@/lib/server/authz";
 import { getCreatorPayoutSummary, syncStripeConnectAccountStatus } from "@/lib/server/payouts";
 import { stripe } from "@/lib/server/stripe";
+import { checkRateLimit, numberField, readJsonBody } from "@/lib/server/request-security";
 
 export async function POST(request: Request) {
   try {
@@ -13,9 +15,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { amount } = await request.json();
-    const requestedAmount = Number(amount);
-    if (!requestedAmount || requestedAmount <= 0) {
+    try {
+      await requireCreatorUser(serviceSupabase, user.id);
+    } catch {
+      return NextResponse.json({ error: "Only creators can withdraw payouts." }, { status: 403 });
+    }
+
+    const limited = checkRateLimit(request, "creator-payout-withdraw", {
+      key: user.id,
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (limited) return limited;
+
+    const body = await readJsonBody(request);
+    const requestedAmount = numberField(body, "amount");
+    if (!requestedAmount || requestedAmount <= 0 || requestedAmount > 100_000) {
       return NextResponse.json({ error: "Invalid withdrawal amount." }, { status: 400 });
     }
 

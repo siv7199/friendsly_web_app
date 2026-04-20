@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireCreatorUser } from "@/lib/server/authz";
 import { getCreatorPayoutSummary, syncCreatorPayoutRows } from "@/lib/server/payouts";
 import { createServiceClient } from "@/lib/supabase/server";
 
@@ -11,6 +12,12 @@ export async function GET() {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      await requireCreatorUser(serviceSupabase, user.id);
+    } catch {
+      return NextResponse.json({ error: "Only creators can view payout status." }, { status: 403 });
     }
 
     const { data: payouts } = await serviceSupabase

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { hashAccessToken } from "@/lib/server/booking-access";
+import { requireFanUser } from "@/lib/server/authz";
 
 export async function POST(
   _request: Request,
@@ -22,8 +23,9 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const role = (user.user_metadata?.role as string | undefined) ?? null;
-    if (role !== "fan") {
+    try {
+      await requireFanUser(serviceSupabase, user.id);
+    } catch {
       return NextResponse.json({ error: "You must use a fan account to claim this booking." }, { status: 403 });
     }
 

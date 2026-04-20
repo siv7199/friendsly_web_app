@@ -6,8 +6,11 @@ import { useRouter } from "next/navigation";
 import { Loader2, Mail, Phone, Sparkles, User, CheckCircle2, Link2, Lock, Instagram, Music2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { HCaptchaWidget } from "@/components/shared/HCaptchaWidget";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+
+const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY;
 
 export default function CreatorRequestPage() {
   const router = useRouter();
@@ -17,6 +20,8 @@ export default function CreatorRequestPage() {
   const [submitted, setSubmitted] = useState(false);
   const [emailConfigured, setEmailConfigured] = useState<boolean | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaResetSignal, setCaptchaResetSignal] = useState(0);
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -63,6 +68,7 @@ export default function CreatorRequestPage() {
             data: {
               full_name: form.fullName.trim(),
             },
+            captchaToken: captchaToken || undefined,
           },
         });
 
@@ -99,10 +105,12 @@ export default function CreatorRequestPage() {
         await logout();
       }
 
+      setCaptchaResetSignal((value) => value + 1);
       setSubmitted(true);
       setEmailConfigured(Boolean(data.emailNotificationConfigured));
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Could not submit creator request.");
+      setCaptchaResetSignal((value) => value + 1);
     } finally {
       setSubmitting(false);
     }
@@ -205,6 +213,12 @@ export default function CreatorRequestPage() {
                     autoComplete="new-password"
                     className="pr-16"
                   />
+                  <HCaptchaWidget
+                    siteKey={HCAPTCHA_SITE_KEY}
+                    onVerify={setCaptchaToken}
+                    onExpire={() => setCaptchaToken("")}
+                    resetSignal={captchaResetSignal}
+                  />
                 </>
               )}
               <Input
@@ -278,7 +292,8 @@ export default function CreatorRequestPage() {
                   submitting ||
                   !form.fullName ||
                   !form.email ||
-                  !form.phone
+                  !form.phone ||
+                  (!user && !captchaToken)
                 }
               >
                 {submitting ? (

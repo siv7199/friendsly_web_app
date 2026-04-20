@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { ensureStripeCustomer, stripe } from "@/lib/server/stripe";
 import {
   getLivePreauthAmount,
@@ -7,10 +7,19 @@ import {
   isValidLiveJoinFee,
   normalizeLiveJoinFee,
 } from "@/lib/live";
+import {
+  booleanField,
+  checkRateLimit,
+  isPaymentMethodId,
+  isUuid,
+  readJsonBody,
+  stringField,
+} from "@/lib/server/request-security";
 
 export async function POST(request: Request) {
   try {
     const supabase = createClient();
+    const serviceSupabase = createServiceClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -19,19 +28,54 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const {
-      ratePerMinute,
-      creatorName,
-      saveForFuture,
-      paymentMethodId,
-    } = body;
+    const limited = checkRateLimit(request, "create-live-preauth", {
+      key: user.id,
+      limit: 20,
+      windowMs: 10 * 60 * 1000,
+    });
+    if (limited) return limited;
 
-    if (!isValidLiveJoinFee(ratePerMinute)) {
+    const body = await readJsonBody(request);
+    const normalizedCreatorId = stringField(body, "creatorId", 80);
+    const normalizedSessionId = stringField(body, "currentSessionId", 80);
+    const creatorName = stringField(body, "creatorName", 120);
+    const saveForFuture = booleanField(body, "saveForFuture");
+    const paymentMethodId = stringField(body, "paymentMethodId", 120);
+
+    if (!isUuid(normalizedCreatorId) || (normalizedSessionId && !isUuid(normalizedSessionId))) {
+      return NextResponse.json({ error: "Missing creator." }, { status: 400 });
+    }
+
+    if (paymentMethodId && !isPaymentMethodId(paymentMethodId)) {
+      return NextResponse.json({ error: "Invalid payment method." }, { status: 400 });
+    }
+
+    const { data: creatorProfile } = await serviceSupabase
+      .from("creator_profiles")
+      .select("id, live_join_fee")
+      .eq("id", normalizedCreatorId)
+      .maybeSingle();
+
+    const joinFee = normalizeLiveJoinFee(creatorProfile?.live_join_fee);
+    if (!isValidLiveJoinFee(joinFee)) {
       return NextResponse.json({ error: "Invalid amount per minute." }, { status: 400 });
     }
 
-    const joinFee = normalizeLiveJoinFee(ratePerMinute);
+    if (normalizedSessionId) {
+      const { data: liveSession } = await serviceSupabase
+        .from("live_sessions")
+        .select("id")
+        .eq("id", normalizedSessionId)
+        .eq("creator_id", normalizedCreatorId)
+        .eq("is_active", true)
+        .not("daily_room_url", "is", null)
+        .maybeSingle();
+
+      if (!liveSession) {
+        return NextResponse.json({ error: "Creator is offline or not accepting live joins." }, { status: 400 });
+      }
+    }
+
     const amount = getLivePreauthAmountCents(joinFee);
     const preauthAmount = getLivePreauthAmount(joinFee);
     const shouldUseCustomer = Boolean(saveForFuture || paymentMethodId);
@@ -56,6 +100,8 @@ export async function POST(request: Request) {
         metadata: {
           type: "live_call_hold",
           creator_name: creatorName,
+          creator_id: normalizedCreatorId,
+          live_session_id: normalizedSessionId,
           live_rate_per_minute: String(joinFee),
           hold_minutes: "5",
           hold_amount: String(preauthAmount),
@@ -80,6 +126,8 @@ export async function POST(request: Request) {
       metadata: {
         type: "live_call_hold",
         creator_name: creatorName,
+        creator_id: normalizedCreatorId,
+        live_session_id: normalizedSessionId,
         live_rate_per_minute: String(joinFee),
         hold_minutes: "5",
         hold_amount: String(preauthAmount),

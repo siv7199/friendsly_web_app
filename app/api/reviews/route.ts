@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { deriveBookingStatus } from "@/lib/bookings";
+import { checkRateLimit, isUuid, numberField, readJsonBody, stringField } from "@/lib/server/request-security";
 
 async function getEligibleReviewBooking(serviceSupabase: ReturnType<typeof createServiceClient>, fanId: string, creatorId: string) {
   const { data: bookings, error: bookingError } = await serviceSupabase
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const creatorId = searchParams.get("creatorId");
 
-    if (!creatorId) {
+    if (!creatorId || !isUuid(creatorId)) {
       return NextResponse.json({ error: "Creator id is required." }, { status: 400 });
     }
 
@@ -76,11 +77,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { creatorId, rating, comment } = await request.json();
-    const nextRating = Number(rating);
-    const nextComment = typeof comment === "string" ? comment.trim() : "";
+    const limited = checkRateLimit(request, "reviews-create", {
+      key: user.id,
+      limit: 5,
+      windowMs: 10 * 60 * 1000,
+    });
+    if (limited) return limited;
 
-    if (!creatorId || !nextRating || nextRating < 1 || nextRating > 5 || !nextComment) {
+    const body = await readJsonBody(request);
+    const creatorId = stringField(body, "creatorId", 80);
+    const nextRating = numberField(body, "rating");
+    const nextComment = stringField(body, "comment", 1000);
+
+    if (!isUuid(creatorId) || !nextRating || nextRating < 1 || nextRating > 5 || !nextComment) {
       return NextResponse.json({ error: "Invalid review details." }, { status: 400 });
     }
 
