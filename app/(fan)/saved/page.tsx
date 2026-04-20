@@ -250,13 +250,14 @@ export default function SavedPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {savedCreators.map((creator) => (
               <div key={creator.id} className="relative group/saved">
-                <InfluencerCard creator={creator} initialIsSaved={true} />
+                <InfluencerCard creator={creator} initialIsSaved={true} showSaveButton={false} />
                 <button
                   onClick={() => handleUnsave(creator.id)}
-                  className="absolute top-3 right-3 p-2 rounded-full bg-brand-surface/90 border border-brand-border text-red-400 opacity-0 group-hover/saved:opacity-100 hover:bg-red-500/20 hover:border-red-500/30 transition-all z-10"
+                  className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-red-200 bg-white/95 text-red-500 shadow-sm transition-colors hover:border-red-300 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300/40"
                   title="Remove from saved"
+                  aria-label={`Remove ${creator.name} from saved creators`}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ))}

@@ -49,6 +49,22 @@ const EMPTY_STATS: CreatorStats = {
   conversionRate: 0,
 };
 
+function areInsightsEqual(current: CreatorInsight[], next: CreatorInsight[]) {
+  if (current.length !== next.length) return false;
+  return current.every((insight, index) => {
+    const nextInsight = next[index];
+    return (
+      nextInsight &&
+      insight.id === nextInsight.id &&
+      insight.title === nextInsight.title &&
+      insight.description === nextInsight.description &&
+      insight.tone === nextInsight.tone &&
+      insight.ctaHref === nextInsight.ctaHref &&
+      insight.ctaLabel === nextInsight.ctaLabel
+    );
+  });
+}
+
 function calculateProfileStrength(
   user: ReturnType<typeof useAuthContext>["user"],
   activePackageCount: number
@@ -374,16 +390,15 @@ export default function DashboardPage() {
           conversionRate: analyticsSnapshot.conversionRate,
         };
 
-        setSmartInsights(
-          getCreatorInsights({
-            user,
-            stats: nextStats,
-            analytics: analyticsSnapshot,
-            profileStrength: calculateProfileStrength(user, nextActivePackageCount),
-            activePackageCount: nextActivePackageCount,
-            availabilitySlotCount,
-          })
-        );
+        const nextInsights = getCreatorInsights({
+          user,
+          stats: nextStats,
+          analytics: analyticsSnapshot,
+          profileStrength: calculateProfileStrength(user, nextActivePackageCount),
+          activePackageCount: nextActivePackageCount,
+          availabilitySlotCount,
+        });
+        setSmartInsights((current) => areInsightsEqual(current, nextInsights) ? current : nextInsights);
       }
 
       } catch (error) {
@@ -556,12 +571,12 @@ export default function DashboardPage() {
           </div>
 
           {/* Profile card */}
-          <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
+          <div className="overflow-hidden rounded-2xl border border-brand-border bg-brand-surface p-5">
             <div className="flex items-center gap-3 mb-4">
               <Avatar initials={avatarInitials} color={avatarColor} imageUrl={avatarUrl} size="md" />
-              <div>
-                <p className="font-bold text-brand-ink">{displayName}</p>
-                <p className="text-xs text-brand-ink-subtle">
+              <div className="min-w-0">
+                <p className="truncate font-bold text-brand-ink">{displayName}</p>
+                <p className="truncate text-xs text-brand-ink-subtle">
                   {displayUsername}{displayCategory ? ` · ${displayCategory}` : ""}
                 </p>
               </div>
@@ -574,18 +589,18 @@ export default function DashboardPage() {
               </div>
               <div className="w-full h-2 rounded-full bg-brand-elevated">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-live transition-all"
+                  className="h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-live"
                   style={{ width: `${profileStrength}%` }}
                 />
               </div>
             </div>
 
             <div className="mt-4 rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-primary/15 text-brand-primary-light">
                   <Sparkles className="h-4 w-4" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-brand-ink">Smart Insights</p>
                   <p className="text-[11px] text-brand-ink-subtle">Personalized next steps based on your profile and activity.</p>
                 </div>
@@ -594,14 +609,14 @@ export default function DashboardPage() {
               <div className="mt-4 space-y-3">
                 {smartInsights.map((insight) => (
                   <div key={insight.id} className="rounded-xl border border-brand-border bg-brand-elevated/80 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
+                    <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
+                      <div className="min-w-0">
                         <p className="text-sm font-semibold text-brand-ink">{insight.title}</p>
                         <p className="mt-1 text-xs leading-5 text-brand-ink-subtle">{insight.description}</p>
                       </div>
                       <span
                         className={cn(
-                          "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide",
+                          "shrink-0 self-start rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide",
                           insight.tone === "action" && "bg-amber-50 text-amber-700",
                           insight.tone === "opportunity" && "bg-brand-primary-bg text-brand-primary-deep",
                           insight.tone === "momentum" && "bg-brand-live/10 text-brand-live"

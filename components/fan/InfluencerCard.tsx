@@ -13,6 +13,7 @@ import Link from "next/link";
 interface InfluencerCardProps {
   creator: Creator;
   initialIsSaved?: boolean;
+  showSaveButton?: boolean;
 }
 
 interface AvailabilitySlot {
@@ -22,7 +23,7 @@ interface AvailabilitySlot {
   package_id?: string | null;
 }
 
-export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCardProps) {
+export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton = true }: InfluencerCardProps) {
   const { user } = useAuthContext();
   const [showBooking, setShowBooking] = useState(false);
   const [packages, setPackages] = useState<CallPackage[]>([]);
@@ -154,7 +155,7 @@ export function InfluencerCard({ creator, initialIsSaved = false }: InfluencerCa
           )}
 
           {/* Save button */}
-          {user && (
+          {user && showSaveButton && (
             <button
               onClick={toggleSave}
               disabled={isSaving}

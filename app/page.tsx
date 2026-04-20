@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, User, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BrandLogo } from "@/components/shared/BrandLogo";
@@ -115,14 +115,16 @@ export default function AuthPage() {
                 <Input
                   label="Password" type={showPassword ? "text" : "password"} placeholder="Your password"
                   value={siPassword} onChange={(e) => setSiPassword(e.target.value)}
-                  icon={<Lock className="w-4 h-4" />} required autoComplete="current-password" className="pr-16"
+                  icon={<Lock className="w-4 h-4" />} required autoComplete="current-password" className="pr-14"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-[34px] text-xs font-semibold text-brand-ink-muted hover:text-brand-ink transition-colors"
+                  className="absolute right-2 top-[30px] flex h-9 w-9 items-center justify-center rounded-full text-brand-ink-muted transition-colors hover:bg-brand-primary-bg hover:text-brand-primary-deep focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
                 >
-                  {showPassword ? "Hide" : "Show"}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
 
@@ -155,14 +157,16 @@ export default function AuthPage() {
                 <Input
                   label="Password" type={showPassword ? "text" : "password"} placeholder="Create a password"
                   value={suPassword} onChange={(e) => setSuPassword(e.target.value)}
-                  icon={<Lock className="w-4 h-4" />} required autoComplete="new-password" className="pr-16"
+                  icon={<Lock className="w-4 h-4" />} required autoComplete="new-password" className="pr-14"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-[34px] text-xs font-semibold text-brand-ink-muted hover:text-brand-ink transition-colors"
+                  className="absolute right-2 top-[30px] flex h-9 w-9 items-center justify-center rounded-full text-brand-ink-muted transition-colors hover:bg-brand-primary-bg hover:text-brand-primary-deep focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
                 >
-                  {showPassword ? "Hide" : "Show"}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
 

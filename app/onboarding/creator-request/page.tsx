@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Phone, Sparkles, User, CheckCircle2, Link2, Lock, Instagram, Music2 } from "lucide-react";
+import { Loader2, Mail, Phone, Sparkles, User, CheckCircle2, Link2, Lock, Instagram, Music2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HCaptchaWidget } from "@/components/shared/HCaptchaWidget";
@@ -192,14 +192,16 @@ export default function CreatorRequestPage() {
                       icon={<Lock className="w-4 h-4" />}
                       required
                       autoComplete="new-password"
-                      className="pr-16"
+                      className="pr-14"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((value) => !value)}
-                      className="absolute right-3 top-[34px] text-xs font-semibold text-brand-ink-subtle hover:text-brand-ink transition-colors"
+                      className="absolute right-2 top-[30px] flex h-9 w-9 items-center justify-center rounded-full text-brand-ink-subtle transition-colors hover:bg-brand-dark-elevated hover:text-brand-ink focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showPassword}
                     >
-                      {showPassword ? "Hide" : "Show"}
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                   <Input
