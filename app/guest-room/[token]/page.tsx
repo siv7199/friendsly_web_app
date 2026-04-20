@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { DailyVideo, useDaily, useLocalSessionId, useParticipantIds } from "@daily-co/daily-react";
+import { DailyAudioTrack, DailyVideo, useDaily, useLocalSessionId, useParticipantIds } from "@daily-co/daily-react";
 import { Loader2, Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
 import { CallContainer } from "@/components/video/CallContainer";
 import { Button } from "@/components/ui/button";
@@ -75,6 +75,7 @@ function GuestVideoStage({
 
   return (
     <div className="flex flex-1 flex-col gap-3 min-h-0">
+      {remoteParticipantId ? <DailyAudioTrack sessionId={remoteParticipantId} /> : null}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <Badge variant="live">

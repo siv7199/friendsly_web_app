@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2, Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
-import { DailyVideo, useDaily, useLocalSessionId, useParticipantIds } from "@daily-co/daily-react";
+import { DailyAudioTrack, DailyVideo, useDaily, useLocalSessionId, useParticipantIds } from "@daily-co/daily-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -148,6 +148,7 @@ function BookingVideoStage({
 
   return (
     <div className="flex flex-1 flex-col gap-3 min-h-0">
+      {remoteParticipantId ? <DailyAudioTrack sessionId={remoteParticipantId} /> : null}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <Badge variant="live">

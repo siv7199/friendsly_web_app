@@ -13,7 +13,7 @@ import { useAuthContext } from "@/lib/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { CallContainer } from "@/components/video/CallContainer";
-import { useLocalSessionId, DailyVideo, useDaily } from "@daily-co/daily-react";
+import { useLocalSessionId, DailyAudioTrack, DailyVideo, useDaily } from "@daily-co/daily-react";
 import {
   COMMON_TIME_ZONES,
   formatDateTimeLocalInTimeZone,
@@ -126,6 +126,7 @@ function LiveVideoStage({
   const [micOn, setMicOn] = useState(initialMic);
   const [camOn, setCamOn] = useState(initialCam);
   const showActiveFanStage = Boolean(currentFan);
+  const audibleSessionIds = Array.from(new Set([fanSessionId].filter((value): value is string => Boolean(value))));
   const dailyVideoFillStyles = {
     __html: `
       .daily-stage-video,
@@ -185,7 +186,7 @@ function LiveVideoStage({
 
     const syncFanParticipant = () => {
       const participants = Object.values(daily.participants() ?? {});
-      setAudienceCount(participants.length);
+      setAudienceCount(daily.participantCounts().present);
 
       if (!currentFan?.fanId) {
         setFanSessionId(null);
@@ -216,6 +217,9 @@ function LiveVideoStage({
   return (
     <div className="grid grid-cols-1 gap-4 xl:h-full xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1.5fr)_340px]">
       <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0">
+        {audibleSessionIds.map((sessionId) => (
+          <DailyAudioTrack key={sessionId} sessionId={sessionId} />
+        ))}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <Badge variant="live">

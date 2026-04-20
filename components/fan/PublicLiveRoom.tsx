@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
 import { cn } from "@/lib/utils";
 import { LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
+import { DailyAudioTrack, DailyVideo, useDaily, useLocalSessionId } from "@daily-co/daily-react";
 
 function formatStageElapsed(totalSeconds: number) {
   const safeSeconds = Math.max(0, totalSeconds);
@@ -15,7 +16,6 @@ function formatStageElapsed(totalSeconds: number) {
   const seconds = safeSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
-import { DailyVideo, useDaily, useLocalSessionId } from "@daily-co/daily-react";
 
 type QueuePreviewEntry = {
   id: string;
@@ -125,6 +125,9 @@ function LiveStage({
   const [audienceCount, setAudienceCount] = useState(0);
   const [micOn, setMicOn] = useState(isAdmitted);
   const [camOn, setCamOn] = useState(isAdmitted);
+  const audibleSessionIds = Array.from(new Set(
+    [creatorSessionId, !isAdmitted ? activeFanSessionId : null].filter((value): value is string => Boolean(value))
+  ));
 
   const dailyVideoFillStyles = {
     __html: `
@@ -203,7 +206,7 @@ function LiveStage({
       const nextCreatorSessionId = resolvedCreatorParticipant?.session_id ?? null;
       setCreatorSessionId(nextCreatorSessionId);
       setCreatorVideoActive(isParticipantVideoActive(resolvedCreatorParticipant));
-      setAudienceCount(participants.length);
+      setAudienceCount(daily.participantCounts().present);
 
       if (!activeFan || isAdmitted) {
         setActiveFanSessionId(null);
@@ -259,6 +262,9 @@ function LiveStage({
 
   return (
     <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 h-full min-h-0 flex flex-col gap-3 overflow-hidden">
+      {audibleSessionIds.map((sessionId) => (
+        <DailyAudioTrack key={sessionId} sessionId={sessionId} />
+      ))}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">

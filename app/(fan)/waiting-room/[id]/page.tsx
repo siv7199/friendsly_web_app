@@ -159,6 +159,16 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     return () => window.clearInterval(interval);
   }, []);
 
+  const myWaitingEntry = useMemo(
+    () => queue.find((entry) => entry.status === "waiting" && user && entry.fanId === user.id),
+    [queue, user]
+  );
+
+  const myActiveEntry = useMemo(
+    () => queue.find((entry) => entry.status === "active" && user && entry.fanId === user.id),
+    [queue, user]
+  );
+
   useEffect(() => {
     if (!liveSessionId || !roomUrl || !user) {
       setToken(null);
@@ -177,7 +187,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       .then((response) => response.json())
       .then((data) => setToken(data.token ?? null))
       .catch(() => setToken(null));
-  }, [liveSessionId, roomUrl, user]);
+  }, [liveSessionId, roomUrl, user, Boolean(myActiveEntry)]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -192,16 +202,6 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       supabase.removeChannel(channel);
     };
   }, [loadLiveState, params.id]);
-
-  const myWaitingEntry = useMemo(
-    () => queue.find((entry) => entry.status === "waiting" && user && entry.fanId === user.id),
-    [queue, user]
-  );
-
-  const myActiveEntry = useMemo(
-    () => queue.find((entry) => entry.status === "active" && user && entry.fanId === user.id),
-    [queue, user]
-  );
 
   useEffect(() => {
     setReportedDailySessionId(null);

@@ -66,7 +66,12 @@ function CallJoiner({
         suppressNextLeave.current = true;
         try { await daily.leave(); } catch {}
       }
-      const joinPromise = daily.join({ url, token, startVideoOff: true, startAudioOff: true });
+      const joinPromise = daily.join({
+        url,
+        token,
+        startVideoOff: !startVideo,
+        startAudioOff: !startAudio,
+      });
       const timeoutPromise = new Promise<never>((_, reject) => {
         window.setTimeout(() => reject(new Error("Daily join timed out.")), 15000);
       });
@@ -96,7 +101,7 @@ function CallJoiner({
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [daily, url]);
+  }, [daily, url, token, startVideo, startAudio]);
 
   return null;
 }

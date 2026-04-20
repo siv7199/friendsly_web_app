@@ -6,7 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { CallContainer } from "@/components/video/CallContainer";
-import { useLocalSessionId, useParticipantIds, DailyVideo, useDaily } from "@daily-co/daily-react";
+import { useLocalSessionId, useParticipantIds, DailyAudioTrack, DailyVideo, useDaily } from "@daily-co/daily-react";
 
 function FanVideoStage({
   creatorName,
@@ -43,6 +43,7 @@ function FanVideoStage({
 
   return (
     <div className="flex-1 flex flex-col gap-3 min-h-[500px]">
+      {creatorId ? <DailyAudioTrack sessionId={creatorId} /> : null}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <Badge variant="live">
