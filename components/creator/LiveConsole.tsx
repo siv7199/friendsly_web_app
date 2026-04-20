@@ -238,8 +238,8 @@ function LiveVideoStage({
   }, [currentFan?.admittedDailySessionId, currentFan?.fanId, daily]);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-4 2xl:h-full 2xl:min-h-0 2xl:overflow-hidden 2xl:grid-cols-[minmax(0,1.5fr)_340px]">
-      <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden 2xl:h-full 2xl:min-h-0">
+    <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-4 xl:h-full xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1.5fr)_340px]">
+      <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0">
         {audibleSessionIds.map((sessionId) => (
           <DailyAudioTrack key={sessionId} sessionId={sessionId} />
         ))}
@@ -270,14 +270,14 @@ function LiveVideoStage({
         </div>
 
         <div className={cn(
-          "grid items-stretch gap-4 2xl:flex-1 2xl:min-h-0",
+          "grid items-stretch gap-4 xl:flex-1 xl:min-h-0",
           showActiveFanStage
-            ? "grid-rows-[minmax(280px,40vh)_minmax(280px,40vh)] 2xl:grid-rows-1 2xl:grid-cols-2"
+            ? "grid-rows-[minmax(280px,40vh)_minmax(280px,40vh)] lg:grid-rows-1 lg:grid-cols-2"
             : "grid-cols-1 auto-rows-fr"
         )}>
           <div className={cn(
             "relative h-full rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center",
-            showActiveFanStage ? "min-h-[280px] 2xl:min-h-0" : "min-h-[320px] 2xl:min-h-0"
+            showActiveFanStage ? "min-h-[280px] lg:min-h-0" : "min-h-[320px] lg:min-h-0"
           )}>
             {localSessionId && camOn ? (
               <div className="daily-stage-video w-full h-full relative overflow-hidden">
@@ -307,7 +307,7 @@ function LiveVideoStage({
           </div>
 
           {showActiveFanStage ? (
-            <div className="relative h-full min-h-[280px] 2xl:min-h-0 rounded-[24px] border border-brand-border bg-brand-elevated overflow-hidden">
+            <div className="relative h-full min-h-[280px] lg:min-h-0 rounded-[24px] border border-brand-border bg-brand-elevated overflow-hidden">
               {fanSessionId && fanVideoActive ? (
                 <div className="daily-stage-video w-full h-full relative overflow-hidden">
                   <DailyVideo sessionId={fanSessionId} type="video" className="w-full h-full object-cover z-10" />
@@ -342,7 +342,7 @@ function LiveVideoStage({
 
       </div>
 
-      <div className="min-h-[420px] rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden 2xl:h-full 2xl:min-h-0">
+      <div className="min-h-[420px] rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0">
         {/* Queue strip at top of chat column */}
         <div className="rounded-[20px] border border-brand-border bg-brand-elevated p-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2 mb-2">

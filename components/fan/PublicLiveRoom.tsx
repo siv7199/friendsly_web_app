@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Mic, MicOff, Video, VideoOff, Zap, Users } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Zap, Users, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -93,6 +93,7 @@ function LiveStage({
   isAdmitted,
   stageElapsedSeconds,
   onJoinQueue,
+  onLeaveStage,
   joinDisabled,
   queueCount,
   queuePreview,
@@ -117,6 +118,7 @@ function LiveStage({
   isAdmitted: boolean;
   stageElapsedSeconds: number;
   onJoinQueue: () => void;
+  onLeaveStage?: () => void;
   joinDisabled: boolean;
   queueCount: number;
   queuePreview?: QueuePreviewEntry[];
@@ -384,6 +386,15 @@ function LiveStage({
               >
                 {camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
               </button>
+              {onLeaveStage && (
+                <button
+                  onClick={onLeaveStage}
+                  title="Return to spectator"
+                  className="w-11 h-11 rounded-full border border-white/20 bg-black/30 flex items-center justify-center transition-colors backdrop-blur-sm text-white hover:bg-black/50"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         ) : showRemoteGuestStage ? (
@@ -441,6 +452,7 @@ export function PublicLiveRoom({
   isAdmitted,
   stageElapsedSeconds,
   onJoinQueue,
+  onLeaveStage,
   joinDisabled,
   queueCount,
   queuePreview,
@@ -467,6 +479,7 @@ export function PublicLiveRoom({
   isAdmitted: boolean;
   stageElapsedSeconds: number;
   onJoinQueue: () => void;
+  onLeaveStage?: () => void;
   joinDisabled: boolean;
   queueCount: number;
   queuePreview?: QueuePreviewEntry[];
@@ -487,6 +500,7 @@ export function PublicLiveRoom({
         isAdmitted={isAdmitted}
         stageElapsedSeconds={stageElapsedSeconds}
         onJoinQueue={onJoinQueue}
+        onLeaveStage={onLeaveStage}
         joinDisabled={joinDisabled}
         queueCount={queueCount}
         queuePreview={queuePreview}

@@ -303,6 +303,14 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
                 isAdmitted={Boolean(myActiveEntry)}
                 stageElapsedSeconds={stageElapsedSeconds}
                 onJoinQueue={() => setShowJoinModal(true)}
+                onLeaveStage={async () => {
+                  if (!myActiveEntry?.id) return;
+                  await fetch("/api/live/leave-stage", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ queueEntryId: myActiveEntry.id }),
+                  });
+                }}
                 joinDisabled={Boolean(myWaitingEntry || myActiveEntry)}
                 queueCount={waitingQueue.length}
                 queuePreview={waitingQueue}

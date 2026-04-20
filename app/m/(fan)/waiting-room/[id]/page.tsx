@@ -294,8 +294,22 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
         queueCount={waitingQueue.length}
         queueEntries={queueEntries}
         myQueuePosition={myQueuePosition}
+        inQueue={Boolean(myWaitingEntry)}
         sessionId={liveSessionId}
-        onLeaveQueue={() => setShowJoinModal(true)}
+        onJoinQueue={() => setShowJoinModal(true)}
+        onLeaveQueue={async () => {
+          if (!myWaitingEntry?.id) return;
+          const supabase = (await import("@/lib/supabase/client")).createClient();
+          await supabase.from("live_queue_entries").delete().eq("id", myWaitingEntry.id);
+        }}
+        onLeaveStage={async () => {
+          if (!myActiveEntry?.id) return;
+          await fetch("/api/live/leave-stage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ queueEntryId: myActiveEntry.id }),
+          });
+        }}
         onStageSessionReady={reportActiveJoin}
       />
 
