@@ -276,6 +276,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [settingFanRole, setSettingFanRole] = useState(false);
+  const [awaitingEmailVerification, setAwaitingEmailVerification] = useState(false);
   const paymentInitKeyRef = useRef<string | null>(null);
   const hasHandledLiveIntentRef = useRef(false);
   const authCardRef = useRef<HTMLDivElement | null>(null);
@@ -512,13 +513,19 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   async function handleSignInSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!signInEmail.trim() || !signInPassword) return;
+    setAwaitingEmailVerification(false);
     await login(signInEmail.trim(), signInPassword);
   }
 
   async function handleSignUpSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!signUpName.trim() || !signUpEmail.trim() || !signUpPassword) return;
-    await signup(signUpEmail.trim(), signUpPassword, signUpName.trim(), null);
+    const result = await signup(signUpEmail.trim(), signUpPassword, signUpName.trim(), null);
+    if (result.requiresEmailConfirmation) {
+      setSettingFanRole(false);
+      setAwaitingEmailVerification(true);
+      setAuthTab("signin");
+    }
   }
 
   useEffect(() => {
@@ -594,6 +601,8 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   useEffect(() => {
     if (authLoading) return;
 
+    if (awaitingEmailVerification) return;
+
     if (liveIntentRequested && user?.role !== "fan" && (authIntent !== "live" || step !== "identity")) {
       setAuthIntent("live");
       setStep("identity");
@@ -637,6 +646,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   }, [
     authIntent,
     authLoading,
+    awaitingEmailVerification,
     creator?.id,
     creator?.isLive,
     liveIntentRequested,
@@ -1009,8 +1019,8 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                 <h2 className="text-lg font-bold text-brand-ink">Continue with a fan account</h2>
                 <p className="mt-1 text-sm text-brand-ink-subtle">
                   {authIntent === "live"
-                    ? "Sign in or create your fan account below. As soon as you&apos;re in, we&apos;ll take you straight into the live room."
-                    : "Sign in or create your fan account below. As soon as you&apos;re in, we&apos;ll bring you right back to payment."}
+                    ? "Sign in below. New accounts need email verification before we can take you into the live room."
+                    : "Sign in below. New accounts need email verification before we can bring you back to payment."}
                 </p>
               </div>
               {user?.role === "fan" ? (
@@ -1055,6 +1065,12 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                   {authError && (
                     <div className="rounded-2xl border border-red-300/40 bg-red-50 px-4 py-3 text-sm text-red-700">
                       {authError}
+                    </div>
+                  )}
+
+                  {awaitingEmailVerification && (
+                    <div className="rounded-2xl border border-brand-primary/25 bg-brand-primary/10 px-4 py-3 text-sm text-brand-ink-subtle">
+                      Check your email to verify your account, then sign in here to continue.
                     </div>
                   )}
 
