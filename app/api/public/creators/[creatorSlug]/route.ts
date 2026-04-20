@@ -22,8 +22,7 @@ export async function GET(
         creator_profiles(
           bio, category, timezone, booking_interval_minutes, live_join_fee,
           is_live, current_live_session_id
-        ),
-        live_sessions(id, is_active, daily_room_url, last_heartbeat_at)
+        )
       `)
       .eq("role", "creator")
       .eq("username", creatorSlug)
@@ -33,7 +32,7 @@ export async function GET(
       return NextResponse.json({ error: "Creator not found." }, { status: 404 });
     }
 
-    const [packagesRes, availabilityRes] = await Promise.all([
+    const [packagesRes, availabilityRes, liveSessionsRes] = await Promise.all([
       supabase
         .from("call_packages")
         .select("id, name, description, duration, price, is_active")
@@ -46,12 +45,19 @@ export async function GET(
         .eq("creator_id", profile.id)
         .eq("is_active", true)
         .order("day_of_week"),
+      supabase
+        .from("live_sessions")
+        .select("id, is_active, daily_room_url, last_heartbeat_at, created_at")
+        .eq("creator_id", profile.id)
+        .eq("is_active", true)
+        .not("daily_room_url", "is", null)
+        .order("created_at", { ascending: false }),
     ]);
 
     const cp = Array.isArray(profile.creator_profiles)
       ? profile.creator_profiles[0]
       : profile.creator_profiles;
-    const sessions = Array.isArray(profile.live_sessions) ? profile.live_sessions : [];
+    const sessions = liveSessionsRes.data ?? [];
     const freshActiveSession = sessions.find(
       (s: any) =>
         s?.is_active === true &&

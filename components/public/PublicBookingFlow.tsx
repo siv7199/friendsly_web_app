@@ -695,9 +695,22 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                   </p>
                 )}
                 {creator.isLive && (
-                  <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-brand-live/20 bg-brand-live/10 px-3 py-1.5 text-xs font-semibold text-brand-live">
-                    <span className="h-2 w-2 rounded-full bg-brand-live animate-pulse" />
-                    Live on Friendsly right now
+                  <div className="mt-4 rounded-2xl border border-brand-live/20 bg-brand-live/10 p-3">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-live animate-pulse" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-live">
+                          Live on Friendsly now
+                        </p>
+                        <p className="mt-1 text-sm text-brand-ink-subtle">
+                          Jump into {creator.name.split(" ")[0]}&apos;s live room from this link.
+                        </p>
+                      </div>
+                    </div>
+                    <Button variant="live" className="mt-3 w-full gap-2" onClick={handleJoinLive}>
+                      <Radio className="w-4 h-4" />
+                      {user?.role === "fan" ? "Join Live Now" : "Sign in or create account to join"}
+                    </Button>
                   </div>
                 )}
               </div>
