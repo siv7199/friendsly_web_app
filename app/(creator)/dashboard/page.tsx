@@ -541,7 +541,7 @@ export default function DashboardPage() {
             </Link>
           </div>
           {loadingDashboard ? (
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 flex justify-center text-brand-ink-subtle">
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 flex justify-center text-brand-ink-subtle min-h-[200px] items-center">
               <Loader2 className="w-5 h-5 animate-spin" />
             </div>
           ) : (

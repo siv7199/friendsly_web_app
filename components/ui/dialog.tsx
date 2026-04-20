@@ -52,17 +52,15 @@ export function Dialog({ open, onClose, children }: DialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
       aria-modal="true"
       role="dialog"
+      onClick={onClose}
     >
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/70" />
       {/* Modal content — positioned above backdrop */}
-      <div className="relative z-10 animate-slide-up">{children}</div>
+      <div className="relative z-10 w-full sm:w-auto sm:animate-slide-up" onClick={(e) => e.stopPropagation()}>{children}</div>
     </div>
   );
 }
@@ -77,8 +75,8 @@ export function DialogContent({
   return (
     <div
       className={cn(
-        "w-full max-w-lg rounded-2xl border border-brand-border bg-brand-elevated shadow-card",
-        "max-h-[90vh] overflow-y-auto",
+        "w-full max-w-lg rounded-t-2xl sm:rounded-2xl border border-brand-border bg-brand-elevated shadow-card",
+        "max-h-[90vh] overflow-y-scroll overscroll-contain",
         className
       )}
     >
