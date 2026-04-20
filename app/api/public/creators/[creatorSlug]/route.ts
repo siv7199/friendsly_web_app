@@ -50,11 +50,11 @@ export async function GET(
         .order("day_of_week"),
       supabase
         .from("live_sessions")
-        .select("id, is_active, daily_room_url, last_heartbeat_at, created_at")
+        .select("id, is_active, daily_room_url, last_heartbeat_at, started_at")
         .eq("creator_id", profile.id)
         .eq("is_active", true)
         .not("daily_room_url", "is", null)
-        .order("created_at", { ascending: false }),
+        .order("started_at", { ascending: false }),
     ]);
 
     const cp = Array.isArray(profile.creator_profiles)
