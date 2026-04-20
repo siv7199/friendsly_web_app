@@ -14,8 +14,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PROTECTED_FAN     = ["/discover", "/profile", "/waiting-room", "/bookings", "/payments", "/saved", "/settings", "/room"];
-const PROTECTED_CREATOR = ["/dashboard", "/management", "/calendar", "/live", "/settings", "/earnings", "/room"];
+const PROTECTED_FAN     = ["/discover", "/profile", "/waiting-room", "/bookings", "/payments", "/saved", "/settings", "/room", "/m/waiting-room", "/m/room"];
+const PROTECTED_CREATOR = ["/dashboard", "/management", "/calendar", "/live", "/settings", "/earnings", "/room", "/m/live", "/m/room"];
+const MOBILE_CALL_ROUTES = ["/waiting-room", "/live", "/room", "/guest-room"];
 const ONBOARDING_PREFIX = "/onboarding";
 const AUTH_ROUTES       = ["/", "/login", "/signup"];
 
@@ -53,6 +54,18 @@ export async function middleware(request: NextRequest) {
       },
     }
   );
+
+  // iPhone UA detection — redirect call routes to mobile-specific pages
+  const ua = request.headers.get("user-agent") ?? "";
+  if (/iPhone/i.test(ua)) {
+    const path = request.nextUrl.pathname;
+    const needsRedirect = MOBILE_CALL_ROUTES.some(
+      (r) => path === r || (path.startsWith(r + "/") && !path.startsWith("/m/"))
+    );
+    if (needsRedirect) {
+      return NextResponse.redirect(new URL(`/m${path}`, request.url));
+    }
+  }
 
   // getSession decodes the local JWT — no network call
   const { data: { session } } = await supabase.auth.getSession();
