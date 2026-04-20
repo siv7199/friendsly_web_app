@@ -11,6 +11,7 @@ interface LiveStageCardProps {
 
 export function LiveStageCard({ creator }: LiveStageCardProps) {
   const hasLiveRate = Boolean(creator.liveJoinFee && creator.liveJoinFee > 0);
+  const liveAudienceCount = creator.queueCount + 1;
 
   return (
     <Link href={`/waiting-room/${creator.id}`} className="block shrink-0 group">
@@ -39,10 +40,10 @@ export function LiveStageCard({ creator }: LiveStageCardProps) {
         </div>
 
         {/* Queue count */}
-        {creator.queueCount > 0 && (
+        {liveAudienceCount > 0 && (
           <div className="absolute top-3 right-3 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-black/50 backdrop-blur-sm">
             <Users className="w-2.5 h-2.5 text-white/70" />
-            <span className="text-[10px] font-semibold text-white/80">{creator.queueCount}</span>
+            <span className="text-[10px] font-semibold text-white/80">{liveAudienceCount}</span>
           </div>
         )}
 

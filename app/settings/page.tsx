@@ -34,43 +34,9 @@ import { createClient } from "@/lib/supabase/client";
 import { deriveBookingStatus, getBookingGrossAmount, hasBookingEnded, shouldAutoCancelBooking } from "@/lib/bookings";
 import { sanitizeSocialUrl } from "@/lib/social";
 import { removeAvatarFile, uploadAvatarFile } from "@/lib/avatar-upload";
+import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-
-const STRIPE_APPEARANCE = {
-  theme: "night" as const,
-  variables: {
-    colorPrimary: "#7C3AED",
-    colorBackground: "#1A1535",
-    colorText: "#f1f5f9",
-    colorTextSecondary: "#c4b5fd",
-    colorTextPlaceholder: "#7c6fa0",
-    colorDanger: "#f87171",
-    fontFamily: "inherit",
-    borderRadius: "12px",
-  },
-  rules: {
-    ".Label": {
-      color: "#c4b5fd",
-      fontWeight: "500",
-    },
-    ".Input": {
-      borderColor: "rgba(124,92,231,0.35)",
-      color: "#f1f5f9",
-    },
-    ".Input--focused": {
-      borderColor: "#7C3AED",
-      boxShadow: "0 0 0 2px rgba(124,92,231,0.2)",
-    },
-    ".Input--invalid": {
-      borderColor: "#f87171",
-      color: "#fca5a5",
-    },
-    ".Error": {
-      color: "#fca5a5",
-    },
-  },
-};
 
 interface SavedPaymentMethod {
   id: string;
@@ -126,11 +92,16 @@ function AddCardForm({ onSuccess, onCancel }: AddCardFormProps) {
           {error}
         </p>
       )}
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-3 min-[420px]:flex-row">
         <Button variant="outline" className="flex-1" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button variant="primary" className="flex-1 gap-2" onClick={handleSave} disabled={saving || !stripe}>
+        <Button
+          variant="primary"
+          className="flex-1 gap-2 whitespace-normal text-center leading-tight"
+          onClick={handleSave}
+          disabled={saving || !stripe}
+        >
           {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : "Save Card"}
         </Button>
       </div>
@@ -792,7 +763,7 @@ export default function SettingsPage() {
               <div className="mb-4 p-4 rounded-xl border border-brand-border bg-brand-elevated">
                 <Elements
                   stripe={stripePromise}
-                  options={{ clientSecret: setupClientSecret, appearance: STRIPE_APPEARANCE }}
+                  options={{ ...STRIPE_OPTIONS, clientSecret: setupClientSecret }}
                 >
                   <AddCardForm
                     onSuccess={handleCardSaved}

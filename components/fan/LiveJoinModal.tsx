@@ -13,46 +13,10 @@ import { formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { LIVE_PREAUTH_MINUTES, LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
+import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 const LIVE_SESSION_STALE_MS = 45000;
-
-const STRIPE_OPTIONS = {
-  appearance: {
-    theme: "night" as const,
-    variables: {
-      colorPrimary: "#22C55E",
-      colorBackground: "#1e1b3a",
-      colorText: "#f1f5f9",
-      colorTextSecondary: "#86efac",
-      colorTextPlaceholder: "#6b7280",
-      colorDanger: "#f87171",
-      fontFamily: "inherit",
-      borderRadius: "12px",
-    },
-    rules: {
-      ".Label": {
-        color: "#86efac",
-        fontWeight: "500",
-      },
-      ".Input": {
-        borderColor: "rgba(34,197,94,0.3)",
-        color: "#f1f5f9",
-      },
-      ".Input--focused": {
-        borderColor: "#22C55E",
-        boxShadow: "0 0 0 2px rgba(34,197,94,0.15)",
-      },
-      ".Input--invalid": {
-        borderColor: "#f87171",
-        color: "#fca5a5",
-      },
-      ".Error": {
-        color: "#fca5a5",
-      },
-    },
-  },
-};
 
 interface SavedPaymentMethod {
   id: string;
@@ -99,7 +63,7 @@ function PaymentForm({
   return (
     <div className="space-y-4">
       <PaymentElement options={{ layout: "tabs" }} onReady={() => setIsReady(true)} />
-      <Button variant="live" size="lg" className="w-full gap-2" onClick={handleSubmit} disabled={isSubmitting || !stripe || !isReady}>
+      <Button variant="live" size="lg" className="w-full gap-2 whitespace-normal text-center leading-tight" onClick={handleSubmit} disabled={isSubmitting || !stripe || !isReady}>
         {isSubmitting ? (
           <><Loader2 className="w-4 h-4 animate-spin" /> Placing hold...</>
         ) : !isReady ? (
@@ -345,7 +309,7 @@ export function LiveJoinModal({
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogContent
-        className="w-full max-w-md"
+        className="mx-auto w-[calc(100vw-1rem)] max-w-md"
         title={step === "success" ? "You're In The Queue" : `Join ${creator.name}'s Live`}
         description={
           step === "info"

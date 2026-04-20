@@ -32,6 +32,18 @@ type ActiveFanState = {
   admittedDailySessionId?: string;
 };
 
+function mapQueueProfile(entry: any, fallbackName: string) {
+  const fan = entry?.fan;
+  return {
+    fanId: entry.fan_id,
+    fanName: fan?.full_name ?? fallbackName,
+    avatarInitials: fan?.avatar_initials ?? "F",
+    avatarColor: fan?.avatar_color ?? "bg-brand-primary",
+    avatarUrl: fan?.avatar_url ?? undefined,
+    admittedDailySessionId: entry.admitted_daily_session_id ?? undefined,
+  };
+}
+
 export default function WaitingRoomPage({ params }: { params: { id: string } }) {
   const { user } = useAuthContext();
   const [creatorState, setCreatorState] = useState<CreatorState | null>(null);
@@ -112,14 +124,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     setActiveFanAdmittedAt(activeEntry?.admitted_at ?? null);
     setActiveFan(
       activeEntry
-        ? {
-            fanId: activeEntry.fan_id,
-            fanName: activeEntry.fan.full_name,
-            avatarInitials: activeEntry.fan.avatar_initials,
-            avatarColor: activeEntry.fan.avatar_color,
-            avatarUrl: activeEntry.fan.avatar_url ?? undefined,
-            admittedDailySessionId: activeEntry.admitted_daily_session_id ?? undefined,
-          }
+        ? mapQueueProfile(activeEntry, "Current Fan")
         : null
     );
 
@@ -131,11 +136,11 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       return {
         id: entry.id,
         fanId: entry.fan_id,
-        fanName: entry.fan.full_name,
-        fanUsername: `@${entry.fan.username}`,
-        avatarInitials: entry.fan.avatar_initials,
-        avatarColor: entry.fan.avatar_color,
-        avatarUrl: entry.fan.avatar_url ?? undefined,
+        fanName: entry.fan?.full_name ?? "Fan",
+        fanUsername: entry.fan?.username ? `@${entry.fan.username}` : "@fan",
+        avatarInitials: entry.fan?.avatar_initials ?? "F",
+        avatarColor: entry.fan?.avatar_color ?? "bg-brand-primary",
+        avatarUrl: entry.fan?.avatar_url ?? undefined,
         position: position > 0 ? position : 0,
         waitTime: "",
         waitSeconds: position > 0 ? activeRemainingSeconds + ((position - 1) * LIVE_STAGE_SECONDS) : 0,
@@ -275,14 +280,14 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
 
   return (
     <>
-      <div className="px-4 md:px-6 py-4 md:py-5 min-h-screen lg:h-[100dvh] overflow-x-hidden lg:overflow-hidden flex flex-col gap-4">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col gap-4 overflow-x-hidden px-4 py-4 md:px-6 md:py-5 xl:h-[100dvh] xl:overflow-hidden">
         <Link href={`/profile/${creatorState.id}`} className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors shrink-0">
           <ArrowLeft className="w-4 h-4" />
           Back to {creatorState.name}&apos;s profile
         </Link>
 
-        <div className="grid gap-4 lg:flex-1 lg:min-h-0 lg:grid-cols-[minmax(0,1.5fr)_420px]">
-          <div className="lg:min-h-0">
+        <div className="grid gap-4 xl:flex-1 xl:min-h-0 xl:grid-cols-[minmax(0,1.5fr)_420px]">
+          <div className="xl:min-h-0">
             {roomUrl && token ? (
               <PublicLiveRoom
                 roomUrl={roomUrl}
@@ -316,7 +321,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             )}
           </div>
 
-          <div className="min-h-[420px] lg:min-h-0">
+          <div className="min-h-[420px] xl:min-h-0">
             <WaitingRoom
               queue={[]}
               currentUserPosition={0}

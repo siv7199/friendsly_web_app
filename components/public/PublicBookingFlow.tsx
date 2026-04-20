@@ -25,6 +25,7 @@ import { useAuthContext } from "@/lib/context/AuthContext";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getAvailableStartTimesForViewerDate, getBrowserTimeZone, getTimeZoneAbbreviation } from "@/lib/timezones";
 import { RefundPolicyModal } from "@/components/shared/RefundPolicyModal";
+import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
 
 type CreatorPayload = {
   id: string;
@@ -78,43 +79,6 @@ type PaymentInitKey = {
 };
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-
-const STRIPE_OPTIONS = {
-  appearance: {
-    theme: "night" as const,
-    variables: {
-      colorPrimary: "#7C3AED",
-      colorBackground: "#1e1b3a",
-      colorText: "#f1f5f9",
-      colorTextSecondary: "#c4b5fd",
-      colorTextPlaceholder: "#7c6fa0",
-      colorDanger: "#f87171",
-      fontFamily: "inherit",
-      borderRadius: "12px",
-    },
-    rules: {
-      ".Label": {
-        color: "#c4b5fd",
-        fontWeight: "500",
-      },
-      ".Input": {
-        borderColor: "rgba(124,92,231,0.35)",
-        color: "#f1f5f9",
-      },
-      ".Input--focused": {
-        borderColor: "#7C3AED",
-        boxShadow: "0 0 0 2px rgba(124,92,231,0.2)",
-      },
-      ".Input--invalid": {
-        borderColor: "#f87171",
-        color: "#fca5a5",
-      },
-      ".Error": {
-        color: "#fca5a5",
-      },
-    },
-  },
-};
 
 function getAvailableDates(weekOffset: number) {
   const dates = [];
@@ -213,13 +177,13 @@ function PaymentForm({
   return (
     <div className="space-y-4">
       <PaymentElement options={{ layout: "tabs" }} onReady={() => setIsReady(true)} />
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-3 min-[420px]:flex-row">
         <Button variant="outline" className="flex-1" onClick={onBack} disabled={isSubmitting}>
           Back
         </Button>
         <Button
           variant="gold"
-          className="flex-1"
+          className="flex-1 whitespace-normal text-center leading-tight"
           onClick={handlePay}
           disabled={isSubmitting || !stripe || !isReady}
         >
@@ -686,7 +650,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
   return (
     <div className="mx-auto w-full max-w-5xl overflow-x-hidden px-4 py-8 md:px-6 md:py-12">
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <section className="min-w-0 space-y-5">
           <div className="max-w-full overflow-hidden rounded-3xl border border-brand-border bg-brand-surface p-5 md:p-8">
             <div className="flex min-w-0 items-start gap-4">

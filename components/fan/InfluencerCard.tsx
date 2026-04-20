@@ -108,6 +108,7 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
 
   const hasLiveRate = Boolean(creator.liveJoinFee && creator.liveJoinFee > 0);
   const hasPackages  = creator.callPrice > 0 || packages.length > 0;
+  const liveAudienceCount = creator.isLive ? creator.queueCount + 1 : creator.queueCount;
 
   return (
     <>
@@ -147,10 +148,10 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
           )}
 
           {/* Queue count */}
-          {creator.isLive && creator.queueCount > 0 && (
+          {creator.isLive && liveAudienceCount > 0 && (
             <div className="absolute top-2.5 right-10 z-10 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-sm">
               <Users className="w-2.5 h-2.5 text-white/80" />
-              <span className="text-[10px] font-semibold text-white/90">{creator.queueCount}</span>
+              <span className="text-[10px] font-semibold text-white/90">{liveAudienceCount}</span>
             </div>
           )}
 

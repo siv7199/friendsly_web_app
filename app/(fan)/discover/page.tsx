@@ -390,7 +390,7 @@ export default function DiscoverPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {allCreators.map((creator, i) => (
               <div key={creator.id} style={{ animationDelay: `${i * 25}ms` }} className="animate-card-enter">
                 <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />

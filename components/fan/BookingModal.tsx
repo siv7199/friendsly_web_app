@@ -17,6 +17,7 @@ import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { getAvailableStartTimesForViewerDate, getBrowserTimeZone, getTimeZoneAbbreviation } from "@/lib/timezones";
+import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
 
 interface AvailabilitySlot {
   day_of_week: number;
@@ -42,46 +43,6 @@ interface ExistingBookingWindow {
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
-
-// Stripe Elements appearance — matches the dark brand theme
-const STRIPE_APPEARANCE = {
-  theme: "night" as const,
-  variables: {
-    colorPrimary: "#7C3AED",
-    colorBackground: "#1e1b3a",
-    colorText: "#f1f5f9",
-    colorTextSecondary: "#c4b5fd",
-    colorTextPlaceholder: "#7c6fa0",
-    colorDanger: "#f87171",
-    fontFamily: "inherit",
-    borderRadius: "12px",
-  },
-  rules: {
-    ".Label": {
-      color: "#c4b5fd",
-      fontWeight: "500",
-    },
-    ".Input": {
-      borderColor: "rgba(124,92,231,0.35)",
-      color: "#f1f5f9",
-    },
-    ".Input--focused": {
-      borderColor: "#7C3AED",
-      boxShadow: "0 0 0 2px rgba(124,92,231,0.2)",
-    },
-    ".Input--invalid": {
-      borderColor: "#f87171",
-      color: "#fca5a5",
-    },
-    ".Error": {
-      color: "#fca5a5",
-    },
-  },
-};
-
-const STRIPE_OPTIONS = {
-  appearance: STRIPE_APPEARANCE,
-};
 
 function getAvailableDates(weekOffset: number) {
   const dates = [];
@@ -170,13 +131,13 @@ function PaymentForm({ onSuccess, onBack, isSubmitting, setIsSubmitting, setPayE
         }}
         onReady={() => setIsReady(true)}
       />
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-3 min-[420px]:flex-row">
         <Button variant="outline" className="flex-1" onClick={onBack} disabled={isSubmitting}>
           ← Back
         </Button>
           <Button
             variant="gold"
-            className="flex-1 gap-2"
+            className="flex-1 gap-2 whitespace-normal text-center leading-tight"
             onClick={handlePay}
             disabled={isSubmitting || !stripe || !isReady}
           >
@@ -691,7 +652,7 @@ export function BookingModal({
               />
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 min-[420px]:flex-row">
               <Button variant="outline" className="flex-1" onClick={() => setStep("select")}>
                 ← Back
               </Button>

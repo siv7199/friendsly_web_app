@@ -879,7 +879,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   </p>
                   <p className="text-xs text-brand-ink-subtle">amount per minute</p>
                   <p className="text-[11px] text-brand-ink-subtle mt-1">
-                    {creator.queueCount > 0 ? `${creator.queueCount} in queue` : "Watch now and request a turn"}
+                    {creator.queueCount > 0 ? `${creator.queueCount} waiting` : "Watch now and request a turn"}
                   </p>
                 </div>
               )}

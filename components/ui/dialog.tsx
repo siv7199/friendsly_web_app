@@ -72,7 +72,7 @@ export function Dialog({ open, onClose, children }: DialogProps) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center overflow-x-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-x-hidden overflow-y-auto px-2 py-[max(0.75rem,env(safe-area-inset-top))] sm:p-4"
       aria-modal="true"
       role="dialog"
       onClick={onClose}
@@ -96,8 +96,8 @@ export function DialogContent({
   return (
     <div
       className={cn(
-        "w-[calc(100vw-1rem)] max-w-lg sm:w-full rounded-t-2xl sm:rounded-2xl border border-brand-border bg-brand-elevated shadow-card",
-        "max-h-[90vh] overflow-x-hidden overflow-y-scroll overscroll-contain",
+        "w-[calc(100vw-1rem)] max-w-lg sm:w-full rounded-2xl border border-brand-border bg-brand-elevated shadow-card",
+        "max-h-[min(88dvh,900px)] overflow-x-hidden overflow-y-auto overscroll-contain",
         className
       )}
     >

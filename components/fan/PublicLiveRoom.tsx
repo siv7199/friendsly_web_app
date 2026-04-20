@@ -73,6 +73,13 @@ function resolveRemoteParticipant(params: {
   return remoteParticipants.find((participant) => participant?.session_id === fallbackSessionId) ?? null;
 }
 
+function getLiveAudienceCount(daily: ReturnType<typeof useDaily>, participants: any[]) {
+  const visibleParticipants = participants.filter((participant) => !participant?.hidden).length;
+  const hasLocalParticipant = participants.some((participant) => participant?.local);
+  const joinedLocalCount = daily?.meetingState?.() === "joined-meeting" && !hasLocalParticipant ? 1 : 0;
+  return Math.max(daily?.participantCounts?.().present ?? 0, visibleParticipants + joinedLocalCount);
+}
+
 function LiveStage({
   creatorId,
   creatorName,
@@ -206,7 +213,7 @@ function LiveStage({
       const nextCreatorSessionId = resolvedCreatorParticipant?.session_id ?? null;
       setCreatorSessionId(nextCreatorSessionId);
       setCreatorVideoActive(isParticipantVideoActive(resolvedCreatorParticipant));
-      setAudienceCount(daily.participantCounts().present);
+      setAudienceCount(getLiveAudienceCount(daily, participants));
 
       if (!activeFan || isAdmitted) {
         setActiveFanSessionId(null);
