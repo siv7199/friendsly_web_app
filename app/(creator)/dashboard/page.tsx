@@ -20,7 +20,7 @@ import { MOCK_CREATOR_STATS, MOCK_BOOKINGS } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { isCreatorProfile } from "@/types";
-import type { CreatorStats } from "@/types";
+import type { CreatorProfile, CreatorStats } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -38,6 +38,34 @@ interface DashReview {
   rating: number;
   comment: string;
   date: string;
+}
+
+function creatorProfileFromRow(row: any): CreatorProfile | null {
+  if (!row || row.role !== "creator") return null;
+
+  const creatorProfile = Array.isArray(row.creator_profiles)
+    ? row.creator_profiles[0]
+    : row.creator_profiles;
+
+  return {
+    id: row.id,
+    email: row.email ?? "",
+    full_name: row.full_name ?? "",
+    username: row.username ?? "",
+    avatar_initials: row.avatar_initials ?? "?",
+    avatar_color: row.avatar_color ?? "bg-violet-600",
+    avatar_url: row.avatar_url ?? undefined,
+    created_at: row.created_at ?? "",
+    role: "creator",
+    bio: creatorProfile?.bio ?? "",
+    hourly_rate: 0,
+    category: creatorProfile?.category ?? "",
+    is_live: creatorProfile?.is_live ?? false,
+    live_join_fee: creatorProfile?.live_join_fee ? Number(creatorProfile.live_join_fee) : undefined,
+    instagram_url: creatorProfile?.instagram_url ?? undefined,
+    tiktok_url: creatorProfile?.tiktok_url ?? undefined,
+    x_url: creatorProfile?.x_url ?? undefined,
+  };
 }
 
 const EMPTY_STATS: CreatorStats = {
@@ -203,7 +231,7 @@ export default function DashboardPage() {
 
       try {
         // 1. Fetch bookings, live queue joins, profile views, and raw reviews
-        const [bookingsRes, liveRes, reviewsRes, analyticsSnapshot, packagesRes, availabilityRes] = await Promise.all([
+        const [bookingsRes, liveRes, reviewsRes, analyticsSnapshot, packagesRes, availabilityRes, profileRes] = await Promise.all([
           supabase
             .from("bookings")
             .select(`
@@ -231,6 +259,11 @@ export default function DashboardPage() {
             .select("id", { count: "exact", head: true })
             .eq("creator_id", userId)
             .eq("is_active", true),
+          supabase
+            .from("profiles")
+            .select("id, email, full_name, username, avatar_initials, avatar_color, avatar_url, created_at, role, creator_profiles(bio, category, is_live, live_join_fee, instagram_url, tiktok_url, x_url)")
+            .eq("id", userId)
+            .single(),
         ]);
 
       const bookings = bookingsRes.data || [];
@@ -377,7 +410,8 @@ export default function DashboardPage() {
         conversionRate: analyticsSnapshot.conversionRate
       });
 
-      if (user && isCreatorProfile(user)) {
+      const insightsUser = creatorProfileFromRow(profileRes.data);
+      if (insightsUser) {
         if (packagesRes.count !== null) {
           activePackageCountRef.current = packagesRes.count;
           setActivePackageCount(packagesRes.count);
@@ -397,10 +431,10 @@ export default function DashboardPage() {
           };
 
           const nextInsights = getCreatorInsights({
-            user,
+            user: insightsUser,
             stats: nextStats,
             analytics: analyticsSnapshot,
-            profileStrength: calculateProfileStrength(user, nextActivePackageCount),
+            profileStrength: calculateProfileStrength(insightsUser, nextActivePackageCount),
             activePackageCount: nextActivePackageCount,
             availabilitySlotCount,
           });
@@ -445,7 +479,7 @@ export default function DashboardPage() {
       document.removeEventListener("visibilitychange", refreshIfVisible);
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user?.id]);
 
   const displayName = user?.full_name ?? "Creator";
   const displayUsername = user ? `@${user.username}` : "";
