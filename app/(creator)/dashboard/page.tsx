@@ -6,7 +6,7 @@
  * The creator's home base — stats overview + recent bookings.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   DollarSign, Video, Star, Calendar,
@@ -99,7 +99,8 @@ export default function DashboardPage() {
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
   const [smartInsights, setSmartInsights] = useState<CreatorInsight[]>([]);
-  const [activePackageCount, setActivePackageCount] = useState(0);
+  const [activePackageCount, setActivePackageCount] = useState<number | null>(null);
+  const activePackageCountRef = useRef<number | null>(null);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
   const [clientOrigin, setClientOrigin] = useState("");
 
@@ -377,28 +378,34 @@ export default function DashboardPage() {
       });
 
       if (user && isCreatorProfile(user)) {
-        const nextActivePackageCount = packagesRes.count ?? 0;
-        const availabilitySlotCount = availabilityRes.count ?? 0;
-        setActivePackageCount(nextActivePackageCount);
-        const nextStats: CreatorStats = {
-          totalEarnings: creatorCut,
-          callsThisMonth: callsMonth,
-          avgRating: calculatedAvgRating,
-          reviewCount: allReviews.length,
-          upcomingBookings: upcomingCount,
-          totalFans: uniqueFans.size,
-          conversionRate: analyticsSnapshot.conversionRate,
-        };
+        if (packagesRes.count !== null) {
+          activePackageCountRef.current = packagesRes.count;
+          setActivePackageCount(packagesRes.count);
+        }
 
-        const nextInsights = getCreatorInsights({
-          user,
-          stats: nextStats,
-          analytics: analyticsSnapshot,
-          profileStrength: calculateProfileStrength(user, nextActivePackageCount),
-          activePackageCount: nextActivePackageCount,
-          availabilitySlotCount,
-        });
-        setSmartInsights((current) => areInsightsEqual(current, nextInsights) ? current : nextInsights);
+        const nextActivePackageCount = activePackageCountRef.current;
+        if (nextActivePackageCount !== null) {
+          const availabilitySlotCount = availabilityRes.count ?? 0;
+          const nextStats: CreatorStats = {
+            totalEarnings: creatorCut,
+            callsThisMonth: callsMonth,
+            avgRating: calculatedAvgRating,
+            reviewCount: allReviews.length,
+            upcomingBookings: upcomingCount,
+            totalFans: uniqueFans.size,
+            conversionRate: analyticsSnapshot.conversionRate,
+          };
+
+          const nextInsights = getCreatorInsights({
+            user,
+            stats: nextStats,
+            analytics: analyticsSnapshot,
+            profileStrength: calculateProfileStrength(user, nextActivePackageCount),
+            activePackageCount: nextActivePackageCount,
+            availabilitySlotCount,
+          });
+          setSmartInsights((current) => areInsightsEqual(current, nextInsights) ? current : nextInsights);
+        }
       }
 
       } catch (error) {
@@ -449,7 +456,7 @@ export default function DashboardPage() {
 
   const profileStrength = calculateProfileStrength(
     user,
-    activePackageCount
+    activePackageCount ?? 0
   );
 
   return (
