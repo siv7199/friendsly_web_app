@@ -40,9 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Only the creator can request an owner token." }, { status: 403 });
     }
 
-    // Fans must have an admitted (active) queue entry before receiving a token.
-    // Without this check any signed-in user who knows the room name could join
-    // a live call for free by bypassing the queue entirely.
+    let isAdmittedFan = false;
     if (liveSession.creator_id !== user.id) {
       const { data: queueEntry } = await serviceSupabase
         .from("live_queue_entries")
@@ -52,12 +50,7 @@ export async function POST(req: Request) {
         .eq("status", "active")
         .maybeSingle();
 
-      if (!queueEntry) {
-        return NextResponse.json(
-          { error: "You have not been admitted to this live session." },
-          { status: 403 }
-        );
-      }
+      isAdmittedFan = Boolean(queueEntry);
     }
 
     const DAILY_API_KEY = process.env.DAILY_API_KEY;
@@ -68,7 +61,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create a meeting token
+    const isCreator = liveSession.creator_id === user.id;
+    const canSendMedia = isCreator || isAdmittedFan;
+
+    // Create a meeting token. Regular viewers can receive the live room but
+    // cannot send camera/mic until admitted through the queue.
     const tokenRes = await fetch("https://api.daily.co/v1/meeting-tokens", {
       method: "POST",
       headers: {
@@ -78,8 +75,15 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         properties: {
           room_name: roomName,
-          is_owner: Boolean(isOwner) && liveSession.creator_id === user.id,
+          exp: Math.round(Date.now() / 1000) + 60 * 60 * 6,
+          is_owner: Boolean(isOwner) && isCreator,
           user_name: typeof userName === "string" && userName === user.id ? userName : user.id,
+          start_video_off: true,
+          start_audio_off: true,
+          permissions: {
+            canSend: canSendMedia ? ["video", "audio"] : false,
+            canAdmin: false,
+          },
         },
       }),
     });
