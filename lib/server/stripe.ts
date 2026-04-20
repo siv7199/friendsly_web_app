@@ -25,14 +25,33 @@ export async function ensureStripeCustomer({
     .single();
 
   if (profile?.stripe_customer_id) {
+    const updates: Stripe.CustomerUpdateParams = {};
+    const normalizedEmail = email?.trim().toLowerCase() ?? null;
+    const normalizedName = fullName?.trim() ?? null;
+
+    if (normalizedEmail) {
+      updates.email = normalizedEmail;
+    }
+    if (normalizedName) {
+      updates.name = normalizedName;
+    }
+    updates.metadata = {
+      user_id: userId,
+      app_email: normalizedEmail ?? "",
+    };
+
+    await stripe.customers.update(profile.stripe_customer_id as string, updates);
     return profile.stripe_customer_id as string;
   }
 
+  const normalizedEmail = email?.trim().toLowerCase() ?? null;
+  const normalizedName = fullName?.trim() ?? null;
   const customer = await stripe.customers.create({
-    email: email ?? undefined,
-    name: fullName ?? undefined,
+    email: normalizedEmail ?? undefined,
+    name: normalizedName ?? undefined,
     metadata: {
       user_id: userId,
+      app_email: normalizedEmail ?? "",
     },
   });
 

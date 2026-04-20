@@ -92,6 +92,7 @@ export async function POST(request: Request) {
         amount,
         currency: "usd",
         customer: customerId,
+        receipt_email: user.email ?? undefined,
         payment_method: paymentMethodId,
         off_session: true,
         confirm: true,
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
           hold_minutes: "5",
           hold_amount: String(preauthAmount),
           user_id: user.id,
+          user_email: user.email ?? "",
         },
       });
 
@@ -119,6 +121,7 @@ export async function POST(request: Request) {
       amount,
       currency: "usd",
       customer: customerId,
+      receipt_email: user.email ?? undefined,
       capture_method: "manual",
       automatic_payment_methods: { enabled: true },
       setup_future_usage: saveForFuture ? "off_session" : undefined,
@@ -132,6 +135,7 @@ export async function POST(request: Request) {
         hold_minutes: "5",
         hold_amount: String(preauthAmount),
         user_id: user.id,
+        user_email: user.email ?? "",
       },
     });
 

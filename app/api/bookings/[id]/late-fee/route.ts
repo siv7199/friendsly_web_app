@@ -115,12 +115,14 @@ export async function POST(
       amount: lateFeeAmountCents,
       currency: "usd",
       customer: customerId,
+      receipt_email: user.email ?? undefined,
       automatic_payment_methods: { enabled: true },
       description: "Friendsly booking late fee",
       metadata: {
         paymentType: "booking_late_fee",
         bookingId,
         userId: user.id,
+        userEmail: user.email ?? "",
       },
     });
 

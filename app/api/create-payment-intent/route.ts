@@ -81,6 +81,7 @@ export async function POST(request: Request) {
         amount: amount!,
         currency: "usd",
         customer: customerId,
+        receipt_email: user.email ?? undefined,
         payment_method: paymentMethodId,
         off_session: true,
         confirm: true,
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
           creatorName,
           packageName,
           userId: user.id,
+          userEmail: user.email ?? "",
         },
       });
 
@@ -102,6 +104,7 @@ export async function POST(request: Request) {
       amount: amount!,
       currency: "usd",
       customer: customerId,
+      receipt_email: user.email ?? undefined,
       automatic_payment_methods: { enabled: true },
       setup_future_usage: saveForFuture ? "off_session" : undefined,
       description: `Friendsly: ${packageName} with ${creatorName}`,
@@ -109,6 +112,7 @@ export async function POST(request: Request) {
         creatorName,
         packageName,
         userId: user.id,
+        userEmail: user.email ?? "",
       },
     });
 
