@@ -21,7 +21,6 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HCaptchaWidget } from "@/components/shared/HCaptchaWidget";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getAvailableStartTimesForViewerDate, getBrowserTimeZone, getTimeZoneAbbreviation } from "@/lib/timezones";
@@ -79,7 +78,6 @@ type PaymentInitKey = {
 };
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY;
 
 const STRIPE_OPTIONS = {
   appearance: {
@@ -277,8 +275,6 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const [signUpName, setSignUpName] = useState("");
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
-  const [signUpCaptchaToken, setSignUpCaptchaToken] = useState("");
-  const [captchaResetSignal, setCaptchaResetSignal] = useState(0);
   const [settingFanRole, setSettingFanRole] = useState(false);
   const paymentInitKeyRef = useRef<string | null>(null);
   const hasHandledLiveIntentRef = useRef(false);
@@ -518,9 +514,8 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
   async function handleSignUpSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!signUpName.trim() || !signUpEmail.trim() || !signUpPassword || !signUpCaptchaToken) return;
-    await signup(signUpEmail.trim(), signUpPassword, signUpName.trim(), null, signUpCaptchaToken);
-    setCaptchaResetSignal((value) => value + 1);
+    if (!signUpName.trim() || !signUpEmail.trim() || !signUpPassword) return;
+    await signup(signUpEmail.trim(), signUpPassword, signUpName.trim(), null);
   }
 
   useEffect(() => {
@@ -1131,17 +1126,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                         placeholder="Create a password"
                         autoComplete="new-password"
                       />
-                      <HCaptchaWidget
-                        siteKey={HCAPTCHA_SITE_KEY}
-                        onVerify={setSignUpCaptchaToken}
-                        onExpire={() => setSignUpCaptchaToken("")}
-                        resetSignal={captchaResetSignal}
-                      />
                       <Button
                         type="submit"
                         variant="gold"
                         className="w-full"
-                        disabled={authLoading || !signUpName.trim() || !signUpEmail.trim() || !signUpPassword || !signUpCaptchaToken}
+                        disabled={authLoading || !signUpName.trim() || !signUpEmail.trim() || !signUpPassword}
                       >
                         {authLoading ? (
                           <><Loader2 className="w-4 h-4 animate-spin" /> Creating account...</>

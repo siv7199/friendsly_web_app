@@ -305,8 +305,7 @@ export function useAuth() {
     email: string,
     password: string,
     full_name: string,
-    nextPath?: string | null,
-    captchaToken?: string | null
+    nextPath?: string | null
   ): Promise<void> => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
@@ -321,7 +320,6 @@ export function useAuth() {
           options: {
             data: { full_name },
             emailRedirectTo: redirectUrl,
-            captchaToken: captchaToken || undefined,
           },
         }),
         new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Request timed out — check your connection.")), 8000)),
