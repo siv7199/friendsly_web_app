@@ -675,11 +675,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6 md:py-12">
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="space-y-5">
-          <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 md:p-8">
-            <div className="flex items-start gap-4">
+    <div className="mx-auto w-full max-w-5xl overflow-x-hidden px-4 py-8 md:px-6 md:py-12">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <section className="min-w-0 space-y-5">
+          <div className="max-w-full overflow-hidden rounded-3xl border border-brand-border bg-brand-surface p-5 md:p-8">
+            <div className="flex min-w-0 items-start gap-4">
               <Avatar
                 initials={creator.avatarInitials}
                 color={creator.avatarColor}
@@ -698,11 +698,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                   </p>
                 )}
                 {creator.isLive && (
-                  <div className="mt-4 rounded-2xl border border-brand-live/20 bg-brand-live/10 p-3">
-                    <div className="flex items-start gap-3">
+                  <div className="mt-4 max-w-full overflow-hidden rounded-2xl border border-brand-live/20 bg-brand-live/10 p-3">
+                    <div className="flex min-w-0 items-start gap-3">
                       <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-live animate-pulse" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-live">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-live">
                           Live on Friendsly now
                         </p>
                         <p className="mt-1 text-sm text-brand-ink-subtle">
@@ -710,7 +710,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                         </p>
                       </div>
                     </div>
-                    <Button variant="live" className="mt-3 w-full gap-2" onClick={handleJoinLive}>
+                    <Button variant="live" className="mt-3 min-h-11 w-full min-w-0 whitespace-normal px-3 text-center leading-tight" onClick={handleJoinLive}>
                       <Radio className="w-4 h-4" />
                       {user?.role === "fan" ? "Join Live Now" : "Sign in or create account to join"}
                     </Button>
@@ -720,10 +720,10 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-brand-border bg-brand-surface p-6">
-            <div className="flex items-center justify-between">
+          <div className="max-w-full overflow-hidden rounded-3xl border border-brand-border bg-brand-surface p-5 md:p-6">
+            <div className="flex min-w-0 items-center justify-between gap-3">
               <h2 className="text-lg font-bold text-brand-ink">Choose your session</h2>
-              <span className="text-xs text-brand-ink-muted">
+              <span className="shrink-0 text-xs text-brand-ink-muted">
                 Step {currentStepLabel} of 3
               </span>
             </div>
@@ -739,19 +739,19 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                       setSelectedTime(null);
                     }}
                     className={cn(
-                      "w-full rounded-2xl border p-4 text-left transition-all",
+                      "w-full max-w-full overflow-hidden rounded-2xl border p-4 text-left transition-all",
                       selectedPackage?.id === pkg.id
                         ? "border-brand-primary bg-brand-primary/10"
                         : "border-brand-border bg-brand-elevated hover:border-brand-primary/40"
                     )}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0">
                         <p className="font-bold text-brand-ink">{pkg.name}</p>
                         <p className="mt-1 text-sm text-brand-ink-subtle">{pkg.description}</p>
                         <p className="mt-2 text-xs text-brand-ink-muted">{pkg.duration} min</p>
                       </div>
-                      <p className="text-lg font-black text-amber-600 font-bold">{formatCurrency(pkg.price)}</p>
+                      <p className="shrink-0 text-right text-base font-bold text-amber-600">{formatCurrency(pkg.price)}</p>
                     </div>
                   </button>
                 ))}
@@ -759,13 +759,13 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
             )}
 
             {selectedPackage && (
-              <div className="mt-6 rounded-2xl border border-brand-border bg-brand-elevated p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
+              <div className="mt-6 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated p-4">
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-brand-ink">{selectedPackage.name}</p>
                     <p className="text-xs text-brand-ink-muted">{selectedPackage.duration} min</p>
                   </div>
-                  <p className="text-base font-bold text-brand-ink">{formatCurrency(selectedPackage.price)}</p>
+                  <p className="shrink-0 text-base font-bold text-brand-ink">{formatCurrency(selectedPackage.price)}</p>
                 </div>
               </div>
             )}
@@ -888,20 +888,20 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                           />
                         </div>
 
-                        <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4 lg:hidden">
+                        <div className="max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated p-4 lg:hidden">
                           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-ink-muted">Your booking</p>
                           <div className="mt-3 space-y-2 text-sm">
-                            <div className="flex items-center justify-between gap-4">
-                              <span className="text-brand-ink-muted">Session</span>
-                              <span className="text-right font-medium text-brand-ink">{selectedPackage.name}</span>
+                            <div className="grid grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] items-start gap-3">
+                              <span className="min-w-0 text-brand-ink-muted">Session</span>
+                              <span className="min-w-0 text-right font-medium text-brand-ink break-words">{selectedPackage.name}</span>
                             </div>
-                            <div className="flex items-center justify-between gap-4">
-                              <span className="text-brand-ink-muted">When</span>
-                              <span className="text-right font-medium text-brand-ink">{`${formatShortDate(selectedDate)} at ${selectedTime}`}</span>
+                            <div className="grid grid-cols-[minmax(0,0.35fr)_minmax(0,0.65fr)] items-start gap-3">
+                              <span className="min-w-0 text-brand-ink-muted">When</span>
+                              <span className="min-w-0 text-right font-medium text-brand-ink break-words">{`${formatShortDate(selectedDate)} at ${selectedTime}`}</span>
                             </div>
-                            <div className="flex items-center justify-between gap-4">
-                              <span className="text-brand-ink-muted">Total</span>
-                              <span className="font-bold text-amber-600">{formatCurrency(sessionGrossPrice)}</span>
+                            <div className="grid grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] items-start gap-3">
+                              <span className="min-w-0 text-brand-ink-muted">Total</span>
+                              <span className="min-w-0 text-right font-bold text-amber-600">{formatCurrency(sessionGrossPrice)}</span>
                             </div>
                           </div>
                         </div>
@@ -910,7 +910,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                           <div className="min-w-0 rounded-2xl border border-brand-border bg-brand-surface p-4 lg:hidden">
                             <Button
                               variant="gold"
-                              className="w-full min-w-0 px-3"
+                              className="min-h-11 w-full min-w-0 whitespace-normal px-3 text-center leading-tight"
                               onClick={handleContinueFromDetails}
                               disabled={!canReviewAndPay}
                             >
@@ -927,7 +927,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
           </div>
         </section>
 
-        <aside className="space-y-5">
+        <aside className="min-w-0 space-y-5">
           <div className="hidden rounded-3xl border border-brand-border bg-brand-surface p-6 lg:block">
             <h2 className="text-lg font-bold text-brand-ink">Booking summary</h2>
             <div className="mt-4 space-y-3 text-sm">
