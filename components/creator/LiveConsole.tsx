@@ -841,53 +841,60 @@ export function LiveConsole() {
   return (
     <div className="h-full min-h-0 flex flex-col gap-4 overflow-hidden">
       {sessionState === "idle" ? (
-        <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-brand-border bg-brand-surface p-6 md:p-8">
-          <div className="mx-auto flex w-full max-w-md flex-col items-center text-center">
-          <div className="w-full aspect-video rounded-2xl bg-brand-elevated border border-brand-border mb-6 relative overflow-hidden flex items-center justify-center">
-            {camOn ? <video ref={previewVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full object-cover" /> : <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="lg" />}
-          </div>
-          <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => setMicOn(!micOn)} className={cn("w-12 h-12 rounded-full border flex items-center justify-center", micOn ? "bg-brand-surface border-brand-border text-brand-ink-muted" : "bg-red-500/20 border-red-500/40 text-red-500")}>{micOn ? <Mic /> : <MicOff />}</button>
-            <button onClick={() => setCamOn(!camOn)} className={cn("w-12 h-12 rounded-full border flex items-center justify-center", camOn ? "bg-brand-surface border-brand-border text-brand-ink-muted" : "bg-red-500/20 border-red-500/40 text-red-500")}>{camOn ? <Video /> : <VideoOff />}</button>
-          </div>
-          <div className="mb-5 w-full min-w-0 rounded-2xl border border-brand-border bg-brand-elevated p-4 text-left">
-            <div className="flex items-center gap-2 text-brand-ink mb-3">
-              <CalendarClock className="w-4 h-4 text-brand-primary" />
-              <p className="text-sm font-semibold">Announce when you’re going live</p>
-            </div>
-            <input
-              type="datetime-local"
-              value={scheduledLiveAt}
-              onChange={(e) => setScheduledLiveAt(e.target.value)}
-              className="block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-surface px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
-            />
-            <select
-              value={scheduledLiveTimeZone}
-              onChange={(e) => setScheduledLiveTimeZone(e.target.value)}
-              className="mt-3 block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-surface px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
-            >
-              {COMMON_TIME_ZONES.map((timeZone) => (
-                <option key={timeZone} value={timeZone}>
-                  {formatTimeZoneLabel(timeZone)}
-                </option>
-              ))}
-            </select>
-            <div className="mt-3 flex flex-col gap-2 min-[420px]:flex-row">
-              <Button variant="outline" className="flex-1" onClick={() => saveScheduledLive("")}>
-                Clear
-              </Button>
-              <Button variant="primary" className="flex-1" onClick={() => saveScheduledLive(scheduledLiveAt)} disabled={savingScheduledLive}>
-                {savingScheduledLive ? "Saving..." : "Save"}
-              </Button>
+        <div className="flex-1 min-h-0 grid grid-cols-1 gap-4 xl:h-full xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1.5fr)_340px]">
+          {/* Left — full-height camera preview */}
+          <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 xl:h-full xl:min-h-0 overflow-hidden">
+            <div className="relative flex-1 min-h-[320px] xl:min-h-0 rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center">
+              {camOn
+                ? <video ref={previewVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full object-cover" />
+                : <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="xl" />}
+              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
+              <div className="absolute left-4 bottom-4 rounded-xl bg-black/45 px-3 py-2 text-white">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Host</p>
+                <p className="text-sm font-semibold">{creatorName}</p>
+              </div>
+              <div className="absolute right-4 bottom-4 flex items-center gap-2">
+                <button onClick={() => setMicOn(!micOn)} className={cn("w-11 h-11 rounded-full border flex items-center justify-center backdrop-blur-sm transition-colors", micOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary" : "border-red-500/40 bg-red-500/20 text-red-400")}>{micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}</button>
+                <button onClick={() => setCamOn(!camOn)} className={cn("w-11 h-11 rounded-full border flex items-center justify-center backdrop-blur-sm transition-colors", camOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary" : "border-red-500/40 bg-red-500/20 text-red-400")}>{camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}</button>
+              </div>
             </div>
           </div>
-          {!hasConfiguredLiveRate(liveRate) ? (
-            <p className="text-sm text-amber-700 mb-4">
-              Set an amount per minute in Management before going live.
-            </p>
-          ) : null}
-          <Button variant="live" size="xl" onClick={startSession} className="shadow-glow-live">Start Live Session</Button>
-          {startError && <p className="text-red-400 text-sm mt-4">{startError}</p>}
+          {/* Right — schedule + start */}
+          <div className="rounded-[28px] border border-brand-border bg-brand-surface p-4 flex flex-col gap-4 overflow-y-auto">
+            <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4 text-left">
+              <div className="flex items-center gap-2 text-brand-ink mb-3">
+                <CalendarClock className="w-4 h-4 text-brand-primary" />
+                <p className="text-sm font-semibold">Announce when you’re going live</p>
+              </div>
+              <input
+                type="datetime-local"
+                value={scheduledLiveAt}
+                onChange={(e) => setScheduledLiveAt(e.target.value)}
+                className="block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-surface px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
+              />
+              <select
+                value={scheduledLiveTimeZone}
+                onChange={(e) => setScheduledLiveTimeZone(e.target.value)}
+                className="mt-3 block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-surface px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
+              >
+                {COMMON_TIME_ZONES.map((timeZone) => (
+                  <option key={timeZone} value={timeZone}>
+                    {formatTimeZoneLabel(timeZone)}
+                  </option>
+                ))}
+              </select>
+              <div className="mt-3 flex flex-col gap-2 min-[420px]:flex-row">
+                <Button variant="outline" className="flex-1" onClick={() => saveScheduledLive("")}>Clear</Button>
+                <Button variant="primary" className="flex-1" onClick={() => saveScheduledLive(scheduledLiveAt)} disabled={savingScheduledLive}>
+                  {savingScheduledLive ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
+            {!hasConfiguredLiveRate(liveRate) ? (
+              <p className="text-sm text-amber-700">Set an amount per minute in Management before going live.</p>
+            ) : null}
+            <Button variant="live" size="xl" onClick={startSession} className="shadow-glow-live w-full">Start Live Session</Button>
+            {startError && <p className="text-red-400 text-sm">{startError}</p>}
           </div>
         </div>
       ) : (

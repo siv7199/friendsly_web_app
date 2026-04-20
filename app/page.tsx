@@ -166,6 +166,9 @@ export default function AuthPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <p className="text-xs leading-relaxed text-brand-ink-subtle">
+                Password must be at least 8 characters and include an uppercase letter and a special character.
+              </p>
 
               {error && (
                 <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">

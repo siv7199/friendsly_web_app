@@ -1099,6 +1099,9 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                         placeholder="Create a password"
                         autoComplete="new-password"
                       />
+                      <p className="text-xs leading-relaxed text-brand-ink-subtle">
+                        Password must be at least 8 characters and include an uppercase letter and a special character.
+                      </p>
                       <Button
                         type="submit"
                         variant="gold"

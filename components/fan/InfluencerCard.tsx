@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface InfluencerCardProps {
   creator: Creator;
@@ -24,6 +25,7 @@ interface AvailabilitySlot {
 }
 
 export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton = true }: InfluencerCardProps) {
+  const router = useRouter();
   const { user } = useAuthContext();
   const [showBooking, setShowBooking] = useState(false);
   const [packages, setPackages] = useState<CallPackage[]>([]);
@@ -109,16 +111,41 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
   const hasLiveRate = Boolean(creator.liveJoinFee && creator.liveJoinFee > 0);
   const hasPackages  = creator.callPrice > 0 || packages.length > 0;
   const liveAudienceCount = creator.isLive ? creator.queueCount + 1 : creator.queueCount;
+  const profileHref = `/profile/${creator.id}`;
+
+  function shouldIgnoreCardNavigation(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return false;
+    return Boolean(
+      target.closest("a, button, input, textarea, select, summary, [role='button'], [data-no-card-nav='true']")
+    );
+  }
+
+  function handleCardClick(event: React.MouseEvent<HTMLElement>) {
+    if (shouldIgnoreCardNavigation(event.target)) return;
+    router.push(profileHref);
+  }
+
+  function handleCardKeyDown(event: React.KeyboardEvent<HTMLElement>) {
+    if (shouldIgnoreCardNavigation(event.target)) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      router.push(profileHref);
+    }
+  }
 
   return (
     <>
-      <article className="bg-white rounded-[18px] overflow-hidden flex flex-col shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 ease-out-expo animate-card-enter group border border-brand-border/50">
+      <article
+        className="group flex cursor-pointer flex-col overflow-hidden rounded-[18px] border border-brand-border/50 bg-white shadow-card transition-all duration-200 ease-out-expo animate-card-enter hover:-translate-y-0.5 hover:shadow-card-hover"
+        onClick={handleCardClick}
+        onKeyDown={handleCardKeyDown}
+        role="link"
+        tabIndex={0}
+        aria-label={`Open ${creator.name}'s profile`}
+      >
 
         {/* ── Media area — 1:1 square photo (Intro.co style) ── */}
         <div className="relative overflow-hidden" style={{ aspectRatio: "1/1" }}>
-          {/* Clickable overlay for navigation */}
-          <Link href={`/profile/${creator.id}`} className="absolute inset-0 z-0" aria-label={`View ${creator.name}'s profile`} />
-
           {/* Purple gradient background */}
           <div className="absolute inset-0 bg-gradient-card-media" />
 
