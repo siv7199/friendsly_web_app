@@ -29,13 +29,30 @@ type AuthMetadataShape = {
 
 export type OAuthProvider = "google" | "apple";
 
+export type SignupResult = {
+  requiresEmailConfirmation: boolean;
+  signedIn: boolean;
+};
+
+type SessionUser = {
+  id: string;
+  email?: string;
+  email_confirmed_at?: string | null;
+  confirmed_at?: string | null;
+  user_metadata?: Record<string, unknown>;
+};
+
+function isEmailVerified(user: SessionUser): boolean {
+  return Boolean(user.email_confirmed_at || user.confirmed_at);
+}
+
 function getSessionAvatarUrl(meta: Record<string, unknown>): string | undefined {
   const candidates = [meta.avatar_url, meta.picture, meta.avatar];
   return candidates.find((value): value is string => typeof value === "string" && value.trim().length > 0);
 }
 
 // ── Build a minimal profile from JWT data (no DB call) ────────────────────────
-function profileFromSession(session: { user: { id: string; email?: string; user_metadata?: Record<string, unknown> } }): MockProfile {
+function profileFromSession(session: { user: SessionUser }): MockProfile {
   const meta = session.user.user_metadata ?? {};
   const full_name = (meta.full_name as string) ?? "";
   const role = (meta.role as UserRole) ?? null;
@@ -169,6 +186,11 @@ export function useAuth() {
         ]);
         if (!mounted) return;
         if (!session) { setState({ ...INITIAL_STATE }); return; }
+        if (!isEmailVerified(session.user)) {
+          await supabase.auth.signOut();
+          setState({ ...INITIAL_STATE, error: "Please verify your email before continuing." });
+          return;
+        }
         const user = profileFromSession(session);
         setState({ user, isAuthenticated: Boolean(user.role), isLoading: false, error: null });
 
@@ -194,6 +216,11 @@ export function useAuth() {
       if (!mounted) return;
       if (!session) {
         setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
+        return;
+      }
+      if (!isEmailVerified(session.user)) {
+        void supabase.auth.signOut();
+        setState({ user: null, isAuthenticated: false, isLoading: false, error: "Please verify your email before continuing." });
         return;
       }
       // Set state from JWT immediately — no DB call
@@ -259,6 +286,16 @@ export function useAuth() {
         setState((s) => ({ ...s, isLoading: false, error: "Signed in, but no session was returned." }));
         return;
       }
+      if (!isEmailVerified(session.user)) {
+        await supabase.auth.signOut();
+        setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: "Please verify your email before signing in.",
+        });
+        return;
+      }
 
       const sessionUser = profileFromSession(session);
       setState({
@@ -306,16 +343,17 @@ export function useAuth() {
     password: string,
     full_name: string,
     nextPath?: string | null
-  ): Promise<void> => {
+  ): Promise<SignupResult> => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
       const supabase = createClient();
+      const normalizedEmail = email.trim().toLowerCase();
       const redirectUrl = typeof window !== "undefined"
         ? `${window.location.origin}/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`
         : undefined;
       const { data, error } = await Promise.race([
         supabase.auth.signUp({
-          email,
+          email: normalizedEmail,
           password,
           options: {
             data: { full_name },
@@ -326,16 +364,22 @@ export function useAuth() {
       ]);
       if (error) {
         setState((s) => ({ ...s, isLoading: false, error: error.message }));
-        return;
+        return { requiresEmailConfirmation: false, signedIn: false };
       }
-      if (data.user && !data.session) {
-        setState((s) => ({ ...s, isLoading: false, error: "Check your email to confirm your account." }));
-        return;
+      if (data.session) {
+        await supabase.auth.signOut();
       }
       // State is set by onAuthStateChange — just clear loading
-      setState((s) => ({ ...s, isLoading: false }));
+      setState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: "Check your email to confirm your account before continuing.",
+      });
+      return { requiresEmailConfirmation: true, signedIn: false };
     } catch (e) {
       setState((s) => ({ ...s, isLoading: false, error: e instanceof Error ? e.message : "Something went wrong." }));
+      return { requiresEmailConfirmation: false, signedIn: false };
     }
   }, []);
 
@@ -465,6 +509,17 @@ export function useAuth() {
   const setRole = useCallback(async (role: UserRole): Promise<void> => {
     if (!state.user) return;
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !isEmailVerified(user)) {
+      await supabase.auth.signOut();
+      setState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: "Please verify your email before choosing a role.",
+      });
+      return;
+    }
 
     await supabase.from("profiles").update({ role }).eq("id", state.user.id);
     await supabase.auth.updateUser({

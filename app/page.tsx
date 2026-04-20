@@ -57,8 +57,10 @@ export default function AuthPage() {
 
   async function handleSignUp(e: FormEvent) {
     e.preventDefault();
-    await signup(suEmail, suPassword, suName, next);
-    router.push(next ? `/onboarding/role?next=${encodeURIComponent(next)}` : "/onboarding/role");
+    const result = await signup(suEmail, suPassword, suName, next);
+    if (result.signedIn) {
+      router.push(next ? `/onboarding/role?next=${encodeURIComponent(next)}` : "/onboarding/role");
+    }
   }
 
   return (

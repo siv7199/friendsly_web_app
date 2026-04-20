@@ -21,7 +21,7 @@
  */
 
 import React, { createContext, useContext } from "react";
-import { useAuth, type OAuthProvider } from "@/lib/hooks/useAuth";
+import { useAuth, type OAuthProvider, type SignupResult } from "@/lib/hooks/useAuth";
 import type { MockProfile, UserRole } from "@/types";
 
 // ── Context Shape ─────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ interface AuthContextValue {
   isLoading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, full_name: string, nextPath?: string | null) => Promise<void>;
+  signup: (email: string, password: string, full_name: string, nextPath?: string | null) => Promise<SignupResult>;
   signInWithOAuth: (provider: OAuthProvider, nextPath?: string | null) => Promise<void>;
   logout: () => void;
   deleteAccount: () => void;
