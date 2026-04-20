@@ -1062,7 +1062,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                     ))}
                   </div>
 
-                  {authError && (
+                  {authError && !awaitingEmailVerification && (
                     <div className="rounded-2xl border border-red-300/40 bg-red-50 px-4 py-3 text-sm text-red-700">
                       {authError}
                     </div>
