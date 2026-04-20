@@ -145,6 +145,7 @@ function MobileLiveInner({
   const [creatorParticipant, setCreatorParticipant] = useState<any>(null);
   const [activeFanParticipant, setActiveFanParticipant] = useState<any>(null);
   const [localVideoActive, setLocalVideoActive] = useState(false);
+  const [audienceCount, setAudienceCount] = useState(0);
   const [micOn, setMicOn] = useState(isAdmitted);
   const [camOn, setCamOn] = useState(isAdmitted);
 
@@ -166,6 +167,8 @@ function MobileLiveInner({
       setLocalVideoActive(isVideoPlayable(local));
       const fanP = resolveActiveFanSession(all, creator?.session_id ?? null, activeFan);
       setActiveFanParticipant(isAdmitted ? null : fanP);
+      const visible = all.filter((p: any) => !p?.hidden).length;
+      setAudienceCount(Math.max(daily?.participantCounts?.().present ?? 0, visible));
     };
     sync();
     daily.on("participant-joined", sync);
@@ -271,10 +274,20 @@ function MobileLiveInner({
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-5 pt-5 pb-2 shrink-0">
-        <span className="text-white text-xl font-brand tracking-tight select-none">friendsly</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => { window.history.back(); }}
+            className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center active:scale-95 transition-all"
+            aria-label="Leave live"
+          >
+            <X className="w-4 h-4 text-white" />
+          </button>
+          <span className="text-white text-xl font-brand tracking-tight select-none">friendsly</span>
+        </div>
         <div className="flex items-center gap-1.5 bg-[#1a1a3e] rounded-full px-3.5 py-1.5">
+          <Users className="w-3 h-3 text-white/60" />
           <span className="text-white text-sm font-semibold tabular-nums">
-            {isAdmitted ? formatElapsed(stageElapsedSeconds) : `${queueCount} live`}
+            {audienceCount > 0 ? audienceCount : queueCount}
           </span>
         </div>
       </div>
@@ -404,15 +417,17 @@ function MobileLiveInner({
           ) : (
             <button
               onClick={onJoinQueue}
-              className="w-full py-2.5 rounded-full bg-violet-500 text-white font-semibold text-sm transition-all active:scale-[0.98]"
+              className="w-full py-2.5 rounded-full bg-emerald-500 text-white font-semibold text-sm transition-all active:scale-[0.98]"
             >
               Join Queue
             </button>
           )}
         </div>
 
-        {/* Chat messages — last 5, oldest fades */}
-        <div className="flex-1 overflow-hidden relative px-5 min-h-0">
+        {/* Chat messages — last 5, oldest fades via gradient overlay */}
+        <div className="relative overflow-hidden px-5 min-h-0" style={{ height: '140px' }}>
+          {/* White gradient fade over top messages */}
+          <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white to-transparent pointer-events-none z-10" />
           <div className="flex flex-col justify-end h-full gap-2 pb-2">
             {visibleMessages.length === 0 && (
               <p className="text-center text-slate-400 text-xs py-2">Say something!</p>
@@ -422,7 +437,7 @@ function MobileLiveInner({
               return (
                 <div
                   key={msg.id}
-                  className={cn("flex gap-2 transition-opacity", msg.isMe && "justify-end", isFaded && "opacity-25")}
+                  className={cn("flex gap-2", msg.isMe && "justify-end", isFaded && "opacity-20")}
                 >
                   {!msg.isMe && (
                     <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0 mt-0.5">
@@ -453,7 +468,8 @@ function MobileLiveInner({
             onChange={(e) => setChatText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") void sendChat(); }}
             placeholder="Say something..."
-            className="flex-1 bg-slate-100 rounded-full px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300 transition-all"
+            style={{ fontSize: '16px', touchAction: 'manipulation' }}
+            className="flex-1 bg-slate-100 rounded-full px-4 py-2.5 text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300 transition-all"
           />
           <button
             onClick={() => void sendChat()}

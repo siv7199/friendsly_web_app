@@ -242,7 +242,7 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
   if (sessionEnded) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-violet-500 px-6 text-center gap-6">
-        <p className="text-white text-2xl font-serif italic">friendsly</p>
+        <p className="text-white text-2xl font-brand">friendsly</p>
         <div>
           <h1 className="text-white text-2xl font-bold mb-2">
             {creatorState.name}&apos;s live has ended
@@ -265,7 +265,7 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
   if (!roomUrl || !token) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-violet-500 px-6 text-center gap-4">
-        <p className="text-white text-2xl font-serif italic">friendsly</p>
+        <p className="text-white text-2xl font-brand">friendsly</p>
         <Loader2 className="w-6 h-6 text-white/60 animate-spin" />
         <p className="text-white/70 text-sm">
           Waiting for {creatorState.name} to go live…
