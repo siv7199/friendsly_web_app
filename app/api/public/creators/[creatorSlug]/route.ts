@@ -80,7 +80,7 @@ export async function GET(
         timeZone: cp?.timezone ?? "America/New_York",
         bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
         liveJoinFee: cp?.live_join_fee ? Number(cp.live_join_fee) : null,
-        isLive: Boolean(cp?.is_live && activeSession),
+        isLive: Boolean(activeSession),
       },
       packages: (packagesRes.data ?? []).map((pkg: any) => ({
         id: pkg.id,
