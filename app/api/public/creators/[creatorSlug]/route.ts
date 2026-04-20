@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const LIVE_SESSION_STALE_MS = 45000;
 
 export async function GET(
@@ -103,9 +106,19 @@ export async function GET(
         end_time: slot.end_time,
         package_id: slot.package_id ?? null,
       })),
+    }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not load creator.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: message },
+      {
+        status: 500,
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+      }
+    );
   }
 }

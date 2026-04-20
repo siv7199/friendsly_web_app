@@ -345,7 +345,9 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         setLoading(true);
         setLoadError("");
 
-        const creatorRes = await fetch(`/api/public/creators/${encodeURIComponent(creatorSlug)}`);
+        const creatorRes = await fetch(`/api/public/creators/${encodeURIComponent(creatorSlug)}`, {
+          cache: "no-store",
+        });
         const creatorData = await creatorRes.json();
         if (!creatorRes.ok) {
           throw new Error(creatorData.error ?? "Could not load creator.");
@@ -358,7 +360,8 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         setSelectedPackageId((current) => current ?? (creatorData.packages?.length === 1 ? creatorData.packages[0].id : null));
 
         const bookedRes = await fetch(
-          `/api/public/bookings/availability?creatorId=${encodeURIComponent(creatorData.creator.id)}`
+          `/api/public/bookings/availability?creatorId=${encodeURIComponent(creatorData.creator.id)}`,
+          { cache: "no-store" }
         );
         const bookedData = await bookedRes.json();
         if (!cancelled && bookedRes.ok) {
