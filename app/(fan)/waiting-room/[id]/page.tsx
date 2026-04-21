@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Home, Loader2 } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -58,6 +58,8 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   const [sessionEnded, setSessionEnded] = useState(false);
   const [reportedDailySessionId, setReportedDailySessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const waitingEntryIdRef = useRef<string | null>(null);
+  const activeEntryIdRef = useRef<string | null>(null);
 
   const loadLiveState = useCallback(async () => {
     const supabase = createClient();
@@ -175,6 +177,11 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   );
 
   useEffect(() => {
+    waitingEntryIdRef.current = myWaitingEntry?.id ?? null;
+    activeEntryIdRef.current = myActiveEntry?.id ?? null;
+  }, [myActiveEntry?.id, myWaitingEntry?.id]);
+
+  useEffect(() => {
     if (!liveSessionId || !roomUrl || !user) {
       setToken(null);
       return;
@@ -234,6 +241,44 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     } catch {}
   }, [liveSessionId, myActiveEntry, reportedDailySessionId]);
 
+  const leaveWaitingQueue = useCallback(async (queueEntryId: string) => {
+    await fetch("/api/live/leave-queue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ queueEntryId }),
+    });
+  }, []);
+
+  const leaveActiveStage = useCallback(async (queueEntryId: string) => {
+    await fetch("/api/live/leave-stage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ queueEntryId }),
+    });
+  }, []);
+
+  useEffect(() => {
+    function sendExitBeacon() {
+      const activeQueueEntryId = activeEntryIdRef.current;
+      const waitingQueueEntryId = waitingEntryIdRef.current;
+      const queueEntryId = waitingQueueEntryId ?? activeQueueEntryId;
+      const endpoint = waitingQueueEntryId ? "/api/live/leave-queue" : activeQueueEntryId ? "/api/live/leave-stage" : null;
+
+      if (!queueEntryId || !endpoint) return;
+
+      const payload = new Blob([JSON.stringify({ queueEntryId })], { type: "application/json" });
+      navigator.sendBeacon(endpoint, payload);
+    }
+
+    window.addEventListener("pagehide", sendExitBeacon);
+    window.addEventListener("beforeunload", sendExitBeacon);
+    return () => {
+      window.removeEventListener("pagehide", sendExitBeacon);
+      window.removeEventListener("beforeunload", sendExitBeacon);
+      sendExitBeacon();
+    };
+  }, []);
+
   const stageElapsedSeconds = getLiveStageElapsedSeconds(activeFanAdmittedAt, currentTime);
   const waitingQueue = queue.filter((entry) => entry.status === "waiting");
 
@@ -280,13 +325,13 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
 
   return (
     <>
-      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col gap-4 overflow-x-hidden px-4 py-4 md:px-6 md:py-5 xl:h-[100dvh] xl:overflow-hidden">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1320px] flex-col gap-4 overflow-x-hidden px-4 py-4 md:px-6 md:py-5 xl:h-[100dvh] xl:max-h-[100dvh] xl:overflow-hidden">
         <Link href={`/profile/${creatorState.id}`} className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors shrink-0">
           <ArrowLeft className="w-4 h-4" />
           Back to {creatorState.name}&apos;s profile
         </Link>
 
-        <div className="grid gap-4 xl:flex-1 xl:min-h-0 xl:grid-cols-[minmax(0,1.5fr)_420px]">
+        <div className="grid gap-3 xl:flex-1 xl:min-h-0 xl:grid-cols-[minmax(0,1.7fr)_360px]">
           <div className="xl:min-h-0">
             {roomUrl && token ? (
               <PublicLiveRoom
@@ -305,11 +350,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
                 onJoinQueue={() => setShowJoinModal(true)}
                 onLeaveStage={async () => {
                   if (!myActiveEntry?.id) return;
-                  await fetch("/api/live/leave-stage", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ queueEntryId: myActiveEntry.id }),
-                  });
+                  await leaveActiveStage(myActiveEntry.id);
                 }}
                 joinDisabled={Boolean(myWaitingEntry || myActiveEntry)}
                 queueCount={waitingQueue.length}
@@ -329,7 +370,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             )}
           </div>
 
-          <div className="min-h-[420px] xl:min-h-0">
+          <div className="min-h-[360px] xl:min-h-0">
             <WaitingRoom
               queue={[]}
               currentUserPosition={0}

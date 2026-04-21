@@ -463,27 +463,21 @@ function MobileLiveInner({
       </div>
 
       {/* ── Queue avatar row ── */}
-      <div className="px-5 pt-3 pb-1 shrink-0">
-        <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-hide">
+      <div className="px-4 pt-3 pb-2 shrink-0">
+        <div className="flex items-center gap-3 overflow-x-auto rounded-2xl bg-white/8 px-3.5 py-3 scrollbar-hide">
           {queueEntries.length === 0 && (
             <p className="text-white/50 text-xs">No one else in line</p>
           )}
           {queueEntries.slice(0, 9).map((entry) => {
             const isMe = entry.fanId === user?.id;
             return (
-              <div key={entry.id} className="flex flex-col items-center gap-1 shrink-0">
-                <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center",
-                  isMe ? "ring-2 ring-white bg-violet-300" : "bg-white/20"
-                )}>
-                  {entry.avatarUrl ? (
-                    <img src={entry.avatarUrl} alt={entry.fanName} className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    <span className={cn("text-xs font-bold", isMe ? "text-violet-700" : "text-white")}>
-                      {entry.avatarInitials ?? entry.fanName[0]}
-                    </span>
-                  )}
-                </div>
+              <div key={entry.id} className="flex flex-col items-center gap-1.5 shrink-0 px-1">
+                <Avatar
+                  initials={entry.avatarInitials ?? entry.fanName[0]}
+                  color={entry.avatarColor ?? (isMe ? "bg-violet-400" : "bg-white/20")}
+                  imageUrl={entry.avatarUrl}
+                  size="sm"
+                />
                 <span className={cn("text-[10px] font-medium", isMe ? "text-white" : "text-white/60")}>
                   {isMe ? "You" : entry.fanName.split(" ")[0]}
                 </span>

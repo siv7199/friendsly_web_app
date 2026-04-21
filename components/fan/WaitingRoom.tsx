@@ -154,10 +154,10 @@ export function WaitingRoom({
     : 0;
 
   return (
-    <div className="flex flex-col h-full bg-brand-dark-surface rounded-2xl border border-brand-dark-border/60 overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-brand-dark-border/60 bg-brand-dark-surface">
 
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-brand-dark-border/50 flex items-center justify-between gap-3 shrink-0">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-brand-dark-border/50 px-4 py-3.5 xl:px-3.5 xl:py-3">
         <div className="flex items-center gap-3 min-w-0">
           <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="sm" isLive />
           <div className="min-w-0">
@@ -173,7 +173,7 @@ export function WaitingRoom({
 
       {/* Queue position indicator */}
       {currentUserPosition > 0 && (
-        <div className="mx-4 mt-3.5 p-3.5 rounded-xl bg-brand-primary/10 border border-brand-primary/20 flex items-center gap-3 shrink-0">
+        <div className="mx-4 mt-3.5 flex shrink-0 items-center gap-3 rounded-xl border border-brand-primary/20 bg-brand-primary/10 p-3.5 xl:mx-3.5 xl:mt-3 xl:p-3">
           <div className="w-9 h-9 rounded-full bg-brand-primary/20 flex items-center justify-center shrink-0">
             <span className="text-base font-black text-brand-primary-light">{currentUserPosition}</span>
           </div>
@@ -188,7 +188,7 @@ export function WaitingRoom({
 
       {/* Compact queue preview */}
       {queuePreview && queuePreview.length > 0 && (
-        <div className="mx-4 mt-3 p-3 rounded-xl bg-brand-dark-elevated border border-brand-dark-border/50 shrink-0">
+        <div className="mx-4 mt-3 shrink-0 rounded-xl border border-brand-dark-border/50 bg-brand-dark-elevated p-3 xl:mx-3.5 xl:mt-2.5 xl:p-2.5">
           <p className="text-[10px] uppercase tracking-[0.2em] text-white/45 font-semibold mb-2">
             Queue · {totalQueueCount ?? queuePreview.length}
           </p>
@@ -219,7 +219,7 @@ export function WaitingRoom({
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-brand-dark-border/50 mx-4 mt-3.5 shrink-0">
+      <div className="mx-4 mt-3.5 flex shrink-0 border-b border-brand-dark-border/50 xl:mx-3.5 xl:mt-3">
         {(["chat", ...(showQueueTab ? ["queue"] : [])] as ("chat" | "queue")[]).map((tab) => (
           <button
             key={tab}
@@ -245,7 +245,7 @@ export function WaitingRoom({
       {/* Chat */}
       {activeTab === "chat" && (
         <>
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3.5 min-h-0">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-3.5 xl:px-3.5 xl:py-2.5 xl:space-y-2.5">
             {messages.length === 0 && (
               <p className="text-center text-[12px] text-white/35 py-6">No messages yet. Say something!</p>
             )}
@@ -269,7 +269,7 @@ export function WaitingRoom({
             <div ref={chatBottomRef} />
           </div>
 
-          <div className="px-4 py-3 border-t border-brand-dark-border/50 flex gap-2 shrink-0">
+          <div className="flex shrink-0 gap-2 border-t border-brand-dark-border/50 px-4 py-3 xl:px-3.5 xl:py-2.5">
             <input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -286,7 +286,7 @@ export function WaitingRoom({
 
       {/* Queue list */}
       {activeTab === "queue" && (
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 min-h-0">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-2 xl:px-3.5 xl:py-2.5">
           {queueWithCountdown.map((entry) => (
             <div
               key={entry.id}

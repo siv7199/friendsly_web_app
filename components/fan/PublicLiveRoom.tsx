@@ -315,11 +315,11 @@ function LiveStage({
   }
 
   return (
-    <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 h-full min-h-0 flex flex-col gap-3 overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 xl:gap-2.5 xl:p-3.5">
       {audibleSessionIds.map((sessionId) => (
         <DailyAudioTrack key={sessionId} sessionId={sessionId} />
       ))}
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between xl:gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="live">
@@ -346,14 +346,14 @@ function LiveStage({
       </div>
 
       <div className={cn(
-        "grid flex-1 min-h-0 gap-4 overflow-hidden",
+        "grid flex-1 min-h-0 gap-4 overflow-hidden xl:gap-3",
         isAdmitted || showRemoteGuestStage
           ? "grid-rows-[minmax(220px,33vh)_minmax(220px,33vh)] md:grid-rows-1 md:auto-rows-fr md:grid-cols-2"
           : "grid-cols-1 auto-rows-fr"
       )}>
         <div className={cn(
           "relative h-full rounded-[24px] overflow-hidden border border-brand-border bg-brand-elevated",
-          isAdmitted || showRemoteGuestStage ? "min-h-[220px] md:min-h-0" : "min-h-[280px] md:min-h-0"
+          isAdmitted || showRemoteGuestStage ? "min-h-[220px] md:min-h-0 xl:min-h-[200px]" : "min-h-[280px] md:min-h-0 xl:min-h-[250px]"
         )}>
           {!isAdmitted ? (
             <div className="absolute right-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-col items-end gap-2">
@@ -440,7 +440,7 @@ function LiveStage({
         </div>
 
         {isAdmitted ? (
-          <div className="relative h-full rounded-[24px] border border-brand-border bg-brand-elevated min-h-[220px] md:min-h-0 overflow-hidden">
+          <div className="relative h-full min-h-[220px] overflow-hidden rounded-[24px] border border-brand-border bg-brand-elevated md:min-h-0 xl:min-h-[200px]">
             {localSessionId && camOn && localVideoActive ? (
               <div className="relative h-full w-full overflow-hidden bg-black/30">
                 <div className="daily-stage-video h-full w-full overflow-hidden">
@@ -506,7 +506,7 @@ function LiveStage({
             </div>
           </div>
         ) : showRemoteGuestStage ? (
-          <div className="h-full rounded-[24px] border border-brand-border bg-brand-elevated min-h-[220px] md:min-h-0 overflow-hidden">
+          <div className="h-full min-h-[220px] overflow-hidden rounded-[24px] border border-brand-border bg-brand-elevated md:min-h-0 xl:min-h-[200px]">
             <div className="relative h-full w-full overflow-hidden">
               {activeFanSessionId && activeFanVideoActive ? (
                 <div className="daily-stage-video h-full w-full overflow-hidden">

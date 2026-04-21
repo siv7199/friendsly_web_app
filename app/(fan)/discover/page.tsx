@@ -387,7 +387,7 @@ export default function DiscoverPage() {
   return (
     <div className="animate-fade-in">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 pb-8 pt-4 md:px-8 md:pb-10 md:pt-7">
-        <section className="overflow-hidden rounded-[30px] border border-brand-border bg-white shadow-card md:rounded-[34px]">
+        <section className="overflow-hidden rounded-[30px] border border-brand-border bg-white shadow-card lg:hidden md:rounded-[34px]">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
             <div className="px-5 py-6 md:px-7 md:py-8">
               <div className="flex items-center justify-center md:justify-start">
@@ -470,7 +470,49 @@ export default function DiscoverPage() {
           </div>
         </section>
 
-        <section className="space-y-4">
+        <section className="hidden lg:block">
+          <div className="rounded-[34px] border border-brand-border bg-white px-8 py-8 shadow-card">
+            <div className="flex items-start justify-between gap-8">
+              <div className="max-w-[420px]">
+                <p className="text-label text-brand-primary">Friendsly</p>
+                <h1 className="mt-3 text-[4rem] font-serif font-normal leading-[0.92] tracking-tight text-brand-ink">
+                  Discover
+                </h1>
+              </div>
+
+              <div className="w-full max-w-[520px]">
+                <div className="relative ml-auto">
+                  <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-brand-ink-subtle" />
+                  <input
+                    type="search"
+                    placeholder="Search creators..."
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="h-16 w-full rounded-full border border-brand-border bg-white pl-14 pr-6 text-xl text-brand-ink placeholder:text-brand-ink-subtle transition-colors focus:border-brand-primary/50 focus:outline-none focus:ring-2 focus:ring-brand-primary/15"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-7 flex flex-wrap gap-4">
+              {CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setActiveCategory(category)}
+                  className={`rounded-full border px-9 py-4 text-[1.05rem] font-semibold transition-all duration-150 ${
+                    activeCategory === category
+                      ? "border-brand-primary bg-brand-primary text-white shadow-nav-active"
+                      : "border-brand-border bg-white text-brand-ink-muted hover:border-brand-primary/35 hover:text-brand-ink"
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-4 lg:hidden">
           <div className="flex items-end justify-between gap-3">
             <div>
               <h2 className="text-[1.9rem] font-serif font-normal leading-tight text-brand-ink md:text-[2.35rem]">
@@ -510,7 +552,43 @@ export default function DiscoverPage() {
           )}
         </section>
 
-        <section className="space-y-4">
+        <section className="hidden lg:block space-y-5">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-[2.1rem] font-serif font-normal leading-tight text-brand-ink">
+                {liveCreators.length > 0 ? "Live Now! Stop in have 1 on 1 conversations" : "Trending creators"}
+              </h2>
+              <p className="mt-1 text-sm text-brand-ink-muted">
+                {liveCreators.length > 0
+                  ? "These creators are live right now and ready for quick access."
+                  : "No one is live right this second, so we are showing the closest matches from your current filters."}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border border-brand-border bg-white px-3 py-1.5 text-xs text-brand-ink-subtle">
+              <Users className="h-3.5 w-3.5" />
+              <span>{liveCreators.length > 0 ? `${liveCreators.length} live creators` : `${filtered.length} available creators`}</span>
+            </div>
+          </div>
+
+          {spotlightCreators.length === 0 ? (
+            <div className="rounded-[28px] border border-brand-border bg-white p-10 text-center shadow-xs-light">
+              <p className="text-base font-semibold text-brand-ink">No creators found</p>
+              <p className="mt-2 text-sm text-brand-ink-subtle">
+                Try adjusting your search or filters to surface more creators.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-6">
+              {spotlightCreators.map((creator, index) => (
+                <div key={creator.id} style={{ animationDelay: `${index * 35}ms` }} className="animate-card-enter">
+                  <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4 lg:hidden">
           <div>
             <h2 className="text-[1.75rem] font-serif font-normal leading-tight text-brand-ink md:text-[2.2rem]">
               Other Creators
@@ -537,6 +615,36 @@ export default function DiscoverPage() {
                   style={{ animationDelay: `${index * 25}ms` }}
                   className="w-[182px] shrink-0 snap-start animate-card-enter md:w-auto"
                 >
+                  <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="hidden lg:block space-y-5">
+          <div>
+            <h2 className="text-[2rem] font-serif font-normal leading-tight text-brand-ink">
+              Other Creators
+            </h2>
+            <p className="mt-1 text-sm text-brand-ink-muted">
+              Browse more creators, save the ones you want to revisit, and keep booking from the same existing actions.
+            </p>
+          </div>
+
+          {otherCreators.length === 0 ? (
+            <div className="rounded-[28px] border border-brand-border bg-white p-10 text-center shadow-xs-light">
+              <p className="text-base font-semibold text-brand-ink">Nothing else to show yet</p>
+              <p className="mt-2 text-sm text-brand-ink-subtle">
+                {search || activeCategory !== "All"
+                  ? "Your current filters are narrow, so try broadening them."
+                  : "More creators will appear here as they complete setup."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-6 xl:grid-cols-4">
+              {otherCreators.map((creator, index) => (
+                <div key={creator.id} style={{ animationDelay: `${index * 25}ms` }} className="animate-card-enter">
                   <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
                 </div>
               ))}

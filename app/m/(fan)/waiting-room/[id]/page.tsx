@@ -6,7 +6,7 @@
  * Renders MobilePublicLiveRoom instead of the desktop layout.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { notFound } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuthContext } from "@/lib/context/AuthContext";
@@ -61,6 +61,8 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
   const [sessionEnded, setSessionEnded] = useState(false);
   const [reportedDailySessionId, setReportedDailySessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const waitingEntryIdRef = useRef<string | null>(null);
+  const activeEntryIdRef = useRef<string | null>(null);
 
   const loadLiveState = useCallback(async () => {
     const supabase = createClient();
@@ -173,6 +175,11 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
   );
 
   useEffect(() => {
+    waitingEntryIdRef.current = myWaitingEntry?.id ?? null;
+    activeEntryIdRef.current = myActiveEntry?.id ?? null;
+  }, [myActiveEntry?.id, myWaitingEntry?.id]);
+
+  useEffect(() => {
     if (!liveSessionId || !roomUrl || !user) { setToken(null); return; }
     fetch("/api/daily/token", {
       method: "POST",
@@ -212,6 +219,44 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
       }
     } catch {}
   }, [liveSessionId, myActiveEntry, reportedDailySessionId]);
+
+  const leaveWaitingQueue = useCallback(async (queueEntryId: string) => {
+    await fetch("/api/live/leave-queue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ queueEntryId }),
+    });
+  }, []);
+
+  const leaveActiveStage = useCallback(async (queueEntryId: string) => {
+    await fetch("/api/live/leave-stage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ queueEntryId }),
+    });
+  }, []);
+
+  useEffect(() => {
+    function sendExitBeacon() {
+      const activeQueueEntryId = activeEntryIdRef.current;
+      const waitingQueueEntryId = waitingEntryIdRef.current;
+      const queueEntryId = waitingQueueEntryId ?? activeQueueEntryId;
+      const endpoint = waitingQueueEntryId ? "/api/live/leave-queue" : activeQueueEntryId ? "/api/live/leave-stage" : null;
+
+      if (!queueEntryId || !endpoint) return;
+
+      const payload = new Blob([JSON.stringify({ queueEntryId })], { type: "application/json" });
+      navigator.sendBeacon(endpoint, payload);
+    }
+
+    window.addEventListener("pagehide", sendExitBeacon);
+    window.addEventListener("beforeunload", sendExitBeacon);
+    return () => {
+      window.removeEventListener("pagehide", sendExitBeacon);
+      window.removeEventListener("beforeunload", sendExitBeacon);
+      sendExitBeacon();
+    };
+  }, []);
 
   const stageElapsedSeconds = getLiveStageElapsedSeconds(activeFanAdmittedAt, currentTime);
   const waitingQueue = queue.filter((e) => e.status === "waiting");
@@ -299,16 +344,11 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
         onJoinQueue={() => setShowJoinModal(true)}
         onLeaveQueue={async () => {
           if (!myWaitingEntry?.id) return;
-          const supabase = (await import("@/lib/supabase/client")).createClient();
-          await supabase.from("live_queue_entries").delete().eq("id", myWaitingEntry.id);
+          await leaveWaitingQueue(myWaitingEntry.id);
         }}
         onLeaveStage={async () => {
           if (!myActiveEntry?.id) return;
-          await fetch("/api/live/leave-stage", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ queueEntryId: myActiveEntry.id }),
-          });
+          await leaveActiveStage(myActiveEntry.id);
         }}
         onStageSessionReady={reportActiveJoin}
       />
