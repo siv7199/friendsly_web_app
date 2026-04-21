@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
-import { Search, Zap, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Radio, Search, Sparkles, Users } from "lucide-react";
 import { InfluencerCard } from "@/components/fan/InfluencerCard";
-import { LiveStageCard } from "@/components/fan/LiveStageCard";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 import { createClient } from "@/lib/supabase/client";
-import type { Creator } from "@/types";
-import { isNewCreator } from "@/lib/creators";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { isNewCreator } from "@/lib/creators";
+import type { Creator } from "@/types";
 
 const CATEGORIES = [
   "All",
@@ -23,6 +23,22 @@ const CATEGORIES = [
 
 const LIVE_SESSION_STALE_MS = 45000;
 
+function getCategoryLabel(category: string) {
+  const labels: Record<string, string> = {
+    All: "Trending",
+    "Content Creation": "Influencers",
+    "Fitness & Wellness": "Gym",
+    "Gaming & Esports": "Gaming",
+    "Beauty & Skincare": "Beauty",
+    "Business & Startups": "Business",
+    "Finance & Investing": "Finance",
+    "Music & Arts": "Music",
+    "Tech & Career": "Tech",
+  };
+
+  return labels[category] ?? category;
+}
+
 function isSessionFresh(session: {
   is_active?: boolean | null;
   daily_room_url?: string | null;
@@ -30,9 +46,9 @@ function isSessionFresh(session: {
 }) {
   return Boolean(
     session?.is_active &&
-    session?.daily_room_url &&
-    session?.last_heartbeat_at &&
-    Date.now() - new Date(session.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+      session?.daily_room_url &&
+      session?.last_heartbeat_at &&
+      Date.now() - new Date(session.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
   );
 }
 
@@ -91,7 +107,9 @@ async function fetchCreators(): Promise<Creator[]> {
   const [reviewsRes, completedBookingsRes, completedLiveQueueRes] = await Promise.all([
     supabase.from("reviews").select("creator_id").in("creator_id", creatorIds),
     supabase.from("bookings").select("creator_id").in("creator_id", creatorIds).eq("status", "completed"),
-    supabase.from("live_queue_entries").select("id, live_sessions!inner(creator_id)")
+    supabase
+      .from("live_queue_entries")
+      .select("id, live_sessions!inner(creator_id)")
       .in("status", ["completed", "skipped"])
       .not("amount_charged", "is", null)
       .in("live_sessions.creator_id", creatorIds),
@@ -104,13 +122,13 @@ async function fetchCreators(): Promise<Creator[]> {
   });
 
   const reviewCountByCreator: Record<string, number> = {};
-  (reviewsRes.data ?? []).forEach((r: { creator_id: string }) => {
-    reviewCountByCreator[r.creator_id] = (reviewCountByCreator[r.creator_id] ?? 0) + 1;
+  (reviewsRes.data ?? []).forEach((review: { creator_id: string }) => {
+    reviewCountByCreator[review.creator_id] = (reviewCountByCreator[review.creator_id] ?? 0) + 1;
   });
 
   const totalCallsByCreator: Record<string, number> = {};
-  (completedBookingsRes.data ?? []).forEach((b: { creator_id: string }) => {
-    totalCallsByCreator[b.creator_id] = (totalCallsByCreator[b.creator_id] ?? 0) + 1;
+  (completedBookingsRes.data ?? []).forEach((booking: { creator_id: string }) => {
+    totalCallsByCreator[booking.creator_id] = (totalCallsByCreator[booking.creator_id] ?? 0) + 1;
   });
   (completedLiveQueueRes.data ?? []).forEach((entry: any) => {
     const creatorId = Array.isArray(entry.live_sessions) ? entry.live_sessions[0]?.creator_id : entry.live_sessions?.creator_id;
@@ -121,11 +139,15 @@ async function fetchCreators(): Promise<Creator[]> {
   const sessionToCreator: Record<string, string> = {};
   profiles.forEach((profile: any) => {
     const sessions = Array.isArray(profile.live_sessions) ? profile.live_sessions : [];
-    sessions.forEach((s: any) => {
-      if (s?.is_active && !!s?.daily_room_url && !!s?.last_heartbeat_at &&
-          Date.now() - new Date(s.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS) {
-        activeSessionIds.push(s.id);
-        sessionToCreator[s.id] = profile.id;
+    sessions.forEach((session: any) => {
+      if (
+        session?.is_active &&
+        session?.daily_room_url &&
+        session?.last_heartbeat_at &&
+        Date.now() - new Date(session.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+      ) {
+        activeSessionIds.push(session.id);
+        sessionToCreator[session.id] = profile.id;
       }
     });
   });
@@ -133,8 +155,11 @@ async function fetchCreators(): Promise<Creator[]> {
   const queueCountByCreator: Record<string, number> = {};
   if (activeSessionIds.length > 0) {
     const { data: queueEntries } = await supabase
-      .from("live_queue_entries").select("session_id")
-      .in("session_id", activeSessionIds).eq("status", "waiting");
+      .from("live_queue_entries")
+      .select("session_id")
+      .in("session_id", activeSessionIds)
+      .eq("status", "waiting");
+
     (queueEntries ?? []).forEach((entry: { session_id: string }) => {
       const creatorId = sessionToCreator[entry.session_id];
       if (creatorId) queueCountByCreator[creatorId] = (queueCountByCreator[creatorId] ?? 0) + 1;
@@ -142,28 +167,32 @@ async function fetchCreators(): Promise<Creator[]> {
   }
 
   return profiles.map((profile: any) => {
-    const cp = Array.isArray(profile.creator_profiles) ? profile.creator_profiles[0] : profile.creator_profiles;
+    const creatorProfile = Array.isArray(profile.creator_profiles) ? profile.creator_profiles[0] : profile.creator_profiles;
     const sessions = Array.isArray(profile.live_sessions) ? profile.live_sessions : [];
-    const activeSession = sessions.find((s: any) =>
-      s?.is_active === true && !!s?.daily_room_url && !!s?.last_heartbeat_at &&
-      Date.now() - new Date(s.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
-    ) ?? null;
+    const activeSession =
+      sessions.find(
+        (session: any) =>
+          session?.is_active === true &&
+          session?.daily_room_url &&
+          session?.last_heartbeat_at &&
+          Date.now() - new Date(session.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+      ) ?? null;
 
     const packs = packagesByCreator[profile.id] ?? [];
-    const minPrice = packs.length ? Math.min(...packs.map((p: { price: number }) => Number(p.price))) : 0;
+    const minPrice = packs.length ? Math.min(...packs.map((pkg: { price: number }) => Number(pkg.price))) : 0;
     const minDuration = packs.length ? packs[0].duration : 15;
-    const liveJoinFee = cp?.live_join_fee ? Number(cp.live_join_fee) : undefined;
+    const liveJoinFee = creatorProfile?.live_join_fee ? Number(creatorProfile.live_join_fee) : undefined;
 
     return {
       id: profile.id,
       name: profile.full_name,
       username: `@${profile.username}`,
       createdAt: profile.created_at,
-      bio: cp?.bio ?? "",
-      category: cp?.category ?? "",
-      tags: cp?.tags ?? [],
+      bio: creatorProfile?.bio ?? "",
+      category: creatorProfile?.category ?? "",
+      tags: creatorProfile?.tags ?? [],
       followers: "",
-      rating: Number(cp?.avg_rating ?? 0),
+      rating: Number(creatorProfile?.avg_rating ?? 0),
       reviewCount: reviewCountByCreator[profile.id] ?? 0,
       avatarInitials: profile.avatar_initials,
       avatarColor: profile.avatar_color,
@@ -173,17 +202,17 @@ async function fetchCreators(): Promise<Creator[]> {
       queueCount: queueCountByCreator[profile.id] ?? 0,
       callPrice: minPrice,
       callDuration: minDuration,
-      nextAvailable: minPrice > 0 ? (cp?.next_available ?? "Available this week") : "No packages yet",
+      nextAvailable: minPrice > 0 ? creatorProfile?.next_available ?? "Available this week" : "No packages yet",
       totalCalls: totalCallsByCreator[profile.id] ?? 0,
       responseTime: "",
       liveJoinFee,
-      scheduledLiveAt: cp?.scheduled_live_at ?? undefined,
-      scheduledLiveTimeZone: cp?.scheduled_live_timezone ?? cp?.timezone ?? undefined,
-      bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
+      scheduledLiveAt: creatorProfile?.scheduled_live_at ?? undefined,
+      scheduledLiveTimeZone: creatorProfile?.scheduled_live_timezone ?? creatorProfile?.timezone ?? undefined,
+      bookingIntervalMinutes: creatorProfile?.booking_interval_minutes ? Number(creatorProfile.booking_interval_minutes) : 30,
       isNew: isNewCreator(profile.created_at),
-      instagramUrl: cp?.instagram_url ?? undefined,
-      tiktokUrl: cp?.tiktok_url ?? undefined,
-      xUrl: cp?.x_url ?? undefined,
+      instagramUrl: creatorProfile?.instagram_url ?? undefined,
+      tiktokUrl: creatorProfile?.tiktok_url ?? undefined,
+      xUrl: creatorProfile?.x_url ?? undefined,
     } satisfies Creator;
   });
 }
@@ -202,7 +231,10 @@ export default function DiscoverPage() {
   useEffect(() => {
     function load() {
       lastLoadAtRef.current = Date.now();
-      fetchCreators().then((data) => { setCreators(data); setLoading(false); });
+      fetchCreators().then((data) => {
+        setCreators(data);
+        setLoading(false);
+      });
     }
 
     function scheduleRefreshes() {
@@ -212,7 +244,10 @@ export default function DiscoverPage() {
 
     function clearLiveExpiry(creatorId: string) {
       const id = liveExpiryTimeoutsRef.current[creatorId];
-      if (id) { window.clearTimeout(id); delete liveExpiryTimeoutsRef.current[creatorId]; }
+      if (id) {
+        window.clearTimeout(id);
+        delete liveExpiryTimeoutsRef.current[creatorId];
+      }
     }
 
     function scheduleLiveExpiry(creatorId: string, lastHeartbeatAt?: string | null) {
@@ -225,21 +260,25 @@ export default function DiscoverPage() {
     load();
 
     const supabase = createClient();
-    const channels = supabase
+    const channel = supabase
       .channel("discover_realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles" }, (payload: any) => {
         if (payload.new?.id) {
           if (payload.new.is_live === false) clearLiveExpiry(payload.new.id);
-          setCreators((prev) => prev.map((c) =>
-            c.id === payload.new.id ? {
-              ...c,
-              isLive: payload.new.is_live ?? c.isLive,
-              currentLiveSessionId: payload.new.current_live_session_id ?? undefined,
-              scheduledLiveAt: payload.new.scheduled_live_at ?? undefined,
-              scheduledLiveTimeZone: payload.new.scheduled_live_timezone ?? c.scheduledLiveTimeZone,
-              liveJoinFee: payload.new.live_join_fee != null ? Number(payload.new.live_join_fee) : c.liveJoinFee,
-            } : c
-          ));
+          setCreators((prev) =>
+            prev.map((creator) =>
+              creator.id === payload.new.id
+                ? {
+                    ...creator,
+                    isLive: payload.new.is_live ?? creator.isLive,
+                    currentLiveSessionId: payload.new.current_live_session_id ?? undefined,
+                    scheduledLiveAt: payload.new.scheduled_live_at ?? undefined,
+                    scheduledLiveTimeZone: payload.new.scheduled_live_timezone ?? creator.scheduledLiveTimeZone,
+                    liveJoinFee: payload.new.live_join_fee != null ? Number(payload.new.live_join_fee) : creator.liveJoinFee,
+                  }
+                : creator
+            )
+          );
         }
         scheduleRefreshes();
       })
@@ -250,13 +289,22 @@ export default function DiscoverPage() {
           const liveNow = payload.eventType !== "DELETE" && isSessionFresh(nextSession);
           if (liveNow) scheduleLiveExpiry(creatorId, nextSession?.last_heartbeat_at);
           else clearLiveExpiry(creatorId);
-          setCreators((prev) => prev.map((c) =>
-            c.id === creatorId ? { ...c, isLive: liveNow, currentLiveSessionId: liveNow ? nextSession.id : undefined, queueCount: liveNow ? c.queueCount : 0 } : c
-          ));
+
+          setCreators((prev) =>
+            prev.map((creator) =>
+              creator.id === creatorId
+                ? {
+                    ...creator,
+                    isLive: liveNow,
+                    currentLiveSessionId: liveNow ? nextSession.id : undefined,
+                    queueCount: liveNow ? creator.queueCount : 0,
+                  }
+                : creator
+            )
+          );
         }
-        if (shouldRefreshFromLiveSessionChange(payload)) {
-          scheduleRefreshes();
-        }
+
+        if (shouldRefreshFromLiveSessionChange(payload)) scheduleRefreshes();
       })
       .subscribe();
 
@@ -264,49 +312,73 @@ export default function DiscoverPage() {
       if (Date.now() - lastLoadAtRef.current >= 60000) load();
     }
 
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refreshIfStale();
+    };
+
     window.addEventListener("focus", refreshIfStale);
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshIfStale(); });
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       refreshTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
       Object.values(liveExpiryTimeoutsRef.current).forEach((id) => window.clearTimeout(id));
-      supabase.removeChannel(channels);
+      window.removeEventListener("focus", refreshIfStale);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      supabase.removeChannel(channel);
     };
   }, []);
 
   useEffect(() => {
-    if (!user || creators.length === 0) { setSavedCreatorIds(new Set()); return; }
+    if (!user || creators.length === 0) {
+      setSavedCreatorIds(new Set());
+      return;
+    }
+
     const supabase = createClient();
-    supabase.from("saved_creators").select("creator_id").eq("fan_id", user.id)
-      .in("creator_id", creators.map((c) => c.id))
+    supabase
+      .from("saved_creators")
+      .select("creator_id")
+      .eq("fan_id", user.id)
+      .in("creator_id", creators.map((creator) => creator.id))
       .then(({ data }: any) => {
-        setSavedCreatorIds(new Set((data ?? []).map((e: { creator_id: string }) => e.creator_id)));
+        setSavedCreatorIds(new Set((data ?? []).map((entry: { creator_id: string }) => entry.creator_id)));
       });
   }, [user, creators]);
 
   const filtered = useMemo(() => {
     let list = creators;
-    if (activeCategory !== "All") list = list.filter((c) => c.category === activeCategory);
+
+    if (activeCategory !== "All") {
+      list = list.filter((creator) => creator.category === activeCategory);
+    }
+
     if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter((c) =>
-        c.name.toLowerCase().includes(q) || c.username.toLowerCase().includes(q) ||
-        c.bio.toLowerCase().includes(q) || c.category.toLowerCase().includes(q) ||
-        c.tags.some((t) => t.toLowerCase().includes(q))
+      const query = search.toLowerCase();
+      list = list.filter(
+        (creator) =>
+          creator.name.toLowerCase().includes(query) ||
+          creator.username.toLowerCase().includes(query) ||
+          creator.bio.toLowerCase().includes(query) ||
+          creator.category.toLowerCase().includes(query) ||
+          creator.tags.some((tag) => tag.toLowerCase().includes(query))
       );
     }
+
     return list;
   }, [creators, activeCategory, search]);
 
-  const liveCreators = filtered.filter((c) => c.isLive);
-  const allCreators  = filtered;
+  const liveCreators = filtered.filter((creator) => creator.isLive);
+  const nonLiveCreators = filtered.filter((creator) => !creator.isLive);
+  const otherCreators = nonLiveCreators.length > 0 ? nonLiveCreators : filtered;
+  const spotlightCreators = (liveCreators.length > 0 ? liveCreators : filtered).slice(0, 3);
+  const spotlightCount = liveCreators.length > 0 ? liveCreators.length : filtered.length;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-6 h-6 text-brand-primary animate-spin" />
-          <p className="text-sm text-brand-ink-subtle">Loading creators…</p>
+          <Loader2 className="h-6 w-6 animate-spin text-brand-primary" />
+          <p className="text-sm text-brand-ink-subtle">Loading creators...</p>
         </div>
       </div>
     );
@@ -314,91 +386,164 @@ export default function DiscoverPage() {
 
   return (
     <div className="animate-fade-in">
-
-      {/* ── Page header — editorial, not generic dashboard ── */}
-      <div className="px-5 md:px-8 pt-7 pb-5">
-        <div className="flex items-end justify-between gap-4 mb-5">
-          <div>
-            <p className="text-label text-brand-primary mb-1">Friendsly</p>
-            <h1 className="font-serif font-normal text-[1.65rem] text-brand-ink tracking-tight leading-tight">
-              {activeCategory === "All" ? "Discover" : activeCategory}
-            </h1>
-          </div>
-
-          {/* Inline search */}
-          <div className="flex-1 max-w-xs relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-brand-ink-subtle pointer-events-none" />
-            <input
-              type="search"
-              placeholder="Search creators…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-9 pl-9 pr-3 rounded-full border border-brand-border bg-white text-brand-ink placeholder:text-brand-ink-subtle text-sm focus:outline-none focus:border-brand-primary/50 focus:ring-1 focus:ring-brand-primary/20 transition-colors shadow-xs-light"
-            />
-          </div>
-        </div>
-
-        {/* Category pills — structural purple accent on active */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-display font-semibold transition-all duration-150 ${
-                activeCategory === cat
-                  ? "bg-brand-primary text-white shadow-sm"
-                  : "bg-white border border-brand-border text-brand-ink-muted hover:border-brand-primary/40 hover:text-brand-primary"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Live Now — horizontal story rail ── */}
-      {liveCreators.length > 0 && (
-        <section className="mb-6">
-          <div className="px-5 md:px-8 flex items-center gap-2.5 mb-3">
-            <span className="w-2 h-2 rounded-full bg-brand-live animate-pulse shrink-0" />
-            <h2 className="font-display text-sm font-bold text-brand-ink uppercase tracking-wider">On Air</h2>
-            <span className="text-xs text-brand-ink-subtle">{liveCreators.length} live</span>
-            <span className="ml-auto inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full bg-brand-live/10 text-brand-live border border-brand-live/20 font-display font-semibold uppercase tracking-wide">
-              <Zap className="w-2.5 h-2.5" />
-              Join instantly
-            </span>
-          </div>
-          <div className="flex gap-3 overflow-x-auto px-5 md:px-8 pb-2 scrollbar-none">
-            {liveCreators.map((creator, i) => (
-              <div key={creator.id} style={{ animationDelay: `${i * 50}ms` }} className="animate-card-enter">
-                <LiveStageCard creator={creator} />
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 pb-8 pt-4 md:px-8 md:pb-10 md:pt-7">
+        <section className="overflow-hidden rounded-[30px] border border-brand-border bg-white shadow-card md:rounded-[34px]">
+          <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+            <div className="px-5 py-6 md:px-7 md:py-8">
+              <div className="flex items-center justify-center md:justify-start">
+                <BrandLogo size="md" theme="light" />
               </div>
-            ))}
+
+              <div className="mt-6 space-y-4 md:mt-8">
+                <div className="space-y-3">
+                  <p className="text-label text-brand-primary">Discover live-first conversations</p>
+                  <h1 className="max-w-[14ch] text-[2rem] font-serif font-normal leading-[1.02] tracking-tight text-brand-ink md:max-w-[12ch] md:text-[3.2rem]">
+                    Become friendsly with your favorite creators.
+                  </h1>
+                  <p className="max-w-[52ch] text-sm leading-6 text-brand-ink-muted md:text-base">
+                    Jump into live sessions, save creators you want to revisit, and book 1-on-1 time using the same links and flows already wired into the app.
+                  </p>
+                </div>
+
+                <div className="relative max-w-xl">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-ink-subtle" />
+                  <input
+                    type="search"
+                    placeholder="Who do you want to talk to?"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="h-12 w-full rounded-full border border-brand-border bg-brand-bg pl-11 pr-4 text-sm text-brand-ink placeholder:text-brand-ink-subtle transition-colors focus:border-brand-primary/50 focus:outline-none focus:ring-2 focus:ring-brand-primary/15"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2.5">
+                  {CATEGORIES.map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => setActiveCategory(category)}
+                      className={`rounded-full border px-4 py-2 text-sm font-medium transition-all duration-150 ${
+                        activeCategory === category
+                          ? "border-brand-primary bg-brand-primary-bg text-brand-primary-deep shadow-sm"
+                          : "border-brand-border bg-white text-brand-ink-muted hover:border-brand-primary/35 hover:text-brand-ink"
+                      }`}
+                    >
+                      {getCategoryLabel(category)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden border-l border-brand-border/80 bg-[linear-gradient(180deg,#f8f6ff_0%,#f3efff_100%)] lg:flex lg:flex-col lg:justify-between">
+              <div className="border-b border-brand-border/80 px-6 py-5">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-ink-subtle">
+                  <Radio className="h-3.5 w-3.5 text-brand-live" />
+                  <span>{liveCreators.length > 0 ? "Live now" : "Trending now"}</span>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[24px] border border-brand-border bg-white px-4 py-4 shadow-xs-light">
+                    <p className="text-3xl font-semibold tracking-tight text-brand-ink">{spotlightCount}</p>
+                    <p className="mt-1 text-sm text-brand-ink-muted">
+                      {liveCreators.length > 0 ? "creators streaming or ready to join" : "creators matching this view"}
+                    </p>
+                  </div>
+                  <div className="rounded-[24px] border border-brand-border bg-white px-4 py-4 shadow-xs-light">
+                    <div className="flex items-center gap-2 text-brand-primary">
+                      <Sparkles className="h-4 w-4" />
+                      <p className="text-sm font-semibold">Fastest path</p>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-brand-ink-muted">
+                      Open a live card to join instantly, or use any creator card to save or book without changing backend functionality.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 px-6 py-6">
+                {spotlightCreators.slice(0, 2).map((creator, index) => (
+                  <div key={creator.id} style={{ animationDelay: `${index * 40}ms` }} className="animate-card-enter">
+                    <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
-      )}
 
-      {/* ── Creator grid ── */}
-      <section className="px-5 md:px-8 pb-8">
-        {allCreators.length === 0 ? (
-          <div className="rounded-2xl border border-brand-border bg-white p-14 text-center shadow-xs-light">
-            <p className="text-brand-ink text-base font-semibold font-display">No creators found</p>
-            <p className="text-brand-ink-subtle text-sm mt-1.5">
-              {search || activeCategory !== "All"
-                ? "Try adjusting your search or filters."
-                : "Be the first to sign up as a creator!"}
+        <section className="space-y-4">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-[1.9rem] font-serif font-normal leading-tight text-brand-ink md:text-[2.35rem]">
+                Live Now! Stop in have 1 on 1 conversations
+              </h2>
+              <p className="mt-1 text-sm text-brand-ink-muted">
+                {liveCreators.length > 0
+                  ? "These creators are live right now and ready for quick access."
+                  : "No one is live right this second, so we are showing the closest matches from your current filters."}
+              </p>
+            </div>
+            <div className="hidden items-center gap-2 rounded-full border border-brand-border bg-white px-3 py-1.5 text-xs text-brand-ink-subtle md:flex">
+              <Users className="h-3.5 w-3.5" />
+              <span>{liveCreators.length > 0 ? `${liveCreators.length} live creators` : `${filtered.length} available creators`}</span>
+            </div>
+          </div>
+
+          {spotlightCreators.length === 0 ? (
+            <div className="rounded-[28px] border border-brand-border bg-white p-10 text-center shadow-xs-light">
+              <p className="text-base font-semibold text-brand-ink">No creators found</p>
+              <p className="mt-2 text-sm text-brand-ink-subtle">
+                Try adjusting your search or filters to surface more creators.
+              </p>
+            </div>
+          ) : (
+            <div className="flex snap-x gap-4 overflow-x-auto pb-2 scrollbar-none md:grid md:grid-cols-2 md:overflow-visible xl:grid-cols-3">
+              {spotlightCreators.map((creator, index) => (
+                <div
+                  key={creator.id}
+                  style={{ animationDelay: `${index * 35}ms` }}
+                  className="w-[182px] shrink-0 snap-start animate-card-enter md:w-auto"
+                >
+                  <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-[1.75rem] font-serif font-normal leading-tight text-brand-ink md:text-[2.2rem]">
+              Other Creators
+            </h2>
+            <p className="mt-1 text-sm text-brand-ink-muted">
+              Browse more creators, save the ones you want to revisit, and keep booking from the same existing actions.
             </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-            {allCreators.map((creator, i) => (
-              <div key={creator.id} style={{ animationDelay: `${i * 25}ms` }} className="animate-card-enter">
-                <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+
+          {otherCreators.length === 0 ? (
+            <div className="rounded-[28px] border border-brand-border bg-white p-10 text-center shadow-xs-light">
+              <p className="text-base font-semibold text-brand-ink">Nothing else to show yet</p>
+              <p className="mt-2 text-sm text-brand-ink-subtle">
+                {search || activeCategory !== "All"
+                  ? "Your current filters are narrow, so try broadening them."
+                  : "More creators will appear here as they complete setup."}
+              </p>
+            </div>
+          ) : (
+            <div className="flex snap-x gap-4 overflow-x-auto pb-2 scrollbar-none md:grid md:grid-cols-2 md:gap-5 md:overflow-visible xl:grid-cols-3 2xl:grid-cols-4">
+              {otherCreators.map((creator, index) => (
+                <div
+                  key={creator.id}
+                  style={{ animationDelay: `${index * 25}ms` }}
+                  className="w-[182px] shrink-0 snap-start animate-card-enter md:w-auto"
+                >
+                  <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
