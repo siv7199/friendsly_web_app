@@ -17,7 +17,7 @@ export default function FanLayout({ children }: { children: React.ReactNode }) {
         className={
           isImmersiveLiveRoute
             ? "flex-1 overflow-hidden bg-brand-dark"
-            : "flex-1 overflow-x-hidden bg-brand-bg pb-36 md:pb-24"
+            : "flex-1 overflow-x-hidden bg-brand-bg pb-36 pt-24 md:pb-24 md:pt-0"
         }
       >
         {!isImmersiveLiveRoute ? <MobileAccountBar /> : null}

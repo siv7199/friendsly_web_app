@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/shared/BrandLogo";
-import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 
 const LIVE_SESSION_STALE_MS = 45000;
@@ -64,7 +63,6 @@ const NAV_ITEMS = [
 
 export function FanSidebar() {
   const pathname = usePathname();
-  const { user } = useAuthContext();
   const [liveCount, setLiveCount] = useState(0);
   const liveExpiryTimeoutRef = useRef<number | null>(null);
 
@@ -173,10 +171,6 @@ export function FanSidebar() {
           );
         })}
       </nav>
-
-      <div className="px-5 pb-6 pt-4 text-[11px] text-brand-ink-subtle border-t border-brand-border/60 truncate">
-        {user?.username ? `@${user.username}` : user?.full_name ?? "Friendsly"}
-      </div>
     </aside>
   );
 }

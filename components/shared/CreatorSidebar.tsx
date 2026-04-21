@@ -75,10 +75,6 @@ export function CreatorSidebar() {
           );
         })}
       </nav>
-
-      <div className="px-5 pb-6 pt-4 text-[11px] text-brand-ink-subtle border-t border-brand-border/60 truncate">
-        {user?.username ? `@${user.username}` : user?.full_name ?? "Friendsly"}
-      </div>
     </aside>
   );
 }
