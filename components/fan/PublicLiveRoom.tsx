@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Mic, MicOff, Video, VideoOff, Zap, Users, X } from "lucide-react";
+import { Flag, Loader2, Mic, MicOff, Video, VideoOff, Zap, Users, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -9,6 +9,7 @@ import { CallContainer } from "@/components/video/CallContainer";
 import { cn } from "@/lib/utils";
 import { LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
 import { DailyAudioTrack, DailyVideo, useDaily, useLocalSessionId } from "@daily-co/daily-react";
+import { useAuthContext } from "@/lib/context/AuthContext";
 
 function formatStageElapsed(totalSeconds: number) {
   const safeSeconds = Math.max(0, totalSeconds);
@@ -124,6 +125,7 @@ function LiveStage({
   queuePreview?: QueuePreviewEntry[];
   onStageSessionReady?: (dailySessionId: string) => void;
 }) {
+  const { user } = useAuthContext();
   const daily = useDaily();
   const localSessionId = useLocalSessionId();
   const [creatorSessionId, setCreatorSessionId] = useState<string | null>(null);
@@ -134,6 +136,11 @@ function LiveStage({
   const [audienceCount, setAudienceCount] = useState(0);
   const [micOn, setMicOn] = useState(isAdmitted);
   const [camOn, setCamOn] = useState(isAdmitted);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportDescription, setReportDescription] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportSent, setReportSent] = useState(false);
   const audibleSessionIds = Array.from(new Set(
     [creatorSessionId, !isAdmitted ? activeFanSessionId : null].filter((value): value is string => Boolean(value))
   ));
@@ -182,6 +189,12 @@ function LiveStage({
   useEffect(() => {
     setMicOn(isAdmitted);
     setCamOn(isAdmitted);
+    if (isAdmitted) {
+      setShowReportForm(false);
+      setReportDescription("");
+      setReportError(null);
+      setReportSent(false);
+    }
 
     if (isAdmitted) {
       void enableStageMedia({ audio: true, video: true });
@@ -269,6 +282,38 @@ function LiveStage({
 
   const showRemoteGuestStage = Boolean(!isAdmitted && activeFan);
 
+  async function handleSubmitReport() {
+    if (!user?.full_name || !user.email || !reportDescription.trim()) return;
+
+    setReportSubmitting(true);
+    setReportError(null);
+
+    try {
+      const response = await fetch("/api/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: user.full_name,
+          email: user.email,
+          subject: `Live call report - ${creatorName}`,
+          description: reportDescription.trim(),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Could not send report.");
+      }
+
+      setReportSent(true);
+      setReportDescription("");
+    } catch (error) {
+      setReportError(error instanceof Error ? error.message : "Could not send report.");
+    } finally {
+      setReportSubmitting(false);
+    }
+  }
+
   return (
     <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 h-full min-h-0 flex flex-col gap-3 overflow-hidden">
       {audibleSessionIds.map((sessionId) => (
@@ -310,6 +355,69 @@ function LiveStage({
           "relative h-full rounded-[24px] overflow-hidden border border-brand-border bg-brand-elevated",
           isAdmitted || showRemoteGuestStage ? "min-h-[220px] md:min-h-0" : "min-h-[280px] md:min-h-0"
         )}>
+          {!isAdmitted ? (
+            <div className="absolute right-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-col items-end gap-2">
+              <Button
+                type="button"
+                variant="surface"
+                size="sm"
+                className="gap-2 border-white/15 bg-black/35 text-white backdrop-blur-sm hover:bg-black/55 hover:text-white"
+                onClick={() => {
+                  setShowReportForm((current) => !current);
+                  setReportError(null);
+                  setReportSent(false);
+                }}
+              >
+                <Flag className="h-4 w-4" />
+                Report
+              </Button>
+
+              {showReportForm ? (
+                <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-black/75 p-4 text-left text-white shadow-xl backdrop-blur">
+                  <p className="text-sm font-semibold">Report this live call</p>
+                  <p className="mt-1 text-xs leading-5 text-white/70">
+                    This sends a support request with the subject Live call report - {creatorName}.
+                  </p>
+                  <textarea
+                    value={reportDescription}
+                    onChange={(event) => setReportDescription(event.target.value)}
+                    rows={4}
+                    placeholder="Tell us what happened so our team can review it."
+                    className="mt-3 w-full rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/45 focus:outline-none focus:ring-2 focus:ring-white/30"
+                  />
+                  {reportError ? <p className="mt-2 text-xs text-red-300">{reportError}</p> : null}
+                  {reportSent ? <p className="mt-2 text-xs text-emerald-300">Report sent. Our team will review it.</p> : null}
+                  {!user?.full_name || !user.email ? (
+                    <p className="mt-2 text-xs text-amber-200">You need a signed-in account email to send a report.</p>
+                  ) : null}
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-white hover:bg-white/10 hover:text-white"
+                      onClick={() => {
+                        setShowReportForm(false);
+                        setReportError(null);
+                        setReportSent(false);
+                      }}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      disabled={reportSubmitting || !reportDescription.trim() || !user?.full_name || !user.email}
+                      onClick={() => void handleSubmitReport()}
+                    >
+                      {reportSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending...</> : "Send report"}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {creatorSessionId && creatorVideoActive ? (
             <div className="daily-stage-video h-full w-full overflow-hidden">
               <DailyVideo sessionId={creatorSessionId} type="video" className="h-full w-full object-cover" />

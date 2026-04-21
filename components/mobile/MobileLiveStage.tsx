@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Mic, MicOff, Video, VideoOff, Send, Users, X } from "lucide-react";
+import { Flag, Loader2, Mic, MicOff, Send, Users, Video, VideoOff, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
 import { cn } from "@/lib/utils";
@@ -151,6 +151,11 @@ function MobileLiveInner({
 
   const [chatText, setChatText] = useState("");
   const [sending, setSending] = useState(false);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportDescription, setReportDescription] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportSent, setReportSent] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<
     { id: string; senderName: string; message: string; isMe: boolean }[]
@@ -190,6 +195,12 @@ function MobileLiveInner({
   useEffect(() => {
     setMicOn(isAdmitted);
     setCamOn(isAdmitted);
+    if (isAdmitted) {
+      setShowReportForm(false);
+      setReportDescription("");
+      setReportError(null);
+      setReportSent(false);
+    }
     if (isAdmitted) void applyMedia(true, true);
     else if (daily) { try { daily.setLocalAudio(false); daily.setLocalVideo(false); } catch {} }
   }, [isAdmitted, daily]);
@@ -251,6 +262,37 @@ function MobileLiveInner({
     setSending(false);
   }
 
+  async function sendReport() {
+    if (!user?.full_name || !user.email || !reportDescription.trim()) return;
+
+    setReportSubmitting(true);
+    setReportError(null);
+
+    try {
+      const response = await fetch("/api/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: user.full_name,
+          email: user.email,
+          subject: `Live call report - ${creatorName}`,
+          description: reportDescription.trim(),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Could not send report.");
+      }
+
+      setReportSent(true);
+      setReportDescription("");
+    } catch (error) {
+      setReportError(error instanceof Error ? error.message : "Could not send report.");
+    } finally {
+      setReportSubmitting(false);
+    }
+  }
+
   // ── derived ──────────────────────────────────────────────────────────────
   const audibleIds = useMemo(() =>
     [creatorParticipant?.session_id, !isAdmitted ? activeFanParticipant?.session_id : null]
@@ -284,13 +326,69 @@ function MobileLiveInner({
           </button>
           <span className="text-white text-xl font-brand tracking-tight select-none">friendsly</span>
         </div>
-        <div className="flex items-center gap-1.5 bg-[#1a1a3e] rounded-full px-3.5 py-1.5">
-          <Users className="w-3 h-3 text-white/60" />
-          <span className="text-white text-sm font-semibold tabular-nums">
-            {audienceCount > 0 ? audienceCount : queueCount}
-          </span>
+        <div className="flex items-center gap-2">
+          {!isAdmitted ? (
+            <button
+              onClick={() => {
+                setShowReportForm((current) => !current);
+                setReportError(null);
+                setReportSent(false);
+              }}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white/15 px-3 text-xs font-semibold text-white transition-all active:scale-95"
+              aria-label="Report live call"
+            >
+              <Flag className="h-3.5 w-3.5" />
+              Report
+            </button>
+          ) : null}
+          <div className="flex items-center gap-1.5 bg-[#1a1a3e] rounded-full px-3.5 py-1.5">
+            <Users className="w-3 h-3 text-white/60" />
+            <span className="text-white text-sm font-semibold tabular-nums">
+              {audienceCount > 0 ? audienceCount : queueCount}
+            </span>
+          </div>
         </div>
       </div>
+
+      {!isAdmitted && showReportForm ? (
+        <div className="mx-4 mb-2 rounded-2xl bg-[#1a1a3e] px-4 py-4 text-white shrink-0">
+          <p className="text-sm font-semibold">Report this live call</p>
+          <p className="mt-1 text-xs leading-5 text-white/65">
+            This sends a support request with the subject Live call report - {creatorName}.
+          </p>
+          <textarea
+            value={reportDescription}
+            onChange={(event) => setReportDescription(event.target.value)}
+            rows={4}
+            placeholder="Tell us what happened so our team can review it."
+            className="mt-3 w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-white/25"
+          />
+          {reportError ? <p className="mt-2 text-xs text-red-200">{reportError}</p> : null}
+          {reportSent ? <p className="mt-2 text-xs text-emerald-200">Report sent. Our team will review it.</p> : null}
+          {!user?.full_name || !user.email ? (
+            <p className="mt-2 text-xs text-amber-200">You need a signed-in account email to send a report.</p>
+          ) : null}
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button
+              onClick={() => {
+                setShowReportForm(false);
+                setReportError(null);
+                setReportSent(false);
+              }}
+              className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white transition-all active:scale-95"
+            >
+              Close
+            </button>
+            <button
+              onClick={() => void sendReport()}
+              disabled={reportSubmitting || !reportDescription.trim() || !user?.full_name || !user.email}
+              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-violet-700 transition-all active:scale-95 disabled:opacity-50"
+            >
+              {reportSubmitting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending...</> : "Send report"}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* ── Pulsating status ── */}
       <div className="px-5 pb-2 shrink-0">

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     const [{ data: profile, error: profileError }, { data: requestRow, error: requestError }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, role")
+        .select("id, role, is_suspended, suspension_reason")
         .eq("email", email)
         .maybeSingle(),
       supabase
@@ -40,6 +40,16 @@ export async function POST(request: Request) {
 
     if (profileError || requestError) {
       return NextResponse.json({ error: "Could not check login eligibility." }, { status: 500 });
+    }
+
+    if (profile?.is_suspended) {
+      return NextResponse.json({
+        blocked: true,
+        reason: "suspended",
+        message: profile.suspension_reason ?? "Your account has been suspended. Contact support@friendsly.app.",
+        requestStatus: null,
+        hasApprovedRole: Boolean(profile.role === "fan" || profile.role === "creator"),
+      });
     }
 
     const hasApprovedRole = profile?.role === "fan" || profile?.role === "creator";

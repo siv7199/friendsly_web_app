@@ -129,6 +129,8 @@ export default function SettingsPage() {
   const [avatarError, setAvatarError] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
+  const [deleteError, setDeleteError] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Financial state
   const [earnings, setEarnings] = useState({ available: 0, pending: 0, thisMonth: 0, totalEarned: 0 });
@@ -419,9 +421,20 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 3000);
   }
 
-  function handleDeleteAccount() {
-    deleteAccount();
-    router.push("/");
+  async function handleDeleteAccount() {
+    const confirmed = window.confirm("Are you sure? This cannot be undone.");
+    if (!confirmed) return;
+
+    setDeleteError("");
+    setDeletingAccount(true);
+    try {
+      await deleteAccount();
+      router.push("/");
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Could not delete account.");
+    } finally {
+      setDeletingAccount(false);
+    }
   }
 
   if (isLoading) {
@@ -686,14 +699,20 @@ export default function SettingsPage() {
             <p className="text-xs text-brand-ink-muted mb-4">
               Deleting your account clears all local data and signs you out. This cannot be undone.
             </p>
+            {deleteError ? (
+              <p className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+                {deleteError}
+              </p>
+            ) : null}
             <Button
               variant="danger"
               size="sm"
-              onClick={handleDeleteAccount}
+              onClick={() => void handleDeleteAccount()}
               className="gap-2"
+              disabled={deletingAccount}
             >
-              <Trash2 className="w-4 h-4" />
-              Delete Account
+              {deletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              {deletingAccount ? "Deleting Account..." : "Delete Account"}
             </Button>
           </div>
         </div>

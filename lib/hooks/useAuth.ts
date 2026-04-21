@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { MockProfile, UserRole } from "@/types";
 import { sanitizeSocialUrl } from "@/lib/social";
+import { getSiteUrl } from "@/lib/site-url";
 
 export interface AuthState {
   user: MockProfile | null;
@@ -264,9 +265,11 @@ export function useAuth() {
       }
 
       if (preflight?.blocked) {
-        const message = preflight.requestStatus === "rejected"
-          ? "This creator application was not approved, so this account cannot sign in."
-          : "This creator application is still pending review. You can sign in after it is approved.";
+        const message = preflight.reason === "suspended"
+          ? (typeof preflight.message === "string" ? preflight.message : "Your account has been suspended. Contact support@friendsly.app.")
+          : preflight.requestStatus === "rejected"
+            ? "This creator application was not approved, so this account cannot sign in."
+            : "This creator application is still pending review. You can sign in after it is approved.";
         setState((s) => ({ ...s, isLoading: false, error: message }));
         return;
       }
@@ -348,9 +351,7 @@ export function useAuth() {
     try {
       const supabase = createClient();
       const normalizedEmail = email.trim().toLowerCase();
-      const redirectUrl = typeof window !== "undefined"
-        ? `${window.location.origin}/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`
-        : undefined;
+      const redirectUrl = `${getSiteUrl()}/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`;
       const { data, error } = await Promise.race([
         supabase.auth.signUp({
           email: normalizedEmail,
@@ -390,9 +391,7 @@ export function useAuth() {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
       const supabase = createClient();
-      const redirectTo = typeof window !== "undefined"
-        ? `${window.location.origin}/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`
-        : undefined;
+      const redirectTo = `${getSiteUrl()}/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -429,10 +428,14 @@ export function useAuth() {
   // ── deleteAccount ─────────────────────────────────────────────────────────
   const deleteAccount = useCallback(async (): Promise<void> => {
     const supabase = createClient();
-    await supabase.auth.admin?.deleteUser?.(state.user?.id ?? "");
+    const response = await fetch("/api/auth/delete-account", { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(typeof data.error === "string" ? data.error : "Could not delete account.");
+    }
     await supabase.auth.signOut();
     setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
-  }, [state.user?.id]);
+  }, []);
 
   // ── updateProfile ─────────────────────────────────────────────────────────
   const updateProfile = useCallback(async (updates: Partial<MockProfile>): Promise<void> => {
