@@ -91,7 +91,16 @@ export default function AuthPage() {
     if (email !== siEmail) setSiEmail(email);
     if (password !== siPassword) setSiPassword(password);
 
-    await login(email, password);
+    const result = await login(email, password);
+    if (!result.success || !result.user) return;
+
+    const destination = result.user.role === "creator"
+      ? "/dashboard"
+      : result.user.role === "fan"
+        ? (next || "/discover")
+        : (next ? `/onboarding/role?next=${encodeURIComponent(next)}` : "/onboarding/role");
+
+    window.location.replace(destination);
   }
 
   async function handleSignUp(e: FormEvent) {

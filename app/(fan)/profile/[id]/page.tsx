@@ -882,34 +882,49 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   const slots = availMap[localDateKey(date)] ?? [];
                   const isToday = isSameDay(date, today);
                   const isPast = date < today && !isToday;
-                  const hasSlots = slots.length > 0 && !isPast && hasBookableLeadTimeSlot(date);
+                  const hasAnySlots = slots.length > 0 && !isPast;
+                  const canBookDate = hasAnySlots && hasBookableLeadTimeSlot(date);
                   return (
                     <button
                       type="button"
                       key={date.toISOString()}
                       onClick={() => {
-                        if (!hasSlots) return;
+                        if (!canBookDate) return;
                         openBooking(date);
                       }}
-                      disabled={!hasSlots}
+                      disabled={!canBookDate}
                       aria-label={
-                        hasSlots
+                        canBookDate
                           ? `Book ${creator.name} on ${formatShortDate(date)}`
-                          : `${formatShortDate(date)} has no availability`
+                          : hasAnySlots
+                            ? `${formatShortDate(date)} has availability but cannot be booked within 24 hours`
+                            : `${formatShortDate(date)} has no availability`
                       }
                       className={cn(
                         "rounded-xl p-2 text-center border transition-colors",
                         isToday
                           ? "border-brand-primary/50 bg-brand-primary/10"
-                          : hasSlots
+                          : canBookDate
                           ? "border-brand-info/35 bg-brand-info/10 active:bg-brand-info/15"
+                          : hasAnySlots
+                          ? "border-brand-border bg-brand-elevated"
                           : "border-brand-border bg-brand-elevated opacity-50"
                       )}
                     >
                       <p className="text-[9px] uppercase text-brand-ink-subtle font-medium">{DAY_NAMES[dow]}</p>
-                      <p className={cn("text-sm font-bold mt-0.5", isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-info" : "text-brand-ink-subtle")}>
+                      <p className={cn("text-sm font-bold mt-0.5", isToday ? "text-brand-primary-light" : canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
                         {date.getDate()}
                       </p>
+                      {hasAnySlots ? (
+                        <div className="mt-1 space-y-0.5">
+                          {slots.slice(0, 2).map((s, i) => (
+                            <p key={i} className={cn("text-[8px] leading-tight", canBookDate ? "text-brand-info" : "text-brand-ink-muted")}>{s}</p>
+                          ))}
+                          {slots.length > 2 && <p className="text-[8px] text-brand-ink-subtle">+{slots.length - 2} more</p>}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-[8px] text-brand-ink-subtle">{isPast ? "-" : "Off"}</p>
+                      )}
                     </button>
                   );
                 })}
@@ -1349,48 +1364,53 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 <p className="py-6 text-center text-sm text-brand-ink-subtle">No availability set for this offering yet.</p>
               ) : (
                 <div className="grid grid-cols-7 gap-1.5">
-                  {weekDates.map((date) => {
+                {weekDates.map((date) => {
                     const dow = date.getDay();
                     const slots = availMap[localDateKey(date)] ?? [];
                     const isToday = isSameDay(date, today);
                     const isPast = date < today && !isToday;
-                    const hasSlots = slots.length > 0 && !isPast && hasBookableLeadTimeSlot(date);
+                    const hasAnySlots = slots.length > 0 && !isPast;
+                    const canBookDate = hasAnySlots && hasBookableLeadTimeSlot(date);
                     return (
                       <button
                         type="button"
                         key={date.toISOString()}
                         onClick={() => {
-                          if (!hasSlots) return;
+                          if (!canBookDate) return;
                           openBooking(date);
                         }}
-                        disabled={!hasSlots}
+                        disabled={!canBookDate}
                         aria-label={
-                          hasSlots
+                          canBookDate
                             ? `Book ${creator.name} on ${formatShortDate(date)}`
-                            : `${formatShortDate(date)} has no availability`
+                            : hasAnySlots
+                              ? `${formatShortDate(date)} has availability but cannot be booked within 24 hours`
+                              : `${formatShortDate(date)} has no availability`
                         }
                         className={cn(
                           "rounded-xl border p-2 text-center transition-all",
                           isToday
                             ? "border-brand-primary/50 bg-brand-primary/10 hover:border-brand-primary"
-                            : hasSlots
+                            : canBookDate
                             ? "border-brand-info/35 bg-brand-info/10 hover:border-brand-info hover:bg-brand-info/15 cursor-pointer"
+                            : hasAnySlots
+                            ? "border-brand-border bg-brand-elevated cursor-not-allowed"
                             : "border-brand-border bg-brand-elevated opacity-50 cursor-not-allowed"
                         )}
                       >
                         <p className="text-[10px] font-medium uppercase text-brand-ink-subtle">{DAY_NAMES[dow]}</p>
-                        <p className={cn("mt-0.5 text-base font-bold", isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-ink" : "text-brand-ink-subtle")}>
+                        <p className={cn("mt-0.5 text-base font-bold", isToday ? "text-brand-primary-light" : canBookDate ? "text-brand-ink" : "text-brand-ink-subtle")}>
                           {date.getDate()}
                         </p>
-                        {hasSlots ? (
+                        {hasAnySlots ? (
                           <div className="mt-1 space-y-0.5">
                             {slots.slice(0, 2).map((s, i) => (
-                              <p key={i} className="text-[9px] leading-tight text-brand-info">{s}</p>
+                              <p key={i} className={cn("text-[9px] leading-tight", canBookDate ? "text-brand-info" : "text-brand-ink-muted")}>{s}</p>
                             ))}
                             {slots.length > 2 && <p className="text-[9px] text-brand-ink-subtle">+{slots.length - 2} more</p>}
                           </div>
                         ) : (
-                          <p className="mt-1 text-[9px] text-brand-ink-subtle">{isPast ? "â€”" : "Off"}</p>
+                          <p className="mt-1 text-[9px] text-brand-ink-subtle">{isPast ? "-" : "Off"}</p>
                         )}
                       </button>
                     );

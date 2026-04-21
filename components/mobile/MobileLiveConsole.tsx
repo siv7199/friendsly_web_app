@@ -39,6 +39,22 @@ import {
 const LIVE_SESSION_HEARTBEAT_MS = 15000;
 const LIVE_SESSION_STALE_MS = 45000;
 
+const MOBILE_LIVE_VIEWPORT_STYLE = {
+  height: "100dvh",
+  maxHeight: "100dvh",
+  paddingTop: "env(safe-area-inset-top)",
+};
+
+function getDisplayInitial(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed?.[0]?.toUpperCase() ?? "F";
+}
+
+function getFirstName(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.split(" ")[0] : "Fan";
+}
+
 function isVideoPlayable(p: any) {
   const s = p?.tracks?.video?.state;
   return s === "playable" || s === "loading";
@@ -262,17 +278,14 @@ function CreatorMobileLiveStage({
   const admitDisabledByMin = Boolean(currentFan) && activeFanElapsedSeconds < LIVE_STAGE_MIN_SECONDS;
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-violet-500 overflow-hidden">
+    <div className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden overscroll-none bg-violet-500" style={MOBILE_LIVE_VIEWPORT_STYLE}>
       {audibleIds.map((id) => (
         <DailyAudioTrack key={id} sessionId={id} />
       ))}
       <style dangerouslySetInnerHTML={VIDEO_FILL} />
 
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-5 pb-2 shrink-0"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 20px)" }}
-      >
+      <div className="flex shrink-0 items-center justify-between px-4 pb-1.5">
         <div className="flex items-center gap-3">
           <button
             onClick={() => { window.history.back(); }}
@@ -292,8 +305,8 @@ function CreatorMobileLiveStage({
       </div>
 
       {/* Status line */}
-      <div className="px-5 pb-2 shrink-0">
-        <p className="text-white font-semibold text-sm m-live-pulse">
+      <div className="shrink-0 px-4 pb-1.5">
+        <p className="text-xs font-semibold text-white m-live-pulse">
           {currentFan
             ? `On stage with ${currentFan.fanName} · ${formatCountdown(activeFanElapsedSeconds)} / ${LIVE_STAGE_MAX_MINUTES}:00`
             : queueCount > 0
@@ -303,7 +316,7 @@ function CreatorMobileLiveStage({
       </div>
 
       {/* Video card */}
-      <div className="relative mx-4 shrink-0" style={{ height: "42vh" }}>
+      <div className="relative mx-3 shrink-0" style={{ height: "min(34dvh, 292px)" }}>
         <div
           className="absolute inset-0 rounded-2xl"
           style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
@@ -363,8 +376,8 @@ function CreatorMobileLiveStage({
       </div>
 
       {/* Queue avatar row */}
-      <div className="px-4 pt-3 pb-2 shrink-0">
-        <div className="flex items-center gap-3 overflow-x-auto rounded-2xl bg-white/8 px-3.5 py-3 scrollbar-hide">
+      <div className="shrink-0 px-3 pt-2 pb-1.5">
+        <div className="scrollbar-hide flex items-center gap-2.5 overflow-x-auto rounded-2xl bg-white/8 px-3 py-2">
           {queue.length === 0 && (
             <p className="text-white/50 text-xs">No fans in line</p>
           )}
@@ -377,7 +390,7 @@ function CreatorMobileLiveStage({
                 size="sm"
               />
               <span className="text-[10px] font-medium text-white/60">
-                {entry.fanName?.split(" ")[0] ?? "Fan"}
+                {getFirstName(entry.fanName)}
               </span>
             </div>
           ))}
@@ -385,9 +398,9 @@ function CreatorMobileLiveStage({
       </div>
 
       {/* White panel */}
-      <div className="flex-1 rounded-t-3xl bg-white overflow-hidden flex flex-col min-h-0 mt-2">
+      <div className="mt-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-3xl bg-white">
         {/* Admit / End controls */}
-        <div className="px-5 pt-4 pb-3 shrink-0 flex gap-2">
+        <div className="flex shrink-0 gap-2 px-4 pt-3 pb-2">
           <button
             onClick={onAdmitNext}
             disabled={queueCount < 1 || admitDisabledByMin}
@@ -408,9 +421,9 @@ function CreatorMobileLiveStage({
         </div>
 
         {/* Chat */}
-        <div className="relative overflow-hidden px-5 min-h-0" style={{ height: "140px" }}>
+        <div className="relative min-h-0 flex-1 overflow-hidden px-4">
           <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white to-transparent pointer-events-none z-10" />
-          <div className="flex flex-col justify-end h-full gap-2 pb-2">
+          <div className="flex h-full flex-col justify-end gap-1.5 pb-1.5">
             {visibleMessages.length === 0 && (
               <p className="text-center text-slate-400 text-xs py-2">Chat is quiet — say hi to your fans</p>
             )}
@@ -423,7 +436,7 @@ function CreatorMobileLiveStage({
                 >
                   {!msg.isMe && (
                     <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-[9px] font-bold text-slate-500">{msg.senderName[0]}</span>
+                      <span className="text-[9px] font-bold text-slate-500">{getDisplayInitial(msg.senderName)}</span>
                     </div>
                   )}
                   <div
@@ -446,8 +459,8 @@ function CreatorMobileLiveStage({
 
         {/* Chat input */}
         <div
-          className="px-4 pt-2 flex items-center gap-2 shrink-0"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
+          className="flex shrink-0 items-center gap-2 px-4 pt-1.5"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
         >
           <input
             type="text"
@@ -900,7 +913,7 @@ export function MobileLiveConsole() {
 
   if (initializing) {
     return (
-      <div className="min-h-[100dvh] bg-violet-500 flex flex-col items-center justify-center px-6 text-center">
+      <div className="flex h-[100dvh] max-h-[100dvh] flex-col items-center justify-center bg-violet-500 px-6 text-center overflow-hidden" style={MOBILE_LIVE_VIEWPORT_STYLE}>
         <Loader2 className="w-10 h-10 text-white animate-spin mb-4" />
         <p className="text-white font-bold text-base">Resuming session…</p>
         <p className="text-white/70 text-sm mt-1">Syncing your live queue.</p>
@@ -910,7 +923,7 @@ export function MobileLiveConsole() {
 
   if (loadingRate) {
     return (
-      <div className="min-h-[100dvh] bg-violet-500 flex items-center justify-center">
+      <div className="flex h-[100dvh] max-h-[100dvh] items-center justify-center overflow-hidden bg-violet-500" style={MOBILE_LIVE_VIEWPORT_STYLE}>
         <div className="w-8 h-8 rounded-full border-2 border-white border-t-transparent animate-spin" />
       </div>
     );
@@ -919,12 +932,9 @@ export function MobileLiveConsole() {
   // ── Idle (pre-live) ───────────────────────────────────────────────
   if (sessionState === "idle") {
     return (
-      <div className="min-h-[100dvh] bg-violet-500 flex flex-col">
+      <div className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden overscroll-none bg-violet-500" style={MOBILE_LIVE_VIEWPORT_STYLE}>
         {/* Header */}
-        <div
-          className="flex items-center justify-between px-5 pb-3 shrink-0"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 20px)" }}
-        >
+        <div className="flex shrink-0 items-center justify-between px-4 pb-2">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
@@ -938,7 +948,7 @@ export function MobileLiveConsole() {
         </div>
 
         {/* Camera preview card */}
-        <div className="relative mx-4 shrink-0" style={{ height: "42vh" }}>
+        <div className="relative mx-3 shrink-0" style={{ height: "min(34dvh, 292px)" }}>
           <div
             className="absolute inset-0 rounded-2xl"
             style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
@@ -979,10 +989,10 @@ export function MobileLiveConsole() {
 
         {/* White panel — schedule + start */}
         <div
-          className="flex-1 rounded-t-3xl bg-white overflow-y-auto flex flex-col mt-3 px-5 pt-5 gap-4"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 32px)" }}
+          className="mt-1 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden rounded-t-3xl bg-white px-4 pt-4"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
         >
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 min-w-0">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-3">
             <div className="flex items-center gap-2 text-slate-800 mb-3">
               <CalendarClock className="w-4 h-4 text-violet-600 shrink-0" />
               <p className="text-sm font-semibold">Announce when you're going live</p>
@@ -1005,7 +1015,7 @@ export function MobileLiveConsole() {
                 </option>
               ))}
             </select>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-2.5 flex gap-2">
               <button
                 onClick={() => saveScheduledLive("")}
                 className="flex-1 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-semibold text-sm transition-all active:scale-[0.98]"
@@ -1028,7 +1038,7 @@ export function MobileLiveConsole() {
 
           <button
             onClick={startSession}
-            className="mt-1 w-full py-3.5 rounded-full bg-red-500 text-white font-semibold text-base transition-all active:scale-[0.98] shadow-[0_18px_40px_rgba(239,68,68,0.35)]"
+            className="mt-auto w-full rounded-full bg-red-500 py-3 text-base font-semibold text-white transition-all active:scale-[0.98] shadow-[0_18px_40px_rgba(239,68,68,0.35)]"
           >
             Start Live Session
           </button>

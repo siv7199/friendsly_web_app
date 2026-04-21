@@ -13,6 +13,11 @@ export interface AuthState {
   error: string | null;
 }
 
+export type LoginResult = {
+  success: boolean;
+  user: MockProfile | null;
+};
+
 const INITIAL_STATE: AuthState = {
   user: null,
   isAuthenticated: false,
@@ -248,7 +253,7 @@ export function useAuth() {
   }, []);
 
   // ── login ─────────────────────────────────────────────────────────────────
-  const login = useCallback(async (email: string, password: string): Promise<void> => {
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
       const normalizedEmail = email.trim().toLowerCase();
@@ -261,7 +266,7 @@ export function useAuth() {
       const preflight = await preflightRes.json().catch(() => null);
       if (!preflightRes.ok) {
         setState((s) => ({ ...s, isLoading: false, error: preflight?.error ?? "Could not verify login access." }));
-        return;
+        return { success: false, user: null };
       }
 
       if (preflight?.blocked) {
@@ -271,7 +276,7 @@ export function useAuth() {
             ? "This creator application was not approved, so this account cannot sign in."
             : "This creator application is still pending review. You can sign in after it is approved.";
         setState((s) => ({ ...s, isLoading: false, error: message }));
-        return;
+        return { success: false, user: null };
       }
 
       const supabase = createClient();
@@ -281,13 +286,13 @@ export function useAuth() {
       ]);
       if (error) {
         setState((s) => ({ ...s, isLoading: false, error: error.message }));
-        return;
+        return { success: false, user: null };
       }
 
       const session = data?.session ?? null;
       if (!session) {
         setState((s) => ({ ...s, isLoading: false, error: "Signed in, but no session was returned." }));
-        return;
+        return { success: false, user: null };
       }
       if (!isEmailVerified(session.user)) {
         await supabase.auth.signOut();
@@ -297,10 +302,12 @@ export function useAuth() {
           isLoading: false,
           error: "Please verify your email before signing in.",
         });
-        return;
+        return { success: false, user: null };
       }
 
       const sessionUser = profileFromSession(session);
+      let resolvedUser = sessionUser;
+
       setState({
         user: sessionUser,
         isAuthenticated: Boolean(sessionUser.role),
@@ -308,35 +315,38 @@ export function useAuth() {
         error: null,
       });
 
-      fetchProfile(session.user.id)
-        .then((full) => {
-          if (full) {
-            const merged = mergeSessionAvatarIntoProfile(full, session);
-            void persistMissingProfileAvatar(session.user.id, merged.avatar_url);
-            const hasOversizedMetadata = typeof session.user.user_metadata?.avatar_url === "string";
-            if (hasOversizedMetadata || !sessionUser.role) {
-              void supabase.auth.updateUser({
-                data: buildAuthMetadata({
-                  full_name: merged.full_name,
-                  username: merged.username,
-                  avatar_color: merged.avatar_color,
-                  role: merged.role,
-                }),
-              });
-            }
-            setState({
-              user: merged,
-              isAuthenticated: Boolean(merged.role),
-              isLoading: false,
-              error: null,
+      try {
+        const full = await fetchProfile(session.user.id);
+        if (full) {
+          const merged = mergeSessionAvatarIntoProfile(full, session);
+          resolvedUser = merged;
+          void persistMissingProfileAvatar(session.user.id, merged.avatar_url);
+          const hasOversizedMetadata = typeof session.user.user_metadata?.avatar_url === "string";
+          if (hasOversizedMetadata || !sessionUser.role) {
+            void supabase.auth.updateUser({
+              data: buildAuthMetadata({
+                full_name: merged.full_name,
+                username: merged.username,
+                avatar_color: merged.avatar_color,
+                role: merged.role,
+              }),
             });
           }
-        })
-        .catch(() => {
-          // Keep the session-backed user if profile enrichment fails.
-        });
+          setState({
+            user: merged,
+            isAuthenticated: Boolean(merged.role),
+            isLoading: false,
+            error: null,
+          });
+        }
+      } catch {
+        // Keep the session-backed user if profile enrichment fails.
+      }
+
+      return { success: true, user: resolvedUser };
     } catch (e) {
       setState((s) => ({ ...s, isLoading: false, error: e instanceof Error ? e.message : "Something went wrong." }));
+      return { success: false, user: null };
     }
   }, []);
 

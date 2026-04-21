@@ -45,6 +45,22 @@ function isVideoPlayable(p: any) {
   return s === "playable" || s === "loading";
 }
 
+const MOBILE_LIVE_VIEWPORT_STYLE = {
+  height: "100dvh",
+  maxHeight: "100dvh",
+  paddingTop: "env(safe-area-inset-top)",
+};
+
+function getDisplayInitial(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed?.[0]?.toUpperCase() ?? "F";
+}
+
+function getFirstName(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.split(" ")[0] : "Fan";
+}
+
 function resolveCreatorSession(participants: any[], creatorId: string) {
   const remote = participants.filter((p) => !p?.local);
   return (
@@ -318,17 +334,14 @@ function MobileLiveInner({
 
   // ── render ───────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-violet-500 overflow-hidden">
+    <div className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden overscroll-none bg-violet-500" style={MOBILE_LIVE_VIEWPORT_STYLE}>
       {audibleIds.map((id) => (
         <DailyAudioTrack key={id} sessionId={id} />
       ))}
       <style dangerouslySetInnerHTML={VIDEO_FILL} />
 
       {/* ── Header ── */}
-      <div
-        className="flex items-center justify-between px-5 pb-2 shrink-0"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 20px)" }}
-      >
+      <div className="flex shrink-0 items-center justify-between px-4 pb-1.5">
         <div className="flex items-center gap-3">
           <button
             onClick={() => { window.history.back(); }}
@@ -414,14 +427,14 @@ function MobileLiveInner({
       ) : null}
 
       {/* ── Pulsating status ── */}
-      <div className="px-5 pb-2 shrink-0">
-        <p className={cn("text-white font-semibold text-sm m-pulse", isAdmitted ? "text-violet-100" : "text-white")}>
+      <div className="shrink-0 px-4 pb-1.5">
+        <p className={cn("text-xs font-semibold text-white m-pulse", isAdmitted ? "text-violet-100" : "text-white")}>
           {isAdmitted ? "You're on camera" : myQueuePosition > 0 ? `You're in line  ·  #${myQueuePosition}` : "Watching live"}
         </p>
       </div>
 
       {/* ── Video card ── */}
-      <div className="relative mx-4 shrink-0" style={{ height: "42vh" }}>
+      <div className="relative mx-3 shrink-0" style={{ height: "min(34dvh, 292px)" }}>
         <div
           className="absolute inset-0 rounded-2xl"
           style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
@@ -486,8 +499,8 @@ function MobileLiveInner({
       </div>
 
       {/* ── Queue avatar row ── */}
-      <div className="px-4 pt-3 pb-2 shrink-0">
-        <div className="flex items-center gap-3 overflow-x-auto rounded-2xl bg-white/8 px-3.5 py-3 scrollbar-hide">
+      <div className="shrink-0 px-3 pt-2 pb-1.5">
+        <div className="scrollbar-hide flex items-center gap-2.5 overflow-x-auto rounded-2xl bg-white/8 px-3 py-2">
           {queueEntries.length === 0 && (
             <p className="text-white/50 text-xs">No one else in line</p>
           )}
@@ -496,13 +509,13 @@ function MobileLiveInner({
             return (
               <div key={entry.id} className="flex flex-col items-center gap-1.5 shrink-0 px-1">
                 <Avatar
-                  initials={entry.avatarInitials ?? entry.fanName[0]}
+                  initials={entry.avatarInitials ?? getDisplayInitial(entry.fanName)}
                   color={entry.avatarColor ?? (isMe ? "bg-violet-400" : "bg-white/20")}
                   imageUrl={entry.avatarUrl}
                   size="sm"
                 />
                 <span className={cn("text-[10px] font-medium", isMe ? "text-white" : "text-white/60")}>
-                  {isMe ? "You" : entry.fanName.split(" ")[0]}
+                  {isMe ? "You" : getFirstName(entry.fanName)}
                 </span>
               </div>
             );
@@ -511,10 +524,10 @@ function MobileLiveInner({
       </div>
 
       {/* ── White panel ── */}
-      <div className="flex-1 rounded-t-3xl bg-white overflow-hidden flex flex-col min-h-0 mt-2">
+      <div className="mt-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-3xl bg-white">
 
         {/* Join / Leave button at top of chat panel */}
-        <div className="px-5 pt-4 pb-3 shrink-0">
+        <div className="shrink-0 px-4 pt-3 pb-2">
           {isAdmitted ? (
             <button
               onClick={onLeaveStage}
@@ -540,10 +553,10 @@ function MobileLiveInner({
         </div>
 
         {/* Chat messages — last 5, oldest fades via gradient overlay */}
-        <div className="relative overflow-hidden px-5 min-h-0" style={{ height: '140px' }}>
+        <div className="relative min-h-0 flex-1 overflow-hidden px-4">
           {/* White gradient fade over top messages */}
           <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white to-transparent pointer-events-none z-10" />
-          <div className="flex flex-col justify-end h-full gap-2 pb-2">
+          <div className="flex h-full flex-col justify-end gap-1.5 pb-1.5">
             {visibleMessages.length === 0 && (
               <p className="text-center text-slate-400 text-xs py-2">Say something!</p>
             )}
@@ -556,7 +569,7 @@ function MobileLiveInner({
                 >
                   {!msg.isMe && (
                     <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-[9px] font-bold text-slate-500">{msg.senderName[0]}</span>
+                      <span className="text-[9px] font-bold text-slate-500">{getDisplayInitial(msg.senderName)}</span>
                     </div>
                   )}
                   <div className={cn(
@@ -577,8 +590,8 @@ function MobileLiveInner({
 
         {/* Chat input */}
         <div
-          className="px-4 pt-2 flex items-center gap-2 shrink-0"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
+          className="flex shrink-0 items-center gap-2 px-4 pt-1.5"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
         >
           <input
             type="text"
