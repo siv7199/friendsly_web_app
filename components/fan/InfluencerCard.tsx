@@ -136,7 +136,7 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
   return (
     <>
       <article
-        className="group flex cursor-pointer flex-col overflow-hidden rounded-[18px] border border-brand-border/50 bg-white shadow-card transition-all duration-200 ease-out-expo animate-card-enter hover:-translate-y-0.5 hover:shadow-card-hover"
+        className="group grid h-full min-h-[396px] cursor-pointer grid-rows-[auto_minmax(112px,1fr)_auto] overflow-hidden rounded-[18px] border border-brand-border/50 bg-white shadow-card transition-all duration-200 ease-out-expo animate-card-enter hover:-translate-y-0.5 hover:shadow-card-hover"
         onClick={handleCardClick}
         onKeyDown={handleCardKeyDown}
         role="link"
@@ -207,26 +207,24 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
         </div>
 
         {/* ── Content area ── */}
-        <div className="px-3.5 pt-3 pb-2.5 flex-1 flex flex-col gap-1">
+        <div className="flex min-h-0 flex-col gap-1 px-3.5 pb-2.5 pt-3">
 
           {/* Category above name — Intro.co pattern */}
-          {creator.category && (
-            <p className="text-[10px] font-display font-semibold uppercase tracking-[0.12em] text-brand-ink-subtle">
-              {creator.category}
-            </p>
-          )}
+          <p className="min-h-[14px] text-[10px] font-display font-semibold uppercase tracking-[0.12em] text-brand-ink-subtle">
+            {creator.category || "\u00A0"}
+          </p>
 
           {/* Name */}
           <Link
             href={`/profile/${creator.id}`}
-            className="text-[15px] font-serif font-normal text-brand-ink hover:text-brand-primary transition-colors leading-tight"
+            className="line-clamp-2 min-h-[38px] text-[15px] font-serif font-normal leading-tight text-brand-ink transition-colors hover:text-brand-primary"
           >
             {creator.name}
           </Link>
 
           {/* Price + rating row */}
-          <div className="flex items-center justify-between gap-1 mt-0.5">
-            <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+          <div className="mt-auto flex min-h-[34px] items-center justify-between gap-1">
+            <div className="flex min-w-0 overflow-hidden items-center gap-2">
               {creator.isLive ? (
                 <>
                   {hasLiveRate && (
@@ -268,9 +266,9 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
         </div>
 
         {/* ── CTA footer ── */}
-        <div className="px-3.5 pb-3.5">
+        <div className="mt-auto px-3.5 pb-3.5">
           {creator.isLive ? (
-            <div className="space-y-1.5">
+            <div className="flex min-h-[58px] flex-col justify-end space-y-1.5">
               {hasLiveRate ? (
                 <Link href={`/waiting-room/${creator.id}`} className="block">
                   <Button
@@ -307,7 +305,7 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
               variant="outline"
               size="sm"
               onClick={() => void handleOpenBooking()}
-              className="w-full rounded-full font-display font-semibold group-hover:bg-brand-primary group-hover:text-white group-hover:border-brand-primary transition-all duration-200"
+              className="min-h-[34px] w-full rounded-full font-display font-semibold transition-all duration-200 group-hover:border-brand-primary group-hover:bg-brand-primary group-hover:text-white"
               disabled={isLoadingBookingData}
             >
               <Video className="w-3.5 h-3.5 group-hover:hidden" />

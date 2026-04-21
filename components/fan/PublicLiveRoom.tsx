@@ -141,6 +141,7 @@ function LiveStage({
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportSent, setReportSent] = useState(false);
+  const [reportDeliveryState, setReportDeliveryState] = useState<"sent" | "stored_only" | "delivery_failed" | null>(null);
   const audibleSessionIds = Array.from(new Set(
     [creatorSessionId, !isAdmitted ? activeFanSessionId : null].filter((value): value is string => Boolean(value))
   ));
@@ -194,6 +195,7 @@ function LiveStage({
       setReportDescription("");
       setReportError(null);
       setReportSent(false);
+      setReportDeliveryState(null);
     }
 
     if (isAdmitted) {
@@ -287,6 +289,7 @@ function LiveStage({
 
     setReportSubmitting(true);
     setReportError(null);
+    setReportDeliveryState(null);
 
     try {
       const response = await fetch("/api/support", {
@@ -306,6 +309,13 @@ function LiveStage({
       }
 
       setReportSent(true);
+      setReportDeliveryState(
+        data.emailNotificationConfigured === false
+          ? "stored_only"
+          : data.emailNotificationSent === false
+          ? "delivery_failed"
+          : "sent"
+      );
       setReportDescription("");
     } catch (error) {
       setReportError(error instanceof Error ? error.message : "Could not send report.");
@@ -362,11 +372,12 @@ function LiveStage({
                 variant="surface"
                 size="sm"
                 className="gap-2 border-white/15 bg-black/35 text-white backdrop-blur-sm hover:bg-black/55 hover:text-white"
-                onClick={() => {
-                  setShowReportForm((current) => !current);
-                  setReportError(null);
-                  setReportSent(false);
-                }}
+                  onClick={() => {
+                    setShowReportForm((current) => !current);
+                    setReportError(null);
+                    setReportSent(false);
+                    setReportDeliveryState(null);
+                  }}
               >
                 <Flag className="h-4 w-4" />
                 Report
@@ -386,7 +397,15 @@ function LiveStage({
                     className="mt-3 w-full rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/45 focus:outline-none focus:ring-2 focus:ring-white/30"
                   />
                   {reportError ? <p className="mt-2 text-xs text-red-300">{reportError}</p> : null}
-                  {reportSent ? <p className="mt-2 text-xs text-emerald-300">Report sent. Our team will review it.</p> : null}
+                  {reportSent && reportDeliveryState === "sent" ? (
+                    <p className="mt-2 text-xs text-emerald-300">Report sent and forwarded to support.</p>
+                  ) : null}
+                  {reportSent && reportDeliveryState === "stored_only" ? (
+                    <p className="mt-2 text-xs text-amber-200">Report saved, but support email forwarding is not configured yet.</p>
+                  ) : null}
+                  {reportSent && reportDeliveryState === "delivery_failed" ? (
+                    <p className="mt-2 text-xs text-amber-200">Report saved, but the support email did not send successfully.</p>
+                  ) : null}
                   {!user?.full_name || !user.email ? (
                     <p className="mt-2 text-xs text-amber-200">You need a signed-in account email to send a report.</p>
                   ) : null}
@@ -400,6 +419,7 @@ function LiveStage({
                         setShowReportForm(false);
                         setReportError(null);
                         setReportSent(false);
+                        setReportDeliveryState(null);
                       }}
                     >
                       Close

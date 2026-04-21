@@ -386,7 +386,7 @@ export default function DiscoverPage() {
 
   return (
     <div className="animate-fade-in">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 pb-8 pt-4 md:px-8 md:pb-10 md:pt-7">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 pb-8 pt-4 md:px-8 md:pb-10 md:pt-7 lg:gap-6">
         <section className="overflow-hidden rounded-[30px] border border-brand-border bg-white shadow-card lg:hidden md:rounded-[34px]">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
             <div className="px-5 py-6 md:px-7 md:py-8">
@@ -461,7 +461,7 @@ export default function DiscoverPage() {
 
               <div className="grid gap-4 px-6 py-6">
                 {spotlightCreators.slice(0, 2).map((creator, index) => (
-                  <div key={creator.id} style={{ animationDelay: `${index * 40}ms` }} className="animate-card-enter">
+                  <div key={creator.id} style={{ animationDelay: `${index * 40}ms` }} className="h-full animate-card-enter">
                     <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
                   </div>
                 ))}
@@ -471,35 +471,35 @@ export default function DiscoverPage() {
         </section>
 
         <section className="hidden lg:block">
-          <div className="rounded-[34px] border border-brand-border bg-white px-8 py-8 shadow-card">
-            <div className="flex items-start justify-between gap-8">
-              <div className="max-w-[420px]">
+          <div className="rounded-[32px] border border-brand-border bg-white px-7 py-6 shadow-card xl:px-8 xl:py-7">
+            <div className="flex items-start justify-between gap-6 xl:gap-8">
+              <div className="max-w-[340px] xl:max-w-[380px]">
                 <p className="text-label text-brand-primary">Friendsly</p>
-                <h1 className="mt-3 text-[4rem] font-serif font-normal leading-[0.92] tracking-tight text-brand-ink">
+                <h1 className="mt-2.5 text-[3rem] font-serif font-normal leading-[0.95] tracking-tight text-brand-ink xl:text-[3.35rem]">
                   Discover
                 </h1>
               </div>
 
-              <div className="w-full max-w-[520px]">
+              <div className="w-full max-w-[430px] xl:max-w-[460px]">
                 <div className="relative ml-auto">
-                  <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-brand-ink-subtle" />
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-brand-ink-subtle" />
                   <input
                     type="search"
                     placeholder="Search creators..."
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    className="h-16 w-full rounded-full border border-brand-border bg-white pl-14 pr-6 text-xl text-brand-ink placeholder:text-brand-ink-subtle transition-colors focus:border-brand-primary/50 focus:outline-none focus:ring-2 focus:ring-brand-primary/15"
+                    className="h-12 w-full rounded-full border border-brand-border bg-white pl-11 pr-5 text-base text-brand-ink placeholder:text-brand-ink-subtle transition-colors focus:border-brand-primary/50 focus:outline-none focus:ring-2 focus:ring-brand-primary/15 xl:h-13 xl:text-[1.05rem]"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="mt-7 flex flex-wrap gap-4">
+            <div className="mt-5 flex max-w-[1120px] flex-wrap gap-2.5 xl:mt-6 xl:gap-3">
               {CATEGORIES.map((category) => (
                 <button
                   key={category}
                   onClick={() => setActiveCategory(category)}
-                  className={`rounded-full border px-9 py-4 text-[1.05rem] font-semibold transition-all duration-150 ${
+                  className={`rounded-full border px-5 py-2.5 text-sm font-semibold transition-all duration-150 xl:px-6 xl:py-3 ${
                     activeCategory === category
                       ? "border-brand-primary bg-brand-primary text-white shadow-nav-active"
                       : "border-brand-border bg-white text-brand-ink-muted hover:border-brand-primary/35 hover:text-brand-ink"
@@ -580,7 +580,7 @@ export default function DiscoverPage() {
           ) : (
             <div className="grid grid-cols-3 gap-6">
               {spotlightCreators.map((creator, index) => (
-                <div key={creator.id} style={{ animationDelay: `${index * 35}ms` }} className="animate-card-enter">
+                <div key={creator.id} style={{ animationDelay: `${index * 35}ms` }} className="h-full animate-card-enter">
                   <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
                 </div>
               ))}
@@ -644,7 +644,7 @@ export default function DiscoverPage() {
           ) : (
             <div className="grid grid-cols-3 gap-6 xl:grid-cols-4">
               {otherCreators.map((creator, index) => (
-                <div key={creator.id} style={{ animationDelay: `${index * 25}ms` }} className="animate-card-enter">
+                <div key={creator.id} style={{ animationDelay: `${index * 25}ms` }} className="h-full animate-card-enter">
                   <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
                 </div>
               ))}

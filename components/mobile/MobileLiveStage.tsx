@@ -156,6 +156,7 @@ function MobileLiveInner({
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportSent, setReportSent] = useState(false);
+  const [reportDeliveryState, setReportDeliveryState] = useState<"sent" | "stored_only" | "delivery_failed" | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<
     { id: string; senderName: string; message: string; isMe: boolean }[]
@@ -200,6 +201,7 @@ function MobileLiveInner({
       setReportDescription("");
       setReportError(null);
       setReportSent(false);
+      setReportDeliveryState(null);
     }
     if (isAdmitted) void applyMedia(true, true);
     else if (daily) { try { daily.setLocalAudio(false); daily.setLocalVideo(false); } catch {} }
@@ -267,6 +269,7 @@ function MobileLiveInner({
 
     setReportSubmitting(true);
     setReportError(null);
+    setReportDeliveryState(null);
 
     try {
       const response = await fetch("/api/support", {
@@ -285,6 +288,13 @@ function MobileLiveInner({
       }
 
       setReportSent(true);
+      setReportDeliveryState(
+        data.emailNotificationConfigured === false
+          ? "stored_only"
+          : data.emailNotificationSent === false
+          ? "delivery_failed"
+          : "sent"
+      );
       setReportDescription("");
     } catch (error) {
       setReportError(error instanceof Error ? error.message : "Could not send report.");
@@ -333,6 +343,7 @@ function MobileLiveInner({
                 setShowReportForm((current) => !current);
                 setReportError(null);
                 setReportSent(false);
+                setReportDeliveryState(null);
               }}
               className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white/15 px-3 text-xs font-semibold text-white transition-all active:scale-95"
               aria-label="Report live call"
@@ -364,7 +375,15 @@ function MobileLiveInner({
             className="mt-3 w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-white/25"
           />
           {reportError ? <p className="mt-2 text-xs text-red-200">{reportError}</p> : null}
-          {reportSent ? <p className="mt-2 text-xs text-emerald-200">Report sent. Our team will review it.</p> : null}
+          {reportSent && reportDeliveryState === "sent" ? (
+            <p className="mt-2 text-xs text-emerald-200">Report sent and forwarded to support.</p>
+          ) : null}
+          {reportSent && reportDeliveryState === "stored_only" ? (
+            <p className="mt-2 text-xs text-amber-200">Report saved, but support email forwarding is not configured yet.</p>
+          ) : null}
+          {reportSent && reportDeliveryState === "delivery_failed" ? (
+            <p className="mt-2 text-xs text-amber-200">Report saved, but the support email did not send successfully.</p>
+          ) : null}
           {!user?.full_name || !user.email ? (
             <p className="mt-2 text-xs text-amber-200">You need a signed-in account email to send a report.</p>
           ) : null}
@@ -374,6 +393,7 @@ function MobileLiveInner({
                 setShowReportForm(false);
                 setReportError(null);
                 setReportSent(false);
+                setReportDeliveryState(null);
               }}
               className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white transition-all active:scale-95"
             >
