@@ -471,11 +471,11 @@ export default function DiscoverPage() {
         </section>
 
         <section className="hidden lg:block">
-          <div className="rounded-[32px] border border-brand-border bg-white px-7 py-6 shadow-card xl:px-8 xl:py-7">
+          <div className="rounded-[28px] border border-brand-border bg-white px-5 py-4 shadow-card xl:px-6 xl:py-5">
             <div className="flex items-start justify-between gap-6 xl:gap-8">
-              <div className="max-w-[340px] xl:max-w-[380px]">
+              <div className="max-w-[240px] xl:max-w-[280px]">
                 <p className="text-label text-brand-primary">Friendsly</p>
-                <h1 className="mt-2.5 text-[3rem] font-serif font-normal leading-[0.95] tracking-tight text-brand-ink xl:text-[3.35rem]">
+                <h1 className="mt-1 text-[2rem] font-serif font-normal leading-[0.95] tracking-tight text-brand-ink xl:text-[2.25rem]">
                   Discover
                 </h1>
               </div>
@@ -494,7 +494,7 @@ export default function DiscoverPage() {
               </div>
             </div>
 
-            <div className="mt-5 flex max-w-[1120px] flex-wrap gap-2.5 xl:mt-6 xl:gap-3">
+            <div className="mt-4 flex max-w-[1120px] flex-wrap gap-2 xl:mt-4 xl:gap-2.5">
               {CATEGORIES.map((category) => (
                 <button
                   key={category}
@@ -552,33 +552,31 @@ export default function DiscoverPage() {
           )}
         </section>
 
-        <section className="hidden lg:block space-y-5">
+        <section className="hidden lg:block space-y-4">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <h2 className="text-[2.1rem] font-serif font-normal leading-tight text-brand-ink">
-                {liveCreators.length > 0 ? "Live Now! Stop in have 1 on 1 conversations" : "Trending creators"}
+              <h2 className="text-[1.6rem] font-serif font-normal leading-tight text-brand-ink">
+                {liveCreators.length > 0 ? "Live Now" : "Trending Creators"}
               </h2>
               <p className="mt-1 text-sm text-brand-ink-muted">
                 {liveCreators.length > 0
-                  ? "These creators are live right now and ready for quick access."
-                  : "No one is live right this second, so we are showing the closest matches from your current filters."}
+                  ? "These creators are streaming live right now."
+                  : "No one is live right now — showing trending creators instead."}
               </p>
             </div>
             <div className="flex items-center gap-2 rounded-full border border-brand-border bg-white px-3 py-1.5 text-xs text-brand-ink-subtle">
               <Users className="h-3.5 w-3.5" />
-              <span>{liveCreators.length > 0 ? `${liveCreators.length} live creators` : `${filtered.length} available creators`}</span>
+              <span>{liveCreators.length > 0 ? `${liveCreators.length} live` : `${filtered.length} creators`}</span>
             </div>
           </div>
 
           {spotlightCreators.length === 0 ? (
             <div className="rounded-[28px] border border-brand-border bg-white p-10 text-center shadow-xs-light">
               <p className="text-base font-semibold text-brand-ink">No creators found</p>
-              <p className="mt-2 text-sm text-brand-ink-subtle">
-                Try adjusting your search or filters to surface more creators.
-              </p>
+              <p className="mt-2 text-sm text-brand-ink-subtle">Try adjusting your search or filters.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-3 gap-5 xl:grid-cols-4">
               {spotlightCreators.map((creator, index) => (
                 <div key={creator.id} style={{ animationDelay: `${index * 35}ms` }} className="h-full animate-card-enter">
                   <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
@@ -594,7 +592,7 @@ export default function DiscoverPage() {
               Other Creators
             </h2>
             <p className="mt-1 text-sm text-brand-ink-muted">
-              Browse more creators, save the ones you want to revisit, and keep booking from the same existing actions.
+              Browse and book a session with any creator.
             </p>
           </div>
 
@@ -622,14 +620,11 @@ export default function DiscoverPage() {
           )}
         </section>
 
-        <section className="hidden lg:block space-y-5">
+        <section className="hidden lg:block space-y-4">
           <div>
-            <h2 className="text-[2rem] font-serif font-normal leading-tight text-brand-ink">
-              Other Creators
+            <h2 className="text-[1.6rem] font-serif font-normal leading-tight text-brand-ink">
+              More Creators
             </h2>
-            <p className="mt-1 text-sm text-brand-ink-muted">
-              Browse more creators, save the ones you want to revisit, and keep booking from the same existing actions.
-            </p>
           </div>
 
           {otherCreators.length === 0 ? (
@@ -637,12 +632,12 @@ export default function DiscoverPage() {
               <p className="text-base font-semibold text-brand-ink">Nothing else to show yet</p>
               <p className="mt-2 text-sm text-brand-ink-subtle">
                 {search || activeCategory !== "All"
-                  ? "Your current filters are narrow, so try broadening them."
-                  : "More creators will appear here as they complete setup."}
+                  ? "Try broadening your filters."
+                  : "More creators will appear here as they join."}
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-6 xl:grid-cols-4">
+            <div className="grid grid-cols-3 gap-5 xl:grid-cols-4">
               {otherCreators.map((creator, index) => (
                 <div key={creator.id} style={{ animationDelay: `${index * 25}ms` }} className="h-full animate-card-enter">
                   <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />

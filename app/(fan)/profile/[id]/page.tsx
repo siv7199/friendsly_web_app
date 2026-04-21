@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
-  Star, Users, Video, Clock, ArrowLeft,
+  Star, Video, Clock, ArrowLeft, X,
   CheckCircle2, Zap, Calendar,
-  TrendingUp, Shield, ChevronLeft, ChevronRight, Send, Loader2, ExternalLink, Instagram, Music2,
+  ChevronLeft, ChevronRight, Send, Loader2, ExternalLink, Instagram, Music2,
 } from "lucide-react";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -581,19 +582,287 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
   return (
     <>
-      <div className="px-4 md:px-8 py-3 max-w-4xl mx-auto space-y-3">
-        {/* ── Back ── */}
-        <Link
-          href="/discover"
-          className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors"
-        >
+      {/* ─────────────────── MOBILE LAYOUT ─────────────────── */}
+      <div className="md:hidden min-h-screen bg-white flex flex-col">
+        {/* Sticky mobile header */}
+        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-sm border-b border-brand-border">
+          <Link
+            href="/discover"
+            className="flex items-center justify-center w-9 h-9 rounded-full text-brand-ink-muted hover:text-brand-ink transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <BrandLogo href="/" size="sm" theme="light" />
+          <Link
+            href="/discover"
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-900 text-white shrink-0"
+          >
+            <X className="w-5 h-5" />
+          </Link>
+        </div>
+
+        {/* Scrollable body */}
+        <div className={cn("flex-1", hasPackages && "pb-24")}>
+          {/* Hero image */}
+          <div className="relative mx-4 mt-4 aspect-square rounded-2xl overflow-hidden">
+            {creator.avatarUrl ? (
+              <img src={creator.avatarUrl} alt={creator.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className={cn("w-full h-full flex items-center justify-center", creator.avatarColor ?? "bg-[#4a4878]")}>
+                <span className="text-8xl font-bold text-white/70">{creator.avatarInitials}</span>
+              </div>
+            )}
+            {creator.isLive && (
+              <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-live text-white text-xs font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                LIVE
+              </div>
+            )}
+          </div>
+
+          {/* Creator info */}
+          <div className="px-4 pt-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl font-bold text-brand-ink leading-tight">{creator.name}</h1>
+                {hasPackages && (
+                  <p className="text-sm text-brand-ink-muted mt-0.5">
+                    {formatCurrency(creator.callPrice)} &bull; Session
+                  </p>
+                )}
+                <p className="text-xs text-brand-ink-subtle mt-0.5">{creator.username}</p>
+              </div>
+              {creator.rating > 0 && (
+                <div className="flex items-center gap-0.5 shrink-0 pt-0.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Star
+                      key={n}
+                      className={cn(
+                        "w-3.5 h-3.5",
+                        n <= Math.round(creator.rating) ? "fill-brand-gold text-brand-gold" : "text-brand-border"
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Price pills */}
+            <div className="flex flex-wrap gap-2 mt-2.5">
+              {hasLiveRate && (
+                <span className="px-3 py-1.5 rounded-full border border-brand-border bg-brand-surface text-xs font-medium text-brand-ink">
+                  {formatCurrency(creator.liveJoinFee!)} / min
+                </span>
+              )}
+              {hasPackages && (
+                <span className="px-3 py-1.5 rounded-full border border-brand-border bg-brand-surface text-xs font-medium text-brand-ink">
+                  from {formatCurrency(creator.callPrice)} / session
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="mx-4 my-5 border-t border-brand-border" />
+
+          {/* Availability */}
+          <div className="px-4 mb-6">
+            <h2 className="text-base font-bold text-brand-ink mb-3">Availability</h2>
+
+            {activePackages.length > 1 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                <button
+                  onClick={() => setAvailabilityPackageId("all")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
+                    availabilityPackageId === "all"
+                      ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light"
+                      : "border-brand-border bg-brand-elevated text-brand-ink-subtle"
+                  )}
+                >
+                  All offerings
+                </button>
+                {activePackages.map((pkg) => (
+                  <button
+                    key={pkg.id}
+                    onClick={() => setAvailabilityPackageId(pkg.id)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
+                      availabilityPackageId === pkg.id
+                        ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light"
+                        : "border-brand-border bg-brand-elevated text-brand-ink-subtle"
+                    )}
+                  >
+                    {pkg.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <p className="text-xs text-brand-ink-subtle mb-3">
+              Times shown in your local {getTimeZoneAbbreviation(new Date(), viewerTimeZone)}
+            </p>
+
+            {filteredAvailability.length === 0 ? (
+              <p className="text-sm text-brand-ink-subtle py-4 text-center">No availability set yet.</p>
+            ) : (
+              <div className="grid grid-cols-7 gap-1.5">
+                {weekDates.map((date) => {
+                  const dow = date.getDay();
+                  const slots = availMap[localDateKey(date)] ?? [];
+                  const isToday = isSameDay(date, today);
+                  const isPast = date < today && !isToday;
+                  const hasSlots = slots.length > 0 && !isPast;
+                  return (
+                    <div
+                      key={date.toISOString()}
+                      className={cn(
+                        "rounded-xl p-2 text-center border",
+                        isToday
+                          ? "border-brand-primary/50 bg-brand-primary/10"
+                          : hasSlots
+                          ? "border-brand-border bg-brand-surface"
+                          : "border-brand-border bg-brand-elevated opacity-50"
+                      )}
+                    >
+                      <p className="text-[9px] uppercase text-brand-ink-subtle font-medium">{DAY_NAMES[dow]}</p>
+                      <p className={cn("text-sm font-bold mt-0.5", isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-ink" : "text-brand-ink-subtle")}>
+                        {date.getDate()}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Book a Session */}
+          {hasPackages && (
+            <div className="px-4 mb-6">
+              <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
+              <div className="space-y-3">
+                {activePackages.map((pkg) => (
+                  <div
+                    key={pkg.id}
+                    className="flex items-center justify-between p-4 rounded-2xl border border-brand-primary/20 bg-[rgba(133,117,201,0.06)] cursor-pointer active:bg-brand-primary/10 transition-colors"
+                    onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
+                  >
+                    <p className="font-bold text-brand-ink">{pkg.name}</p>
+                    <p className="font-bold text-brand-gold">{formatCurrency(pkg.price)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* About */}
+          {creator.bio && (
+            <div className="px-4 mb-6">
+              <h2 className="text-base font-bold text-brand-ink mb-2">About</h2>
+              <p className="text-sm text-brand-ink-muted leading-relaxed">{creator.bio}</p>
+            </div>
+          )}
+
+          {/* Reviews (mobile) */}
+          {(reviews.length > 0 || (isFan && !isOwnProfile)) && (
+            <div className="px-4 mb-6">
+              <h2 className="text-base font-bold text-brand-ink mb-3">
+                Reviews{creator.reviewCount > 0 ? ` (${creator.reviewCount})` : ""}
+              </h2>
+
+              {isFan && !isOwnProfile && canReview && (
+                <div className="rounded-2xl border border-brand-border bg-brand-surface p-4 mb-3">
+                  {reviewSubmitted ? (
+                    <div className="flex items-center gap-2 text-brand-live">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Thanks for your review!</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold text-brand-ink">Leave a review</p>
+                      {reviewError && (
+                        <div className="rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-2 text-sm text-amber-800">{reviewError}</div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button key={n} type="button" onMouseEnter={() => setReviewHover(n)} onMouseLeave={() => setReviewHover(0)} onClick={() => setReviewRating(n)} className="p-0.5">
+                            <Star className={cn("w-6 h-6", n <= (reviewHover || reviewRating) ? "fill-brand-gold text-brand-gold" : "text-brand-ink-subtle")} />
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value.slice(0, 500))}
+                        placeholder="How was your experience?"
+                        rows={3}
+                        className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-subtle resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-brand-ink-subtle">{reviewComment.length}/500</span>
+                        <Button variant="primary" size="sm" disabled={reviewRating === 0 || !reviewComment.trim() || submittingReview} onClick={handleSubmitReview} className="gap-1.5">
+                          {submittingReview ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...</> : <><Send className="w-3.5 h-3.5" /> Submit</>}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {reviews.map((review) => (
+                  <div key={review.id} className="rounded-2xl border border-brand-border bg-brand-surface p-4">
+                    <div className="flex items-start gap-3">
+                      <Avatar initials={review.initials} color={review.color} imageUrl={review.imageUrl} size="sm" />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-brand-ink">{review.fan}</p>
+                          <span className="text-xs text-brand-ink-subtle">{review.date}</span>
+                        </div>
+                        <div className="flex items-center gap-0.5 mt-0.5 mb-1">
+                          {Array.from({ length: review.rating }).map((_, i) => (
+                            <Star key={i} className="w-3 h-3 fill-brand-gold text-brand-gold" />
+                          ))}
+                        </div>
+                        <p className="text-xs text-brand-ink-muted leading-relaxed">{review.comment}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sticky bottom CTA */}
+        {hasPackages && (
+          <div className="fixed bottom-0 left-0 right-0 z-20 px-4 py-3 bg-white/95 backdrop-blur-sm border-t border-brand-border">
+            <Button variant="primary" size="lg" className="w-full" onClick={() => setShowBooking(true)}>
+              Book from {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
+            </Button>
+          </div>
+        )}
+        {creator.isLive && hasLiveRate && (
+          <div className={cn("fixed bottom-0 left-0 right-0 z-20 px-4 py-3 bg-white/95 backdrop-blur-sm border-t border-brand-border flex flex-col gap-2", hasPackages && "pb-20")}>
+            <Link href={`/waiting-room/${creator.id}`}>
+              <Button variant="live" size="lg" className="w-full gap-2">
+                <Zap className="w-4 h-4" />
+                Join Live · {formatCurrency(creator.liveJoinFee!)} / min
+              </Button>
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* ─────────────────── DESKTOP LAYOUT ─────────────────── */}
+      <div className="hidden md:block px-6 lg:px-8 py-6 max-w-5xl mx-auto space-y-5">
+        {/* Back */}
+        <Link href="/discover" className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors">
           <ArrowLeft className="w-4 h-4" />
           Back to Discover
         </Link>
 
-        {/* ── Profile Hero ── */}
-        <div className="rounded-2xl border border-brand-border bg-brand-surface p-4">
-          <div className="flex items-start gap-4">
+        {/* Profile Hero */}
+        <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
+          <div className="flex items-start gap-5">
             <Avatar
               initials={creator.avatarInitials}
               color={creator.avatarColor}
@@ -603,10 +872,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               className="shrink-0 border-2 border-brand-surface ring-1 ring-brand-border"
             />
             <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h1 className="text-xl font-serif font-normal text-brand-ink leading-tight">{creator.name}</h1>
-                  <p className="text-brand-ink-subtle text-xs mt-0.5">{creator.username}</p>
+                  <h1 className="text-2xl font-serif font-normal text-brand-ink leading-tight">{creator.name}</h1>
+                  <p className="text-brand-ink-subtle text-sm mt-0.5">{creator.username}</p>
                 </div>
                 {creator.isLive && (
                   <Badge variant="live" className="shrink-0">
@@ -617,41 +886,30 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               </div>
 
               {creator.rating > 0 && (
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <Star className="w-3.5 h-3.5 fill-brand-gold text-brand-gold" />
-                  <span className="font-bold text-sm text-brand-gold">{creator.rating}</span>
-                  <span className="text-xs text-brand-ink-subtle">({creator.reviewCount} reviews)</span>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <Star className="w-4 h-4 fill-brand-gold text-brand-gold" />
+                  <span className="font-bold text-brand-gold">{creator.rating}</span>
+                  <span className="text-sm text-brand-ink-subtle">({creator.reviewCount} reviews)</span>
                 </div>
               )}
 
               {creator.bio && (
-                <p className="mt-1.5 text-xs text-brand-ink-muted leading-relaxed line-clamp-2">{creator.bio}</p>
+                <p className="mt-2 text-sm text-brand-ink-muted leading-relaxed line-clamp-3">{creator.bio}</p>
               )}
 
-              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              <div className="flex flex-wrap items-center gap-2 mt-3">
                 {socialLinks.map(({ key, label, href, icon: Icon }) => (
-                  <a
-                    key={key}
-                    href={href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-brand-border bg-brand-elevated px-2.5 py-1 text-xs font-medium text-brand-ink-muted transition-colors hover:border-brand-primary/50 hover:text-brand-ink"
-                  >
+                  <a key={key} href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-brand-border bg-brand-elevated px-3 py-1.5 text-xs font-medium text-brand-ink-muted transition-colors hover:border-brand-primary/50 hover:text-brand-ink">
                     <Icon className="h-3 w-3" />
                     <span>{getSocialHandleLabel(href) || label}</span>
                   </a>
                 ))}
                 {creator.tags.slice(0, 3).map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-xs px-2.5 py-1 rounded-full bg-brand-elevated border border-brand-border text-brand-ink-subtle"
-                  >
-                    {tag}
-                  </span>
+                  <span key={tag} className="text-xs px-3 py-1.5 rounded-full bg-brand-elevated border border-brand-border text-brand-ink-subtle">{tag}</span>
                 ))}
               </div>
 
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="flex flex-wrap gap-2 mt-3">
                 {scheduledLiveCountdown && (
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-info/10 border border-brand-info/30">
                     <Calendar className="w-3.5 h-3.5 text-brand-info" />
@@ -678,37 +936,15 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {/* ── Mobile quick-action bar (above-fold, hidden on desktop) ── */}
-        {(hasPackages || (creator.isLive && hasLiveRate)) && (
-          <div className="md:hidden rounded-2xl border border-brand-border bg-brand-surface p-3.5 flex flex-col gap-2">
-            {hasPackages && (
-              <Button variant="gold" size="md" className="w-full gap-2" onClick={() => setShowBooking(true)}>
-                <Video className="w-4 h-4" />
-                Book from {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
-              </Button>
-            )}
-            {creator.isLive && hasLiveRate && (
-              <Link href={`/waiting-room/${creator.id}`}>
-                <Button variant="live" size="md" className="w-full gap-2">
-                  <Zap className="w-4 h-4" />
-                  Join Live · {formatCurrency(creator.liveJoinFee!)} / min
-                </Button>
-              </Link>
-            )}
-          </div>
-        )}
-
-        {/* ── Main Grid ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-
-          {/* ── Left: Sessions + Calendar ── */}
-          <div className="md:col-span-2 space-y-3">
-
-            {/* Available sessions */}
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-4">
-              <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
+        {/* Main Grid */}
+        <div className="grid grid-cols-3 gap-5">
+          {/* Left: Sessions + Calendar */}
+          <div className="col-span-2 space-y-5">
+            {/* Book a Session */}
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
+              <h2 className="text-base font-bold text-brand-ink mb-4">Book a Session</h2>
               {!hasPackages ? (
-                <div className="p-4 rounded-xl border border-brand-border bg-brand-elevated text-center py-8">
+                <div className="rounded-xl border border-brand-border bg-brand-elevated text-center py-8">
                   <p className="text-brand-ink-subtle text-sm">No booking packages available yet.</p>
                   <p className="text-brand-ink-subtle text-xs mt-1">Check back soon or watch their public live.</p>
                 </div>
@@ -718,19 +954,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     <div
                       key={pkg.id}
                       className="p-4 rounded-xl border border-brand-primary/30 bg-brand-primary/10 cursor-pointer hover:border-brand-primary/60 transition-colors"
-                      onClick={() => {
-                        setAvailabilityPackageId(pkg.id);
-                        setShowBooking(true);
-                      }}
+                      onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
                     >
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="font-bold text-brand-ink">{pkg.name}</p>
                           <p className="text-sm text-brand-ink-subtle mt-1">{pkg.description}</p>
                           <div className="flex items-center gap-3 mt-2 text-xs text-brand-ink-subtle">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />{pkg.duration} min
-                            </span>
+                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{pkg.duration} min</span>
                           </div>
                         </div>
                         <div className="text-right shrink-0 ml-4">
@@ -745,8 +976,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             </div>
 
             {/* Availability Calendar */}
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-4">
-              <div className="flex items-center justify-between mb-3">
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
+              <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-bold text-brand-ink flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-brand-primary-light" />
                   Availability
@@ -776,12 +1007,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 <div className="flex flex-wrap gap-2 mb-4">
                   <button
                     onClick={() => setAvailabilityPackageId("all")}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
-                      availabilityPackageId === "all"
-                        ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light"
-                        : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink"
-                    )}
+                    className={cn("px-3 py-1.5 rounded-full border text-xs font-medium transition-colors", availabilityPackageId === "all" ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light" : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink")}
                   >
                     All offerings
                   </button>
@@ -789,12 +1015,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     <button
                       key={pkg.id}
                       onClick={() => setAvailabilityPackageId(pkg.id)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
-                        availabilityPackageId === pkg.id
-                          ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light"
-                          : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink"
-                      )}
+                      className={cn("px-3 py-1.5 rounded-full border text-xs font-medium transition-colors", availabilityPackageId === pkg.id ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light" : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink")}
                     >
                       {pkg.name}
                     </button>
@@ -807,37 +1028,22 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               </p>
 
               {filteredAvailability.length === 0 ? (
-                <p className="text-sm text-brand-ink-subtle text-center py-6">
-                  No availability set for this offering yet.
-                </p>
+                <p className="text-sm text-brand-ink-subtle text-center py-6">No availability set for this offering yet.</p>
               ) : (
                 <div className="grid grid-cols-7 gap-1.5">
                   {weekDates.map((date) => {
-                    const dow        = date.getDay();
-                    const slots      = availMap[localDateKey(date)] ?? [];
-                    const isToday    = isSameDay(date, today);
-                    const isPast     = date < today && !isToday;
-                    const hasSlots   = slots.length > 0 && !isPast;
-
+                    const dow = date.getDay();
+                    const slots = availMap[localDateKey(date)] ?? [];
+                    const isToday = isSameDay(date, today);
+                    const isPast = date < today && !isToday;
+                    const hasSlots = slots.length > 0 && !isPast;
                     return (
                       <div
                         key={date.toISOString()}
-                        className={cn(
-                          "rounded-xl p-2 text-center border transition-all",
-                          isToday
-                            ? "border-brand-primary/50 bg-brand-primary/10"
-                            : hasSlots
-                            ? "border-brand-live/30 bg-brand-live/5"
-                            : "border-brand-border bg-brand-elevated opacity-50"
-                        )}
+                        className={cn("rounded-xl p-2 text-center border transition-all", isToday ? "border-brand-primary/50 bg-brand-primary/10" : hasSlots ? "border-brand-live/30 bg-brand-live/5" : "border-brand-border bg-brand-elevated opacity-50")}
                       >
-                        <p className="text-[10px] uppercase text-brand-ink-subtle font-medium">
-                          {DAY_NAMES[dow]}
-                        </p>
-                        <p className={cn(
-                          "text-base font-bold mt-0.5",
-                          isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-ink" : "text-brand-ink-subtle"
-                        )}>
+                        <p className="text-[10px] uppercase text-brand-ink-subtle font-medium">{DAY_NAMES[dow]}</p>
+                        <p className={cn("text-base font-bold mt-0.5", isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-ink" : "text-brand-ink-subtle")}>
                           {date.getDate()}
                         </p>
                         {hasSlots ? (
@@ -845,14 +1051,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                             {slots.slice(0, 2).map((s, i) => (
                               <p key={i} className="text-[9px] text-brand-live leading-tight">{s}</p>
                             ))}
-                            {slots.length > 2 && (
-                              <p className="text-[9px] text-brand-ink-subtle">+{slots.length - 2} more</p>
-                            )}
+                            {slots.length > 2 && <p className="text-[9px] text-brand-ink-subtle">+{slots.length - 2} more</p>}
                           </div>
                         ) : (
-                          <p className="text-[9px] text-brand-ink-subtle mt-1">
-                            {isPast ? "—" : "Off"}
-                          </p>
+                          <p className="text-[9px] text-brand-ink-subtle mt-1">{isPast ? "—" : "Off"}</p>
                         )}
                       </div>
                     );
@@ -862,45 +1064,32 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             </div>
           </div>
 
-          {/* ── Right: CTA + Trust Signals ── */}
-          <div className="space-y-3 md:sticky md:top-4 md:self-start">
-
-            {/* CTA Card */}
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-4 flex flex-col gap-3">
-              {/* Live queue CTA */}
+          {/* Right: CTA sidebar */}
+          <div className="space-y-4 sticky top-4 self-start">
+            <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 flex flex-col gap-4">
               {creator.isLive && hasLiveRate && (
                 <div className="p-3 rounded-xl bg-brand-live/10 border border-brand-live/30 text-center">
                   <div className="flex items-center justify-center gap-1.5 mb-1">
                     <span className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />
                     <span className="text-xs font-bold text-brand-live uppercase tracking-wider">Live Right Now</span>
                   </div>
-                  <p className="text-xl font-display font-bold text-brand-live">
-                    {formatCurrency(creator.liveJoinFee!)}
-                  </p>
-                  <p className="text-xs text-brand-ink-subtle">amount per minute</p>
+                  <p className="text-xl font-display font-bold text-brand-live">{formatCurrency(creator.liveJoinFee!)}</p>
+                  <p className="text-xs text-brand-ink-subtle">per minute</p>
                   <p className="text-[11px] text-brand-ink-subtle mt-1">
                     {creator.queueCount > 0 ? `${creator.queueCount} waiting` : "Watch now and request a turn"}
                   </p>
                 </div>
               )}
 
-              {/* Booking price */}
               {hasPackages && (
                 <div className="flex items-baseline gap-2">
-                  <p className="text-2xl font-display font-bold text-brand-ink">
-                    {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
-                  </p>
+                  <p className="text-2xl font-display font-bold text-brand-ink">{formatCurrency(Math.min(...activePackages.map((p) => p.price)))}</p>
                   <p className="text-xs text-brand-ink-subtle">per session</p>
                 </div>
               )}
 
-              {/* Trust items */}
               <div className="space-y-2 text-sm">
-                {[
-                  "Video call via Daily.co",
-                  "Instant booking confirmation",
-                  "Cancel up to 24h before",
-                ].map((item) => (
+                {["Video call via Daily.co", "Instant booking confirmation", "Cancel up to 24h before"].map((item) => (
                   <div key={item} className="flex items-center gap-2 text-brand-ink-subtle">
                     <CheckCircle2 className="w-4 h-4 text-brand-live shrink-0" />
                     <span>{item}</span>
@@ -909,14 +1098,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 {hasLiveRate && (
                   <div className="flex items-center gap-2 text-brand-ink-subtle">
                     <CheckCircle2 className="w-4 h-4 text-brand-live shrink-0" />
-                    <span>Live: free to watch, paid by the minute when you are on stage</span>
+                    <span>Live: free to watch, paid by the minute on stage</span>
                   </div>
                 )}
               </div>
 
-              {/* Action buttons */}
               <div className="space-y-3">
-                {/* 1. Book Button (desktop — already visible above fold on mobile) */}
                 {hasPackages ? (
                   <Button variant="gold" size="lg" className="w-full gap-2" onClick={() => setShowBooking(true)}>
                     <Video className="w-4 h-4" />
@@ -928,7 +1115,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   </Button>
                 )}
 
-                {/* 2. Watch Live Button */}
                 {creator.isLive && hasLiveRate ? (
                   <Link href={`/waiting-room/${creator.id}`}>
                     <Button variant="live" size="lg" className="w-full gap-2">
@@ -948,46 +1134,19 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 Next available: {creator.nextAvailable}
               </p>
             </div>
-
-            {false && (
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 space-y-3">
-              <h3 className="text-sm font-bold text-brand-ink-muted">Creator Stats</h3>
-              {[
-                { icon: TrendingUp, label: "Total calls", value: "0" },
-                { icon: Shield, label: "Verified creator", value: "✓" },
-              ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 text-brand-ink-subtle">
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{label}</span>
-                  </div>
-                  <span className="font-semibold text-brand-ink">{value}</span>
-                </div>
-              ))}
-            </div>
-            )}
           </div>
         </div>
 
-        {/* ── Reviews ── */}
+        {/* Reviews */}
         <section>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-brand-ink">
-              Reviews{" "}
-              <span className="text-brand-ink-subtle font-normal">({creator.reviewCount})</span>
+              Reviews <span className="text-brand-ink-subtle font-normal">({creator.reviewCount})</span>
             </h2>
             {creator.rating > 0 && (
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
-                  <Star
-                    key={n}
-                    className={cn(
-                      "w-4 h-4",
-                      n <= Math.round(creator.rating)
-                        ? "fill-brand-gold text-brand-gold"
-                        : "text-brand-ink-subtle"
-                    )}
-                  />
+                  <Star key={n} className={cn("w-4 h-4", n <= Math.round(creator.rating) ? "fill-brand-gold text-brand-gold" : "text-brand-ink-subtle")} />
                 ))}
                 <span className="ml-2 text-sm font-bold text-brand-gold">{creator.rating}</span>
               </div>
@@ -1002,7 +1161,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Review form — only for fans viewing someone else's profile */}
               {isFan && !isOwnProfile && canReview && (
                 <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
                   {reviewSubmitted ? (
@@ -1014,38 +1172,16 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     <div className="space-y-3">
                       <p className="text-sm font-semibold text-brand-ink">Leave a review</p>
                       {reviewError && (
-                        <div className="rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                          {reviewError}
-                        </div>
+                        <div className="rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-2 text-sm text-amber-800">{reviewError}</div>
                       )}
-                      {/* Star rating */}
                       <div className="flex items-center gap-1">
                         {[1, 2, 3, 4, 5].map((n) => (
-                          <button
-                            key={n}
-                            type="button"
-                            onMouseEnter={() => setReviewHover(n)}
-                            onMouseLeave={() => setReviewHover(0)}
-                            onClick={() => setReviewRating(n)}
-                            className="p-0.5 transition-transform hover:scale-110"
-                          >
-                            <Star
-                              className={cn(
-                                "w-6 h-6 transition-colors",
-                                n <= (reviewHover || reviewRating)
-                                  ? "fill-brand-gold text-brand-gold"
-                                  : "text-brand-ink-subtle hover:text-brand-ink-subtle"
-                              )}
-                            />
+                          <button key={n} type="button" onMouseEnter={() => setReviewHover(n)} onMouseLeave={() => setReviewHover(0)} onClick={() => setReviewRating(n)} className="p-0.5 transition-transform hover:scale-110">
+                            <Star className={cn("w-6 h-6 transition-colors", n <= (reviewHover || reviewRating) ? "fill-brand-gold text-brand-gold" : "text-brand-ink-subtle")} />
                           </button>
                         ))}
-                        {reviewRating > 0 && (
-                          <span className="ml-2 text-sm text-brand-gold font-semibold">
-                            {reviewRating}/5
-                          </span>
-                        )}
+                        {reviewRating > 0 && <span className="ml-2 text-sm text-brand-gold font-semibold">{reviewRating}/5</span>}
                       </div>
-                      {/* Comment */}
                       <textarea
                         value={reviewComment}
                         onChange={(e) => setReviewComment(e.target.value.slice(0, 500))}
@@ -1055,18 +1191,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       />
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-brand-ink-subtle">{reviewComment.length}/500</span>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          disabled={reviewRating === 0 || !reviewComment.trim() || submittingReview}
-                          onClick={handleSubmitReview}
-                          className="gap-1.5"
-                        >
-                          {submittingReview ? (
-                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...</>
-                          ) : (
-                            <><Send className="w-3.5 h-3.5" /> Submit Review</>
-                          )}
+                        <Button variant="primary" size="sm" disabled={reviewRating === 0 || !reviewComment.trim() || submittingReview} onClick={handleSubmitReview} className="gap-1.5">
+                          {submittingReview ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...</> : <><Send className="w-3.5 h-3.5" /> Submit Review</>}
                         </Button>
                       </div>
                     </div>
@@ -1077,13 +1203,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               {isFan && !isOwnProfile && !canReview && !reviewSubmitted && (
                 <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
                   <p className="text-sm font-semibold text-brand-ink">Reviews unlocked after completed sessions</p>
-                  <p className="mt-1 text-sm text-brand-ink-subtle">
-                    You can leave one review for each completed booking that you have not already reviewed.
-                  </p>
+                  <p className="mt-1 text-sm text-brand-ink-subtle">You can leave one review for each completed booking that you have not already reviewed.</p>
                 </div>
               )}
 
-              {/* Review list */}
               {reviews.length === 0 && (
                 <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 text-center">
                   <Star className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
@@ -1091,6 +1214,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <p className="text-brand-ink-subtle text-sm mt-1">Be the first to leave a review!</p>
                 </div>
               )}
+
               {reviews.map((review) => (
                 <div key={review.id} className="rounded-2xl border border-brand-border bg-brand-surface p-5">
                   <div className="flex items-start gap-3">
@@ -1115,14 +1239,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         </section>
       </div>
 
-        <BookingModal
-          creator={creator}
-          open={showBooking}
-          onClose={() => setShowBooking(false)}
-          packages={activePackages}
-          availability={availability}
-          initialPackageId={availabilityPackageId === "all" ? undefined : availabilityPackageId}
-        />
+      <BookingModal
+        creator={creator}
+        open={showBooking}
+        onClose={() => setShowBooking(false)}
+        packages={activePackages}
+        availability={availability}
+        initialPackageId={availabilityPackageId === "all" ? undefined : availabilityPackageId}
+      />
     </>
   );
 }

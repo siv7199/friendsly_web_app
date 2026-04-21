@@ -106,26 +106,26 @@ export default function AuthPage() {
         <div className="absolute inset-0 bg-[#0c0c18]/65" />
       </div>
 
-      <div className="relative z-10 w-full max-w-3xl animate-slide-up">
-        <div className="overflow-hidden rounded-[36px] border border-white/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,246,255,0.96))] px-5 py-6 shadow-[0_28px_90px_rgba(12,12,24,0.22)] backdrop-blur-sm md:px-8 md:py-8">
-          <div className="mx-auto w-full max-w-xl">
-            <div className="mb-8 text-center animate-fade-in">
-              <div className="flex flex-col items-center gap-3 rounded-[28px] border border-[rgba(133,117,201,0.18)] bg-[rgba(248,246,255,0.9)] px-6 py-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                <BrandLogo href="/" size="md" theme="light" />
-                <p className="max-w-[28ch] text-sm leading-6 text-brand-ink-muted md:text-base">
+      <div className="relative z-10 w-full max-w-sm animate-slide-up">
+        <div className="overflow-hidden rounded-[28px] border border-white/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,246,255,0.96))] px-4 py-4 shadow-[0_28px_90px_rgba(12,12,24,0.22)] backdrop-blur-sm md:px-5 md:py-5">
+          <div className="mx-auto w-full">
+            <div className="mb-4 text-center animate-fade-in">
+              <div className="flex flex-col items-center gap-2 rounded-[20px] border border-[rgba(133,117,201,0.18)] bg-[rgba(248,246,255,0.9)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                <BrandLogo href="/" size="sm" theme="light" />
+                <p className="max-w-[28ch] text-xs leading-5 text-brand-ink-muted">
                   Real 1-on-1 connections with the creators you love.
                 </p>
               </div>
             </div>
 
-            <div className="rounded-[30px] border border-[rgba(133,117,201,0.18)] bg-white px-4 py-4 shadow-[0_18px_50px_rgba(55,33,110,0.12)] md:px-6 md:py-6">
-              <div className="mb-5 flex rounded-[22px] border border-brand-border bg-brand-surface p-1 shadow-sm">
+            <div className="rounded-[22px] border border-[rgba(133,117,201,0.18)] bg-white px-3 py-3 shadow-[0_18px_50px_rgba(55,33,110,0.12)] md:px-4 md:py-4">
+              <div className="mb-4 flex rounded-[16px] border border-brand-border bg-brand-surface p-1 shadow-sm">
                 {(["signin", "signup"] as Tab[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
                     className={cn(
-                      "flex-1 rounded-[18px] py-3 text-base font-semibold transition-all duration-150",
+                      "flex-1 rounded-[13px] py-2 text-sm font-semibold transition-all duration-150",
                       tab === t
                         ? "bg-[rgba(175,163,234,0.34)] text-brand-primary-deep shadow-sm"
                         : "text-brand-ink-muted hover:text-brand-ink"
@@ -137,7 +137,7 @@ export default function AuthPage() {
               </div>
 
               {tab === "signin" && (
-                <form onSubmit={handleSignIn} className="space-y-4 px-2 pb-2">
+                <form onSubmit={handleSignIn} className="space-y-3 px-1 pb-1">
                   <Input
                     label="Email"
                     type="email"
@@ -232,14 +232,14 @@ export default function AuthPage() {
                     </p>
                   )}
 
-                  <Button type="submit" variant="primary" size="lg" className="w-full" disabled={isLoading || !siEmail || !siPassword}>
+                  <Button type="submit" variant="primary" size="sm" className="w-full" disabled={isLoading || !siEmail || !siPassword}>
                     {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Signing in...</> : "Sign In"}
                   </Button>
                 </form>
               )}
 
               {tab === "signup" && (
-                <form onSubmit={handleSignUp} className="space-y-4 px-2 pb-2">
+                <form onSubmit={handleSignUp} className="space-y-3 px-1 pb-1">
                   <Input
                     label="Full Name"
                     type="text"
@@ -323,7 +323,7 @@ export default function AuthPage() {
                   <Button
                     type="submit"
                     variant="primary"
-                    size="lg"
+                    size="sm"
                     className="w-full"
                     disabled={isLoading || !suName || !suEmail || !suPassword || !agreedToTerms || !confirmedAge}
                   >
@@ -331,7 +331,7 @@ export default function AuthPage() {
                   </Button>
 
                   <Link href="/onboarding/creator-request" className="block">
-                    <Button type="button" variant="outline" size="lg" className="w-full">
+                    <Button type="button" variant="outline" size="sm" className="w-full">
                       Apply as Creator Instead
                     </Button>
                   </Link>

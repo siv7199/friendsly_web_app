@@ -238,8 +238,8 @@ function LiveVideoStage({
   }, [currentFan?.admittedDailySessionId, currentFan?.fanId, daily]);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-4 xl:h-full xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1.5fr)_340px]">
-      <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0">
+    <div className="grid w-full grid-cols-1 gap-4 xl:h-full xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0">
         {audibleSessionIds.map((sessionId) => (
           <DailyAudioTrack key={sessionId} sessionId={sessionId} />
         ))}
@@ -270,14 +270,14 @@ function LiveVideoStage({
         </div>
 
         <div className={cn(
-          "grid items-stretch gap-4 xl:flex-1 xl:min-h-0",
+          "grid items-stretch gap-3 flex-1 min-h-0",
           showActiveFanStage
             ? "grid-rows-[minmax(280px,40vh)_minmax(280px,40vh)] lg:grid-rows-1 lg:grid-cols-2"
-            : "grid-cols-1 auto-rows-fr"
+            : "grid-cols-1"
         )}>
           <div className={cn(
-            "relative h-full rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center",
-            showActiveFanStage ? "min-h-[280px] lg:min-h-0" : "min-h-[320px] lg:min-h-0"
+            "relative h-full rounded-[20px] bg-[#0f0f1a] overflow-hidden flex items-center justify-center",
+            showActiveFanStage ? "min-h-[280px] lg:min-h-0" : "min-h-[340px] lg:min-h-0"
           )}>
             {localSessionId && camOn ? (
               <div className="daily-stage-video w-full h-full relative overflow-hidden">
@@ -307,7 +307,7 @@ function LiveVideoStage({
           </div>
 
           {showActiveFanStage ? (
-            <div className="relative h-full min-h-[280px] lg:min-h-0 rounded-[24px] border border-brand-border bg-brand-elevated overflow-hidden">
+            <div className="relative h-full min-h-[280px] lg:min-h-0 rounded-[20px] bg-[#0f0f1a] overflow-hidden">
               {fanSessionId && fanVideoActive ? (
                 <div className="daily-stage-video w-full h-full relative overflow-hidden">
                   <DailyVideo sessionId={fanSessionId} type="video" className="w-full h-full object-cover z-10" />
@@ -342,7 +342,7 @@ function LiveVideoStage({
 
       </div>
 
-      <div className="min-h-[420px] rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0">
+      <div className="min-h-[420px] rounded-[28px] border border-brand-border bg-brand-surface p-3 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0 xl:min-h-0">
         {/* Queue strip at top of chat column */}
         <div className="rounded-[20px] border border-brand-border bg-brand-elevated p-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2 mb-2">
@@ -839,12 +839,12 @@ export function LiveConsole() {
   if (loadingRate) return <div className="h-full flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-brand-primary border-t-transparent animate-spin" /></div>;
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-4 overflow-hidden">
+    <div className="h-full min-h-0 w-full flex flex-col gap-4 overflow-hidden">
       {sessionState === "idle" ? (
-        <div className="flex-1 min-h-0 grid grid-cols-1 gap-4 xl:h-full xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1.5fr)_340px]">
+        <div className="flex-1 min-h-0 grid grid-cols-1 gap-4 xl:h-full xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1fr)_360px]">
           {/* Left — full-height camera preview */}
           <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 xl:h-full xl:min-h-0 overflow-hidden">
-            <div className="relative flex-1 min-h-[320px] xl:min-h-0 rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center">
+            <div className="relative flex-1 min-h-[320px] xl:min-h-0 rounded-[20px] bg-[#0f0f1a] overflow-hidden flex items-center justify-center">
               {camOn
                 ? <video ref={previewVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full object-cover" />
                 : <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="xl" />}
@@ -860,7 +860,7 @@ export function LiveConsole() {
             </div>
           </div>
           {/* Right — schedule + start */}
-          <div className="rounded-[28px] border border-brand-border bg-brand-surface p-4 flex flex-col gap-4 overflow-y-auto">
+          <div className="rounded-[28px] border border-brand-border bg-brand-surface p-5 flex flex-col gap-5 overflow-y-auto xl:h-full xl:min-h-0">
             <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4 text-left">
               <div className="flex items-center gap-2 text-brand-ink mb-3">
                 <CalendarClock className="w-4 h-4 text-brand-primary" />
@@ -906,7 +906,7 @@ export function LiveConsole() {
           onJoin={handleCreatorJoined}
           onLeave={handleCreatorLeft}
         >
-          <div className="h-full min-h-0">
+          <div className="h-full min-h-0 w-full flex-1">
             <LiveVideoStage
               queue={queue}
               chatPanel={(
