@@ -77,9 +77,13 @@ export default function AuthPage() {
       </div>
 
       {/* Logo + tagline */}
-      <div className="relative z-10 text-center mb-8 animate-fade-in flex flex-col items-center gap-3">
-        <BrandLogo href="/" size="md" theme="light" />
-        <p className="text-brand-ink-muted text-sm mt-1">Real 1-on-1 connections with the creators you love.</p>
+      <div className="relative z-10 mb-8 animate-fade-in">
+        <div className="rounded-[28px] border border-white/80 bg-white/92 px-8 py-5 text-center shadow-[0_20px_60px_rgba(12,12,24,0.18)] backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3">
+            <BrandLogo href="/" size="md" theme="light" />
+            <p className="mt-1 text-sm text-brand-ink-muted">Real 1-on-1 connections with the creators you love.</p>
+          </div>
+        </div>
       </div>
 
       {/* Auth card */}
