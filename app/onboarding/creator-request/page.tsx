@@ -7,6 +7,7 @@ import { Loader2, Mail, Phone, Sparkles, User, CheckCircle2, Link2, Lock, Instag
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { readJsonResponse } from "@/lib/http";
 import { createClient } from "@/lib/supabase/client";
 
 export default function CreatorRequestPage() {
@@ -89,10 +90,10 @@ export default function CreatorRequestPage() {
         }),
       });
 
-      const data = await response.json();
+      const data = await readJsonResponse<{ error?: string; emailNotificationConfigured?: boolean }>(response);
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Could not submit creator request.");
+        throw new Error(data?.error ?? "Could not submit creator request.");
       }
 
       if (!user) {
@@ -100,7 +101,7 @@ export default function CreatorRequestPage() {
       }
 
       setSubmitted(true);
-      setEmailConfigured(Boolean(data.emailNotificationConfigured));
+      setEmailConfigured(Boolean(data?.emailNotificationConfigured));
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Could not submit creator request.");
     } finally {

@@ -12,6 +12,7 @@ import { Calendar, Clock, MessageSquare, CheckCircle2, Loader2, ChevronLeft, Che
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { readJsonResponse } from "@/lib/http";
 import type { Creator, CallPackage } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -293,10 +294,10 @@ export function BookingModal({
         paymentIntentId,
       }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse<{ error?: string }>(res);
 
     if (!res.ok) {
-      throw new Error(data.error ?? "Could not create booking.");
+      throw new Error(data?.error ?? "Could not create booking.");
     }
 
     setStep("success");
@@ -334,9 +335,9 @@ export function BookingModal({
 
     setLoadingSavedPaymentMethods(true);
     fetch("/api/payment-methods")
-      .then((r) => r.json())
+      .then((r) => readJsonResponse<{ paymentMethods?: SavedPaymentMethod[] }>(r))
       .then((data) => {
-        const methods = data.paymentMethods ?? [];
+        const methods = data?.paymentMethods ?? [];
         setSavedPaymentMethods(methods);
         setSelectedPaymentMethodId(methods[0]?.id ?? null);
       })
@@ -353,10 +354,10 @@ export function BookingModal({
     setLoadingExistingBookings(true);
 
     fetch(`/api/bookings/availability?creatorId=${creator.id}`)
-      .then((response) => response.json())
+      .then((response) => readJsonResponse<{ bookings?: { scheduledAt: string; duration: number }[] }>(response))
       .then((data) => {
         setExistingBookingWindows(
-          ((data.bookings ?? []) as { scheduledAt: string; duration: number }[]).map((booking) => ({
+          ((data?.bookings ?? []) as { scheduledAt: string; duration: number }[]).map((booking) => ({
             scheduledAt: booking.scheduledAt,
             duration: Number(booking.duration ?? 0),
           }))
@@ -389,10 +390,10 @@ export function BookingModal({
         saveForFuture: saveNewCard,
       }),
     })
-      .then((r) => r.json())
+      .then((r) => readJsonResponse<{ clientSecret?: string; error?: string }>(r))
       .then((data) => {
-        if (data.clientSecret) setClientSecret(data.clientSecret);
-        else setPayError(data.error ?? "Could not initialise payment.");
+        if (data?.clientSecret) setClientSecret(data.clientSecret);
+        else setPayError(data?.error ?? "Could not initialise payment.");
       })
       .catch(() => setPayError("Network error. Please try again."))
       .finally(() => setFetchingIntent(false));
@@ -415,10 +416,10 @@ export function BookingModal({
           paymentMethodId: selectedPaymentMethodId,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse<{ paymentIntentId?: string; error?: string }>(res);
 
-      if (!res.ok || !data.paymentIntentId) {
-        throw new Error(data.error ?? "Could not charge saved payment method.");
+      if (!res.ok || !data?.paymentIntentId) {
+        throw new Error(data?.error ?? "Could not charge saved payment method.");
       }
 
       await handlePaymentSuccess(data.paymentIntentId);

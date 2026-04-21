@@ -11,6 +11,7 @@ import { PublicLiveRoom } from "@/components/fan/PublicLiveRoom";
 import { LiveJoinModal } from "@/components/fan/LiveJoinModal";
 import type { QueueEntry } from "@/types";
 import { Button } from "@/components/ui/button";
+import { readJsonResponse } from "@/lib/http";
 import { LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds, getLiveStageRemainingSeconds } from "@/lib/live";
 import { getCreatorProfilePath, parseLiveRouteParam, isUuidLike } from "@/lib/routes";
 
@@ -205,8 +206,8 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
         userName: user.id,
       }),
     })
-      .then((response) => response.json())
-      .then((data) => setToken(data.token ?? null))
+      .then((response) => readJsonResponse<{ token?: string }>(response))
+      .then((data) => setToken(data?.token ?? null))
       .catch(() => setToken(null));
   }, [liveSessionId, roomUrl, user, Boolean(myActiveEntry)]);
 
@@ -241,7 +242,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
           dailySessionId,
         }),
       });
-      const data = await response.json();
+      const data = await readJsonResponse<{ admittedAt?: string }>(response);
       if (response.ok) {
         setReportedDailySessionId(dailySessionId);
         if (data?.admittedAt) {

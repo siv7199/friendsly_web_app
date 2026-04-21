@@ -15,6 +15,7 @@ import { BookingModal } from "@/components/fan/BookingModal";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import type { Creator, CallPackage } from "@/types";
+import { readJsonResponse } from "@/lib/http";
 import { formatCurrency, cn } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import {
@@ -81,6 +82,10 @@ function getWeekDates(offset = 0): Date[] {
 
 function isSameDay(a: Date, b: Date) {
   return a.toDateString() === b.toDateString();
+}
+
+function formatShortDate(date: Date) {
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
 interface AvailabilitySlot {
@@ -377,7 +382,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
     if (user?.role === "fan" && user.id !== creator.id) {
       fetch(`/api/reviews?creatorId=${encodeURIComponent(creator.id)}`)
-        .then((res) => res.json())
+        .then((res) => readJsonResponse<{ canReview?: boolean }>(res))
         .then((data) => {
           setCanReview(Boolean(data?.canReview));
         })
@@ -482,19 +487,21 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         comment: reviewComment.trim(),
       }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse<{ review?: { id: string; created_at?: string }; error?: string }>(res);
 
-    if (res.ok && data.review) {
+    const review = data?.review;
+
+    if (res.ok && review) {
       setReviews((prev) => [
         {
-          id: data.review.id,
+          id: review.id,
           fan: user.full_name ?? "You",
           initials: user.avatar_initials ?? "?",
           color: user.avatar_color ?? "bg-violet-600",
           imageUrl: user.avatar_url ?? undefined,
           rating: reviewRating,
           comment: reviewComment.trim(),
-          date: new Date(data.review.created_at ?? Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          date: new Date(review.created_at ?? Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         },
         ...prev,
       ]);
@@ -675,6 +682,20 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </span>
               )}
             </div>
+
+            {hasPackages && (
+              <div className="mt-3">
+                <Button
+                  variant="gold"
+                  size="lg"
+                  className="w-full gap-2 rounded-2xl shadow-[0_16px_34px_rgba(178,132,39,0.18)]"
+                  onClick={() => setShowBooking(true)}
+                >
+                  <Calendar className="w-4 h-4" />
+                  Book from {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="mx-4 my-5 border-t border-brand-border" />
@@ -728,14 +749,25 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   const isPast = date < today && !isToday;
                   const hasSlots = slots.length > 0 && !isPast;
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={date.toISOString()}
+                      onClick={() => {
+                        if (!hasSlots) return;
+                        setShowBooking(true);
+                      }}
+                      disabled={!hasSlots}
+                      aria-label={
+                        hasSlots
+                          ? `Book ${creator.name} on ${formatShortDate(date)}`
+                          : `${formatShortDate(date)} has no availability`
+                      }
                       className={cn(
-                        "rounded-xl p-2 text-center border",
+                        "rounded-xl p-2 text-center border transition-colors",
                         isToday
                           ? "border-brand-primary/50 bg-brand-primary/10"
                           : hasSlots
-                          ? "border-brand-border bg-brand-surface"
+                          ? "border-brand-primary/25 bg-brand-surface active:bg-brand-primary/10"
                           : "border-brand-border bg-brand-elevated opacity-50"
                       )}
                     >
@@ -743,7 +775,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       <p className={cn("text-sm font-bold mt-0.5", isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-ink" : "text-brand-ink-subtle")}>
                         {date.getDate()}
                       </p>
-                    </div>
+                    </button>
                   );
                 })}
               </div>

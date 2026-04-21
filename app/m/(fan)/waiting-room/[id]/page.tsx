@@ -13,6 +13,7 @@ import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { LiveJoinModal } from "@/components/fan/LiveJoinModal";
 import { MobilePublicLiveRoom } from "@/components/mobile/MobileLiveStage";
+import { readJsonResponse } from "@/lib/http";
 import { LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds, getLiveStageRemainingSeconds } from "@/lib/live";
 import { getCreatorProfilePath, isUuidLike, parseLiveRouteParam } from "@/lib/routes";
 import type { QueueEntry } from "@/types";
@@ -195,8 +196,8 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ roomName: roomUrl.split("/").pop(), isOwner: false, userName: user.id }),
     })
-      .then((r) => r.json())
-      .then((d) => setToken(d.token ?? null))
+      .then((r) => readJsonResponse<{ token?: string }>(r))
+      .then((d) => setToken(d?.token ?? null))
       .catch(() => setToken(null));
   }, [liveSessionId, roomUrl, user, Boolean(myActiveEntry)]);
 
@@ -222,7 +223,7 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: liveSessionId, dailySessionId }),
       });
-      const data = await response.json();
+      const data = await readJsonResponse<{ admittedAt?: string }>(response);
       if (response.ok) {
         setReportedDailySessionId(dailySessionId);
         if (data?.admittedAt) setActiveFanAdmittedAt(data.admittedAt);

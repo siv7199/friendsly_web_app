@@ -6,6 +6,7 @@ import { Calendar, Clock, Loader2, Lock, UserPlus, Video, XCircle } from "lucide
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { readJsonResponse } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
 import { RefundPolicyModal } from "@/components/shared/RefundPolicyModal";
 import { getTimeZoneAbbreviation } from "@/lib/timezones";
@@ -58,11 +59,11 @@ export default function BookingAccessPage() {
       const response = await fetch(`/api/public/booking-access/${rawToken}`, {
         cache: "no-store",
       });
-      const data = await response.json();
+      const data = await readJsonResponse<(AccessPayload & { error?: string })>(response);
       if (!response.ok) {
-        throw new Error(data.error ?? "Could not load booking.");
+        throw new Error(data?.error ?? "Could not load booking.");
       }
-      setPayload(data);
+      if (data) setPayload(data);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load booking.");
     } finally {
@@ -84,12 +85,12 @@ export default function BookingAccessPage() {
         const response = await fetch(`/api/public/booking-access/${rawToken}`, {
           cache: "no-store",
         });
-        const data = await response.json();
+        const data = await readJsonResponse<(AccessPayload & { error?: string })>(response);
         if (!response.ok) {
-          throw new Error(data.error ?? "Could not load booking.");
+          throw new Error(data?.error ?? "Could not load booking.");
         }
         if (!cancelled) {
-          setPayload(data);
+          if (data) setPayload(data);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -143,9 +144,9 @@ export default function BookingAccessPage() {
       const response = await fetch(`/api/public/booking-access/${rawToken}/cancel`, {
         method: "POST",
       });
-      const data = await response.json();
+      const data = await readJsonResponse<{ error?: string }>(response);
       if (!response.ok) {
-        throw new Error(data.error ?? "Could not cancel booking.");
+        throw new Error(data?.error ?? "Could not cancel booking.");
       }
 
       setPayload((current) =>
@@ -174,13 +175,13 @@ export default function BookingAccessPage() {
       const response = await fetch(`/api/public/booking-access/${rawToken}/claim`, {
         method: "POST",
       });
-      const data = await response.json();
+      const data = await readJsonResponse<{ error?: string; bookingId?: string }>(response);
       if (!response.ok) {
-        throw new Error(data.error ?? "Could not claim booking.");
+        throw new Error(data?.error ?? "Could not claim booking.");
       }
 
       if (booking.canJoinNow) {
-        router.push(`/room/${data.bookingId}`);
+        router.push(`/room/${data?.bookingId}`);
         return;
       }
 

@@ -11,6 +11,7 @@ import { CallContainer } from "@/components/video/CallContainer";
 import { LateFeeGate } from "@/components/booking/LateFeeGate";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { readJsonResponse } from "@/lib/http";
 import { cn } from "@/lib/utils";
 import { getBookingWindow } from "@/lib/bookings";
 
@@ -407,16 +408,23 @@ export default function RoomPage() {
       method: "POST",
       signal,
     });
-    const data = await res.json();
+    const data = await readJsonResponse<{
+      error?: string;
+      requiresLateFee?: boolean;
+      lateFeeAmount?: number;
+      url?: string;
+      token?: string;
+      isCreator?: boolean;
+    }>(res);
 
-    if (!res.ok || data.error) {
-      if (data.requiresLateFee) {
+    if (!res.ok || data?.error) {
+      if (data?.requiresLateFee) {
         setLateFeeAmount(Number(data.lateFeeAmount ?? 0));
         setError(null);
         setLoading(false);
         return;
       }
-      setError(data.error ?? "Failed to connect to the video room.");
+      setError(data?.error ?? "Failed to connect to the video room.");
       setLoading(false);
       return;
     }
@@ -424,9 +432,9 @@ export default function RoomPage() {
     setLateFeeAmount(null);
     setError(null);
     setRejoining(false);
-    setRoomUrl(data.url);
-    setToken(data.token);
-    setIsCreator(Boolean(data.isCreator));
+    setRoomUrl(data?.url ?? "");
+    setToken(data?.token ?? "");
+    setIsCreator(Boolean(data?.isCreator));
     setLoading(false);
     await loadBooking(bookingId);
   }, [bookingId, loadBooking]);
@@ -623,9 +631,9 @@ export default function RoomPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ mode: "create" }),
             });
-            const data = await response.json();
-            if (!response.ok || !data.clientSecret) {
-              throw new Error(data.error ?? "Could not initialise the late fee payment.");
+            const data = await readJsonResponse<{ clientSecret?: string; error?: string }>(response);
+            if (!response.ok || !data?.clientSecret) {
+              throw new Error(data?.error ?? "Could not initialise the late fee payment.");
             }
             return { clientSecret: data.clientSecret as string };
           }}
@@ -635,9 +643,9 @@ export default function RoomPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ mode: "confirm", paymentIntentId }),
             });
-            const data = await response.json();
+            const data = await readJsonResponse<{ error?: string }>(response);
             if (!response.ok) {
-              throw new Error(data.error ?? "Could not confirm the late fee payment.");
+              throw new Error(data?.error ?? "Could not confirm the late fee payment.");
             }
             setLoading(true);
             await initCall();

@@ -22,6 +22,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { readJsonResponse } from "@/lib/http";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getAvailableStartTimesForViewerDate, getBrowserTimeZone, getTimeZoneAbbreviation } from "@/lib/timezones";
 import { RefundPolicyModal } from "@/components/shared/RefundPolicyModal";
@@ -277,10 +278,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         const creatorRes = await fetch(`/api/public/creators/${encodeURIComponent(creatorSlug)}`, {
           cache: "no-store",
         });
-        const creatorData = await creatorRes.json();
+        const creatorData = await readJsonResponse<{ creator?: CreatorPayload }>(creatorRes);
         if (!creatorRes.ok || cancelled) return;
+        if (!creatorData?.creator) return;
 
-        setCreator((current) => current ? { ...current, ...creatorData.creator } : creatorData.creator);
+        setCreator((current) => current ? { ...current, ...creatorData.creator } : creatorData.creator ?? null);
       } catch {
         // Ignore lightweight live-status refresh failures and preserve the page state.
       }
@@ -315,9 +317,17 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         const creatorRes = await fetch(`/api/public/creators/${encodeURIComponent(creatorSlug)}`, {
           cache: "no-store",
         });
-        const creatorData = await creatorRes.json();
+        const creatorData = await readJsonResponse<{
+          creator?: CreatorPayload;
+          packages?: PackagePayload[];
+          availability?: AvailabilitySlot[];
+          error?: string;
+        }>(creatorRes);
         if (!creatorRes.ok) {
-          throw new Error(creatorData.error ?? "Could not load creator.");
+          throw new Error(creatorData?.error ?? "Could not load creator.");
+        }
+        if (!creatorData?.creator) {
+          throw new Error("Could not load creator.");
         }
 
         if (cancelled) return;
@@ -330,9 +340,9 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
           `/api/public/bookings/availability?creatorId=${encodeURIComponent(creatorData.creator.id)}`,
           { cache: "no-store" }
         );
-        const bookedData = await bookedRes.json();
+        const bookedData = await readJsonResponse<{ bookings?: ExistingBookingWindow[] }>(bookedRes);
         if (!cancelled && bookedRes.ok) {
-          setExistingBookingWindows((bookedData.bookings ?? []) as ExistingBookingWindow[]);
+          setExistingBookingWindows((bookedData?.bookings ?? []) as ExistingBookingWindow[]);
         }
       } catch (error) {
         if (!cancelled) {
@@ -433,9 +443,9 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         paymentIntentId,
       }),
     });
-    const data = await response.json();
+    const data = await readJsonResponse<{ error?: string }>(response);
     if (!response.ok) {
-      throw new Error(data.error ?? "Could not create booking.");
+      throw new Error(data?.error ?? "Could not create booking.");
     }
 
     window.sessionStorage.removeItem(draftKey);
@@ -536,9 +546,9 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
             saveForFuture: false,
           }),
         });
-        const data = await response.json();
-        if (!response.ok || !data.clientSecret) {
-          throw new Error(data.error ?? "Could not initialise payment.");
+        const data = await readJsonResponse<{ clientSecret?: string; error?: string }>(response);
+        if (!response.ok || !data?.clientSecret) {
+          throw new Error(data?.error ?? "Could not initialise payment.");
         }
         if (!cancelled) setClientSecret(data.clientSecret);
       } catch (error) {

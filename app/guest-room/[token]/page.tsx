@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { LateFeeGate } from "@/components/booking/LateFeeGate";
+import { readJsonResponse } from "@/lib/http";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
@@ -199,28 +200,34 @@ export default function GuestRoomPage() {
           fetch(`/api/public/booking-access/${rawToken}/join`, { method: "POST" }),
         ]);
 
-        const accessData = await accessRes.json();
+        const accessData = await readJsonResponse<(AccessPayload & { error?: string })>(accessRes);
         if (!accessRes.ok) {
-          throw new Error(accessData.error ?? "Could not load booking.");
+          throw new Error(accessData?.error ?? "Could not load booking.");
         }
 
-        const joinData = await joinRes.json();
+        const joinData = await readJsonResponse<{
+          url?: string;
+          token?: string;
+          error?: string;
+          requiresLateFee?: boolean;
+          lateFeeAmount?: number;
+        }>(joinRes);
         if (!joinRes.ok) {
-          if (joinData.requiresLateFee) {
+          if (joinData?.requiresLateFee) {
             if (!cancelled) {
-              setAccessPayload(accessData);
+              setAccessPayload(accessData ?? null);
               setLateFeeAmount(Number(joinData.lateFeeAmount ?? 0));
             }
             return;
           }
-          throw new Error(joinData.error ?? "Could not join room.");
+          throw new Error(joinData?.error ?? "Could not join room.");
         }
 
-        if (!cancelled) {
+        if (!cancelled && accessData) {
           setLateFeeAmount(null);
           setAccessPayload(accessData);
-          setRoomUrl(joinData.url);
-          setToken(joinData.token);
+          setRoomUrl(joinData?.url ?? "");
+          setToken(joinData?.token ?? "");
         }
       } catch (joinError) {
         if (!cancelled) {
@@ -288,9 +295,9 @@ export default function GuestRoomPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ mode: "create" }),
             });
-            const data = await response.json();
-            if (!response.ok || !data.clientSecret) {
-              throw new Error(data.error ?? "Could not initialise the late fee payment.");
+            const data = await readJsonResponse<{ clientSecret?: string; error?: string }>(response);
+            if (!response.ok || !data?.clientSecret) {
+              throw new Error(data?.error ?? "Could not initialise the late fee payment.");
             }
             return { clientSecret: data.clientSecret as string };
           }}
@@ -300,9 +307,9 @@ export default function GuestRoomPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ mode: "confirm", paymentIntentId }),
             });
-            const data = await response.json();
+            const data = await readJsonResponse<{ error?: string }>(response);
             if (!response.ok) {
-              throw new Error(data.error ?? "Could not confirm the late fee payment.");
+              throw new Error(data?.error ?? "Could not confirm the late fee payment.");
             }
             setLoading(true);
             setError("");

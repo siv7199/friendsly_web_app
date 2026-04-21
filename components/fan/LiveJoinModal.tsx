@@ -9,6 +9,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import type { Creator } from "@/types";
+import { readJsonResponse } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
@@ -132,8 +133,8 @@ export function LiveJoinModal({
     setLoadingSavedPaymentMethods(true);
     try {
       const res = await fetch("/api/payment-methods");
-      const data = await res.json();
-      const methods = data.paymentMethods ?? [];
+      const data = await readJsonResponse<{ paymentMethods?: SavedPaymentMethod[] }>(res);
+      const methods = data?.paymentMethods ?? [];
       setSavedPaymentMethods(methods);
       setSelectedPaymentMethodId(methods[0]?.id ?? null);
     } catch {
@@ -212,14 +213,14 @@ export function LiveJoinModal({
         saveForFuture: saveNewCard,
       }),
     })
-      .then((response) => response.json())
+      .then((response) => readJsonResponse<{ clientSecret?: string; paymentIntentId?: string; error?: string }>(response))
       .then((data) => {
-        if (data.clientSecret) {
+        if (data?.clientSecret) {
           setClientSecret(data.clientSecret);
           setPaymentIntentId(data.paymentIntentId ?? null);
           return;
         }
-        setPayError(data.error ?? "Could not initialise payment.");
+        setPayError(data?.error ?? "Could not initialise payment.");
       })
       .catch(() => setPayError("Network error. Please try again."))
       .finally(() => setFetchingIntent(false));
@@ -256,9 +257,9 @@ export function LiveJoinModal({
         paymentIntentId: intentId,
       }),
     });
-    const data = await response.json();
+    const data = await readJsonResponse<{ error?: string }>(response);
     if (!response.ok) {
-      throw new Error(data.error ?? "Could not join the live queue.");
+      throw new Error(data?.error ?? "Could not join the live queue.");
     }
 
     setStep("success");
@@ -284,9 +285,9 @@ export function LiveJoinModal({
           paymentMethodId: selectedPaymentMethodId,
         }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.paymentIntentId) {
-        throw new Error(data.error ?? "Could not charge the saved card.");
+      const data = await readJsonResponse<{ paymentIntentId?: string; error?: string }>(res);
+      if (!res.ok || !data?.paymentIntentId) {
+        throw new Error(data?.error ?? "Could not charge the saved card.");
       }
       await finishQueueJoin(data.paymentIntentId);
     } catch (error) {

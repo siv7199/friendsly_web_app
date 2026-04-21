@@ -5,6 +5,7 @@ import { CreditCard, DollarSign, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { readJsonResponse } from "@/lib/http";
 import { cn, formatCurrency } from "@/lib/utils";
 import { isCreatorProfile } from "@/types";
 
@@ -73,15 +74,20 @@ export default function EarningsPage() {
       setPayoutError(null);
       try {
         const res = await fetch("/api/creator-payouts/status");
-        const data = await res.json();
+        const data = await readJsonResponse<{
+          earnings?: EarningsState;
+          payouts?: any[];
+          account?: StripeConnectState;
+          error?: string;
+        }>(res);
 
         if (!res.ok) {
-          throw new Error(data.error ?? "Could not load payout data.");
+          throw new Error(data?.error ?? "Could not load payout data.");
         }
 
-        setEarnings(data.earnings ?? EMPTY_EARNINGS);
-        setPayouts(data.payouts ?? []);
-        setConnectState(data.account ?? EMPTY_CONNECT_STATE);
+        setEarnings(data?.earnings ?? EMPTY_EARNINGS);
+        setPayouts(data?.payouts ?? []);
+        setConnectState(data?.account ?? EMPTY_CONNECT_STATE);
       } catch (error) {
         setPayoutError(error instanceof Error ? error.message : "Could not load payout data.");
       } finally {
@@ -106,18 +112,18 @@ export default function EarningsPage() {
 
     try {
       const res = await fetch("/api/creator-payouts/onboarding", { method: "POST" });
-      const data = await res.json();
+      const data = await readJsonResponse<{ url?: string; account?: StripeConnectState; error?: string }>(res);
 
       if (!res.ok) {
-        throw new Error(data.error ?? "Could not start Stripe onboarding.");
+        throw new Error(data?.error ?? "Could not start Stripe onboarding.");
       }
 
-      if (data.url) {
+      if (data?.url) {
         window.location.href = data.url;
         return;
       }
 
-      setConnectState(data.account ?? EMPTY_CONNECT_STATE);
+      setConnectState(data?.account ?? EMPTY_CONNECT_STATE);
       setNotice("Stripe payouts are already connected.");
     } catch (error) {
       setPayoutError(error instanceof Error ? error.message : "Could not start Stripe onboarding.");
@@ -132,13 +138,15 @@ export default function EarningsPage() {
 
     try {
       const res = await fetch("/api/creator-payouts/dashboard", { method: "POST" });
-      const data = await res.json();
+      const data = await readJsonResponse<{ url?: string; error?: string }>(res);
 
       if (!res.ok) {
-        throw new Error(data.error ?? "Could not open Stripe dashboard.");
+        throw new Error(data?.error ?? "Could not open Stripe dashboard.");
       }
 
-      window.open(data.url, "_blank", "noopener,noreferrer");
+      if (data?.url) {
+        window.open(data.url, "_blank", "noopener,noreferrer");
+      }
     } catch (error) {
       setPayoutError(error instanceof Error ? error.message : "Could not open Stripe dashboard.");
     } finally {
@@ -158,21 +166,27 @@ export default function EarningsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: earnings.withdrawable }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse<{ payout?: any; error?: string }>(res);
 
       if (!res.ok) {
-        throw new Error(data.error ?? "Could not send payout.");
+        throw new Error(data?.error ?? "Could not send payout.");
       }
 
-      setPayouts((prev) => [data.payout, ...prev.filter((item) => item.id !== data.payout?.id)]);
+      if (data?.payout) {
+        setPayouts((prev) => [data.payout, ...prev.filter((item) => item.id !== data.payout?.id)]);
+      }
       setNotice("Withdrawal submitted to Stripe.");
 
       const statusRes = await fetch("/api/creator-payouts/status");
-      const statusData = await statusRes.json();
+      const statusData = await readJsonResponse<{
+        earnings?: EarningsState;
+        payouts?: any[];
+        account?: StripeConnectState;
+      }>(statusRes);
       if (statusRes.ok) {
-        setEarnings(statusData.earnings ?? EMPTY_EARNINGS);
-        setPayouts(statusData.payouts ?? []);
-        setConnectState(statusData.account ?? EMPTY_CONNECT_STATE);
+        setEarnings(statusData?.earnings ?? EMPTY_EARNINGS);
+        setPayouts(statusData?.payouts ?? []);
+        setConnectState(statusData?.account ?? EMPTY_CONNECT_STATE);
       }
     } catch (error) {
       setPayoutError(error instanceof Error ? error.message : "Could not send payout.");

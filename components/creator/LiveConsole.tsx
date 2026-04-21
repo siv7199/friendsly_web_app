@@ -10,6 +10,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { WaitingRoom } from "@/components/fan/WaitingRoom";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { readJsonResponse } from "@/lib/http";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { CallContainer } from "@/components/video/CallContainer";
@@ -530,8 +531,8 @@ export function LiveConsole() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ roomName: existingSession.daily_room_url.split("/").pop(), isOwner: true, userName: currentUser.id }),
             });
-            const tokenData = await tokenRes.json();
-            if (tokenData.token) setToken(tokenData.token);
+            const tokenData = await readJsonResponse<{ token?: string }>(tokenRes);
+            if (tokenData?.token) setToken(tokenData.token);
           } catch {}
           setSessionState("live");
         } else if (existingSession) {
@@ -689,8 +690,8 @@ export function LiveConsole() {
     }
     try {
       const res = await fetch("/api/daily/room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: user.id }) });
-      const data = await res.json();
-      if (data.url && data.token) {
+      const data = await readJsonResponse<{ url?: string; token?: string }>(res);
+      if (data?.url && data?.token) {
         const supabase = createClient();
 
         await supabase
