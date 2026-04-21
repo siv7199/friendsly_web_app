@@ -3,11 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
-  Star, Video, Clock, ArrowLeft, X,
+  Star, Video, Clock, ArrowLeft,
   CheckCircle2, Zap, Calendar,
   ChevronLeft, ChevronRight, Send, Loader2, ExternalLink, Instagram, Music2,
 } from "lucide-react";
-import { BrandLogo } from "@/components/shared/BrandLogo";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { BookingModal } from "@/components/fan/BookingModal";
@@ -680,26 +679,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     <>
       {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ MOBILE LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="app-safe-screen md:hidden bg-white flex flex-col">
-        {/* Sticky mobile header */}
-        <div
-          className="sticky top-0 z-20 flex items-center justify-between border-b border-brand-border bg-white/95 px-4 pb-3 backdrop-blur-sm"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
-        >
-          <Link
-            href="/discover"
-            className="flex items-center justify-center w-9 h-9 rounded-full text-brand-ink-muted hover:text-brand-ink transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <BrandLogo href="/" size="sm" theme="light" />
-          <Link
-            href="/discover"
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-900 text-white shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </Link>
-        </div>
-
         {/* Scrollable body */}
         <div className={cn("flex-1", (hasPackages || (creator.isLive && hasLiveRate)) && "pb-32")}>
           {/* Hero image */}
@@ -761,17 +740,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            {hasPackages && (
-              <div className="mt-3">
-                <Button
-                  variant="gold"
-                  size="lg"
-                  className="w-full gap-2 rounded-2xl shadow-[0_16px_34px_rgba(178,132,39,0.18)]"
-                  onClick={() => setShowBooking(true)}
-                >
-                  <Calendar className="w-4 h-4" />
-                  See times
-                </Button>
+            {creator.bio && (
+              <div className="mt-4 border-t border-brand-border pt-4">
+                <h2 className="mb-2 text-base font-bold text-brand-ink">About</h2>
+                <p className="text-sm leading-relaxed text-brand-ink-muted">{creator.bio}</p>
               </div>
             )}
           </div>
@@ -899,6 +871,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   </div>
                 ))}
               </div>
+              <Button variant="primary" size="lg" className="mt-4 w-full" onClick={() => setShowBooking(true)}>
+                See times
+              </Button>
             </div>
           )}
 
@@ -933,14 +908,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   </Button>
                 </Link>
               )}
-            </div>
-          )}
-
-          {/* About */}
-          {creator.bio && (
-            <div className="px-4 mb-6">
-              <h2 className="text-base font-bold text-brand-ink mb-2">About</h2>
-              <p className="text-sm text-brand-ink-muted leading-relaxed">{creator.bio}</p>
             </div>
           )}
 

@@ -14,7 +14,10 @@ export function MobileAccountBar() {
   }
 
   return (
-    <div className="sticky top-0 z-30 border-b border-brand-border/70 bg-white/95 px-4 py-3 backdrop-blur md:hidden">
+    <div
+      className="sticky top-0 z-40 border-b border-brand-border/70 bg-white/95 px-4 pb-3 backdrop-blur supports-[backdrop-filter]:bg-white/85"
+      style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+    >
       <div className="mx-auto flex max-w-6xl items-center gap-3">
         <Avatar
           initials={user?.avatar_initials ?? "?"}

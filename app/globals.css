@@ -7,6 +7,7 @@
   --scrollbar-track: #EDE9F8;
   --scrollbar-thumb: #C8C2E0;
   --scrollbar-thumb-hover: #6C5CE7;
+  --site-account-bar-offset: calc(env(safe-area-inset-top) + 4.75rem);
 }
 
 /* ── Base ────────────────────────────────────────────────────────────── */
