@@ -166,6 +166,7 @@ interface BookingModalProps {
   packages?: CallPackage[];
   availability?: AvailabilitySlot[];
   initialPackageId?: string;
+  initialDate?: Date | null;
 }
 
 export function BookingModal({
@@ -175,6 +176,7 @@ export function BookingModal({
   packages = [],
   availability = [],
   initialPackageId,
+  initialDate,
 }: BookingModalProps) {
   const { user } = useAuthContext();
   const [step, setStep] = useState<Step>("select");
@@ -313,17 +315,26 @@ export function BookingModal({
         : null;
       setStep(initialPackage ? "select" : packages.length > 1 ? "package" : "select");
       setSelectedPackage(initialPackage);
-      setSelectedDate(null);
+      setSelectedDate(initialDate ?? null);
       setSelectedTime(null);
       setTopic("");
-      setWeekOffset(0);
+      if (initialDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const target = new Date(initialDate);
+        target.setHours(0, 0, 0, 0);
+        const daysFromToday = Math.round((target.getTime() - today.getTime()) / 86400000);
+        setWeekOffset(Math.max(0, Math.min(3, Math.floor(daysFromToday / 7))));
+      } else {
+        setWeekOffset(0);
+      }
       setClientSecret(null);
       setPayError("");
       setIsSubmitting(false);
       setSelectedPaymentMethodId(null);
       setSaveNewCard(false);
     }
-  }, [open, packages, initialPackageId]);
+  }, [open, packages, initialPackageId, initialDate]);
 
   useEffect(() => {
     setSelectedDate(null);

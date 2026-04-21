@@ -275,8 +275,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
 
   const [showBooking, setShowBooking] = useState(false);
+  const [bookingInitialDate, setBookingInitialDate] = useState<Date | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [availabilityPackageId, setAvailabilityPackageId] = useState<string>("all");
+
+  function openBooking(date?: Date) {
+    setBookingInitialDate(date ?? null);
+    setShowBooking(true);
+  }
 
   // Review form state
   const [reviewRating, setReviewRating] = useState(0);
@@ -753,7 +759,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       key={date.toISOString()}
                       onClick={() => {
                         if (!hasSlots) return;
-                        setShowBooking(true);
+                        openBooking(date);
                       }}
                       disabled={!hasSlots}
                       aria-label={
@@ -1178,9 +1184,27 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     const isPast = date < today && !isToday;
                     const hasSlots = slots.length > 0 && !isPast;
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={date.toISOString()}
-                        className={cn("rounded-xl border p-2 text-center transition-all", isToday ? "border-brand-primary/50 bg-brand-primary/10" : hasSlots ? "border-brand-live/30 bg-brand-live/5" : "border-brand-border bg-brand-elevated opacity-50")}
+                        onClick={() => {
+                          if (!hasSlots) return;
+                          openBooking(date);
+                        }}
+                        disabled={!hasSlots}
+                        aria-label={
+                          hasSlots
+                            ? `Book ${creator.name} on ${formatShortDate(date)}`
+                            : `${formatShortDate(date)} has no availability`
+                        }
+                        className={cn(
+                          "rounded-xl border p-2 text-center transition-all",
+                          isToday
+                            ? "border-brand-primary/50 bg-brand-primary/10 hover:border-brand-primary"
+                            : hasSlots
+                            ? "border-brand-live/30 bg-brand-live/5 hover:border-brand-live/60 hover:bg-brand-live/10 cursor-pointer"
+                            : "border-brand-border bg-brand-elevated opacity-50 cursor-not-allowed"
+                        )}
                       >
                         <p className="text-[10px] font-medium uppercase text-brand-ink-subtle">{DAY_NAMES[dow]}</p>
                         <p className={cn("mt-0.5 text-base font-bold", isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-ink" : "text-brand-ink-subtle")}>
@@ -1196,159 +1220,126 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         ) : (
                           <p className="mt-1 text-[9px] text-brand-ink-subtle">{isPast ? "—" : "Off"}</p>
                         )}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
               )}
             </div>
 
-            {/* What to expect card */}
-            <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card">
-              <h2 className="text-xl font-serif font-normal text-brand-ink">What to expect</h2>
-              <div className="mt-4 rounded-2xl bg-brand-elevated p-4">
-                <p className="text-sm font-bold text-brand-ink">
-                  {hasPackages ? `${activePackages[0]?.duration ?? 15} minute session` : "Live-first conversations"}
-                </p>
-                <ul className="mt-3 space-y-2 text-sm text-brand-ink-muted">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-live" />
-                    <span>Video call via Daily.co — no downloads</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-live" />
-                    <span>Instant booking confirmation</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-live" />
-                    <span>Cancel up to 24h before for a full refund</span>
-                  </li>
-                  {hasLiveRate && (
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-live" />
-                      <span>Live: free to watch, paid by the minute on stage</span>
-                    </li>
-                  )}
-                </ul>
+            {/* Reviews */}
+            <section className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-brand-ink">
+                  Reviews <span className="text-brand-ink-subtle font-normal">({creator.reviewCount})</span>
+                </h2>
+                {creator.rating > 0 && (
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Star key={n} className={cn("w-4 h-4", n <= Math.round(creator.rating) ? "fill-brand-gold text-brand-gold" : "text-brand-ink-subtle")} />
+                    ))}
+                    <span className="ml-2 text-sm font-bold text-brand-gold">{creator.rating}</span>
+                  </div>
+                )}
               </div>
-              {hasPackages && (
-                <p className="mt-3 text-center text-[11px] text-brand-ink-subtle">
-                  Next available: {creator.nextAvailable}
-                </p>
+
+              {reviews.length === 0 && !isFan ? (
+                <div className="rounded-2xl border border-brand-border bg-brand-elevated p-8 text-center">
+                  <Star className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
+                  <p className="text-brand-ink-subtle">No reviews yet.</p>
+                  <p className="text-brand-ink-subtle text-sm mt-1">Be the first to book a call!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {isFan && !isOwnProfile && canReview && (
+                    <div className="rounded-2xl border border-brand-border bg-brand-elevated p-5">
+                      {reviewSubmitted ? (
+                        <div className="flex items-center gap-2 text-brand-live">
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span className="text-sm font-semibold">Thanks for your review!</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <p className="text-sm font-semibold text-brand-ink">Leave a review</p>
+                          {reviewError && (
+                            <div className="rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-2 text-sm text-amber-800">{reviewError}</div>
+                          )}
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((n) => (
+                              <button key={n} type="button" onMouseEnter={() => setReviewHover(n)} onMouseLeave={() => setReviewHover(0)} onClick={() => setReviewRating(n)} className="p-0.5 transition-transform hover:scale-110">
+                                <Star className={cn("w-6 h-6 transition-colors", n <= (reviewHover || reviewRating) ? "fill-brand-gold text-brand-gold" : "text-brand-ink-subtle")} />
+                              </button>
+                            ))}
+                            {reviewRating > 0 && <span className="ml-2 text-sm text-brand-gold font-semibold">{reviewRating}/5</span>}
+                          </div>
+                          <textarea
+                            value={reviewComment}
+                            onChange={(e) => setReviewComment(e.target.value.slice(0, 500))}
+                            placeholder="How was your experience?"
+                            rows={3}
+                            className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-subtle resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+                          />
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-brand-ink-subtle">{reviewComment.length}/500</span>
+                            <Button variant="primary" size="sm" disabled={reviewRating === 0 || !reviewComment.trim() || submittingReview} onClick={handleSubmitReview} className="gap-1.5">
+                              {submittingReview ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...</> : <><Send className="w-3.5 h-3.5" /> Submit Review</>}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isFan && !isOwnProfile && !canReview && !reviewSubmitted && (
+                    <div className="rounded-2xl border border-brand-border bg-brand-elevated p-5">
+                      <p className="text-sm font-semibold text-brand-ink">Reviews unlocked after completed sessions</p>
+                      <p className="mt-1 text-sm text-brand-ink-subtle">You can leave one review for each completed booking that you have not already reviewed.</p>
+                    </div>
+                  )}
+
+                  {reviews.length === 0 && (
+                    <div className="rounded-2xl border border-brand-border bg-brand-elevated p-8 text-center">
+                      <Star className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
+                      <p className="text-brand-ink-subtle">No reviews yet.</p>
+                      <p className="text-brand-ink-subtle text-sm mt-1">Be the first to leave a review!</p>
+                    </div>
+                  )}
+
+                  {reviews.map((review) => (
+                    <div key={review.id} className="rounded-2xl border border-brand-border bg-brand-elevated p-5">
+                      <div className="flex items-start gap-3">
+                        <Avatar initials={review.initials} color={review.color} imageUrl={review.imageUrl} size="sm" />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-brand-ink">{review.fan}</p>
+                            <span className="text-xs text-brand-ink-subtle">{review.date}</span>
+                          </div>
+                          <div className="flex items-center gap-0.5 mt-0.5 mb-2">
+                            {Array.from({ length: review.rating }).map((_, i) => (
+                              <Star key={i} className="w-3.5 h-3.5 fill-brand-gold text-brand-gold" />
+                            ))}
+                          </div>
+                          <p className="text-sm text-brand-ink-muted leading-relaxed">{review.comment}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
+            </section>
           </div>
         </div>
 
-        {/* Reviews */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-brand-ink">
-              Reviews <span className="text-brand-ink-subtle font-normal">({creator.reviewCount})</span>
-            </h2>
-            {creator.rating > 0 && (
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <Star key={n} className={cn("w-4 h-4", n <= Math.round(creator.rating) ? "fill-brand-gold text-brand-gold" : "text-brand-ink-subtle")} />
-                ))}
-                <span className="ml-2 text-sm font-bold text-brand-gold">{creator.rating}</span>
-              </div>
-            )}
-          </div>
-
-          {reviews.length === 0 && !isFan ? (
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 text-center">
-              <Star className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
-              <p className="text-brand-ink-subtle">No reviews yet.</p>
-              <p className="text-brand-ink-subtle text-sm mt-1">Be the first to book a call!</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {isFan && !isOwnProfile && canReview && (
-                <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-                  {reviewSubmitted ? (
-                    <div className="flex items-center gap-2 text-brand-live">
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span className="text-sm font-semibold">Thanks for your review!</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <p className="text-sm font-semibold text-brand-ink">Leave a review</p>
-                      {reviewError && (
-                        <div className="rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-2 text-sm text-amber-800">{reviewError}</div>
-                      )}
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <button key={n} type="button" onMouseEnter={() => setReviewHover(n)} onMouseLeave={() => setReviewHover(0)} onClick={() => setReviewRating(n)} className="p-0.5 transition-transform hover:scale-110">
-                            <Star className={cn("w-6 h-6 transition-colors", n <= (reviewHover || reviewRating) ? "fill-brand-gold text-brand-gold" : "text-brand-ink-subtle")} />
-                          </button>
-                        ))}
-                        {reviewRating > 0 && <span className="ml-2 text-sm text-brand-gold font-semibold">{reviewRating}/5</span>}
-                      </div>
-                      <textarea
-                        value={reviewComment}
-                        onChange={(e) => setReviewComment(e.target.value.slice(0, 500))}
-                        placeholder="How was your experience?"
-                        rows={3}
-                        className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-subtle resize-none focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
-                      />
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-brand-ink-subtle">{reviewComment.length}/500</span>
-                        <Button variant="primary" size="sm" disabled={reviewRating === 0 || !reviewComment.trim() || submittingReview} onClick={handleSubmitReview} className="gap-1.5">
-                          {submittingReview ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...</> : <><Send className="w-3.5 h-3.5" /> Submit Review</>}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {isFan && !isOwnProfile && !canReview && !reviewSubmitted && (
-                <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-                  <p className="text-sm font-semibold text-brand-ink">Reviews unlocked after completed sessions</p>
-                  <p className="mt-1 text-sm text-brand-ink-subtle">You can leave one review for each completed booking that you have not already reviewed.</p>
-                </div>
-              )}
-
-              {reviews.length === 0 && (
-                <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 text-center">
-                  <Star className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
-                  <p className="text-brand-ink-subtle">No reviews yet.</p>
-                  <p className="text-brand-ink-subtle text-sm mt-1">Be the first to leave a review!</p>
-                </div>
-              )}
-
-              {reviews.map((review) => (
-                <div key={review.id} className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-                  <div className="flex items-start gap-3">
-                    <Avatar initials={review.initials} color={review.color} imageUrl={review.imageUrl} size="sm" />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-brand-ink">{review.fan}</p>
-                        <span className="text-xs text-brand-ink-subtle">{review.date}</span>
-                      </div>
-                      <div className="flex items-center gap-0.5 mt-0.5 mb-2">
-                        {Array.from({ length: review.rating }).map((_, i) => (
-                          <Star key={i} className="w-3.5 h-3.5 fill-brand-gold text-brand-gold" />
-                        ))}
-                      </div>
-                      <p className="text-sm text-brand-ink-muted leading-relaxed">{review.comment}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
       </div>
 
       <BookingModal
         creator={creator}
         open={showBooking}
-        onClose={() => setShowBooking(false)}
+        onClose={() => { setShowBooking(false); setBookingInitialDate(null); }}
         packages={activePackages}
         availability={availability}
         initialPackageId={availabilityPackageId === "all" ? undefined : availabilityPackageId}
+        initialDate={bookingInitialDate}
       />
     </>
   );
