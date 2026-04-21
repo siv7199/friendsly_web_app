@@ -244,17 +244,25 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   useEffect(() => {
     const supabase = createClient();
     if (!creatorState?.id) return;
-    const channel = supabase
+    let channel = supabase
       .channel(`public-live:${creatorState.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${creatorState.id}` }, () => { void loadLiveState(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, () => { void loadLiveState(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "live_queue_entries" }, () => { void loadLiveState(); })
-      .subscribe();
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions", filter: `creator_id=eq.${creatorState.id}` }, () => { void loadLiveState(); });
+
+    if (liveSessionId) {
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "live_queue_entries", filter: `session_id=eq.${liveSessionId}` },
+        () => { void loadLiveState(); }
+      );
+    }
+
+    channel = channel.subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [creatorState?.id, loadLiveState]);
+  }, [creatorState?.id, liveSessionId, loadLiveState]);
 
   useEffect(() => {
     setReportedDailySessionId(null);

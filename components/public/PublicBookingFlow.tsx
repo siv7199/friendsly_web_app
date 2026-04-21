@@ -276,9 +276,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
     async function refreshLiveStatus() {
       try {
-        const creatorRes = await fetch(`/api/public/creators/${encodeURIComponent(creatorSlug)}/live-status`, {
-          cache: "no-store",
-        });
+        const creatorRes = await fetch(`/api/public/creators/${encodeURIComponent(creatorSlug)}/live-status`);
         const creatorData = await readJsonResponse<{ creator?: CreatorPayload }>(creatorRes);
         if (!creatorRes.ok || cancelled) return;
         if (!creatorData?.creator) return;
@@ -315,9 +313,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         setLoading(true);
         setLoadError("");
 
-        const creatorRes = await fetch(`/api/public/creators/${encodeURIComponent(creatorSlug)}`, {
-          cache: "no-store",
-        });
+        const creatorRes = await fetch(`/api/public/creators/${encodeURIComponent(creatorSlug)}`);
         const creatorData = await readJsonResponse<{
           creator?: CreatorPayload;
           packages?: PackagePayload[];
@@ -338,8 +334,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         setSelectedPackageId((current) => current ?? (creatorData.packages?.length === 1 ? creatorData.packages[0].id : null));
 
         const bookedRes = await fetch(
-          `/api/public/bookings/availability?creatorId=${encodeURIComponent(creatorData.creator.id)}`,
-          { cache: "no-store" }
+          `/api/public/bookings/availability?creatorId=${encodeURIComponent(creatorData.creator.id)}`
         );
         const bookedData = await readJsonResponse<{ bookings?: ExistingBookingWindow[] }>(bookedRes);
         if (!cancelled && bookedRes.ok) {

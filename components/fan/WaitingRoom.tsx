@@ -53,6 +53,13 @@ export function WaitingRoom({
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const [resolvedSessionId, setResolvedSessionId] = useState<string | null>(sessionId ?? null);
+  const profileCacheRef = useRef<Record<string, {
+    username?: string | null;
+    avatarInitials?: string | null;
+    avatarColor?: string | null;
+    avatarUrl?: string | null;
+    role?: string | null;
+  }>>({});
 
   useEffect(() => {
     if (sessionId) { setResolvedSessionId(sessionId); return; }
@@ -71,6 +78,24 @@ export function WaitingRoom({
       .eq("session_id", resolvedSessionId).order("created_at", { ascending: true }).limit(50)
       .then(({ data }: { data: any[] | null }) => {
         if (data) {
+          profileCacheRef.current = data.reduce((cache, message: any) => {
+            if (message.user_id) {
+              cache[message.user_id] = {
+                username: message.profiles?.username,
+                avatarInitials: message.profiles?.avatar_initials,
+                avatarColor: message.profiles?.avatar_color,
+                avatarUrl: message.profiles?.avatar_url ?? undefined,
+                role: message.profiles?.role,
+              };
+            }
+            return cache;
+          }, {} as Record<string, {
+            username?: string | null;
+            avatarInitials?: string | null;
+            avatarColor?: string | null;
+            avatarUrl?: string | null;
+            role?: string | null;
+          }>);
           setMessages(data.map((m: any) => ({
             id: m.id,
             username: `@${m.profiles.username}`,
@@ -89,16 +114,24 @@ export function WaitingRoom({
         event: "INSERT", schema: "public", table: "live_chat_messages",
         filter: `session_id=eq.${resolvedSessionId}`,
       }, async (payload: any) => {
-        const { data: profile } = await supabase.from("profiles")
-          .select("username, avatar_initials, avatar_color, avatar_url, role")
-          .eq("id", payload.new.user_id).single();
+        let profile = profileCacheRef.current[payload.new.user_id];
+        if (!profile) {
+          const result = await supabase.from("profiles")
+            .select("username, avatar_initials, avatar_color, avatar_url, role")
+            .eq("id", payload.new.user_id).single();
+          profile = result.data;
+          if (profile) {
+            profileCacheRef.current[payload.new.user_id] = profile;
+          }
+        }
         if (profile) {
           setMessages((prev) => {
             const filtered = prev.filter((m) => !m.id.startsWith("optimistic-"));
             return [...filtered, {
               id: payload.new.id, username: `@${profile.username}`,
-              avatarInitials: profile.avatar_initials, avatarColor: profile.avatar_color,
-              avatarUrl: profile.avatar_url ?? undefined, message: payload.new.message,
+              avatarInitials: profile.avatarInitials ?? "?",
+              avatarColor: profile.avatarColor ?? "bg-violet-600",
+              avatarUrl: profile.avatarUrl ?? undefined, message: payload.new.message,
               timestamp: payload.new.created_at, isCreator: profile.role === "creator",
             }];
           });

@@ -154,6 +154,7 @@ function CreatorMobileLiveStage({
   const [chatText, setChatText] = useState("");
   const [sending, setSending] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const profileNameCacheRef = useRef<Record<string, string>>({});
   const [messages, setMessages] = useState<
     { id: string; senderName: string; message: string; isMe: boolean }[]
   >([]);
@@ -218,6 +219,12 @@ function CreatorMobileLiveStage({
       .limit(50)
       .then(({ data }: { data: any[] | null }) => {
         if (!data) return;
+        profileNameCacheRef.current = data.reduce((cache, message: any) => {
+          if (message.user_id) {
+            cache[message.user_id] = message.profiles?.full_name ?? "Fan";
+          }
+          return cache;
+        }, {} as Record<string, string>);
         setMessages(data.map((m: any) => ({
           id: m.id,
           senderName: m.profiles?.full_name ?? "Fan",
@@ -231,16 +238,21 @@ function CreatorMobileLiveStage({
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "live_chat_messages", filter: `session_id=eq.${sessionId}` },
         async (payload: any) => {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", payload.new.user_id)
-            .single();
+          let senderName = profileNameCacheRef.current[payload.new.user_id];
+          if (!senderName) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("id", payload.new.user_id)
+              .single();
+            senderName = profile?.full_name ?? "Fan";
+            profileNameCacheRef.current[payload.new.user_id] = senderName;
+          }
           setMessages((prev) => [
             ...prev,
             {
               id: payload.new.id,
-              senderName: profile?.full_name ?? "Fan",
+              senderName,
               message: payload.new.message,
               isMe: payload.new.user_id === user?.id,
             },

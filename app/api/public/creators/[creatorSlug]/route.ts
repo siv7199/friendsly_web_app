@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const LIVE_SESSION_STALE_MS = 45000;
+const CREATOR_CACHE_CONTROL = "public, max-age=60, s-maxage=300, stale-while-revalidate=600";
 
 export async function GET(
   _request: Request,
@@ -35,6 +36,26 @@ export async function GET(
       return NextResponse.json({ error: "Creator not found." }, { status: 404 });
     }
 
+    const cp = Array.isArray(profile.creator_profiles)
+      ? profile.creator_profiles[0]
+      : profile.creator_profiles;
+
+    const liveSessionQuery = cp?.current_live_session_id
+      ? supabase
+          .from("live_sessions")
+          .select("id, is_active, daily_room_url, last_heartbeat_at, started_at")
+          .eq("id", cp.current_live_session_id)
+          .eq("creator_id", profile.id)
+          .limit(1)
+      : supabase
+          .from("live_sessions")
+          .select("id, is_active, daily_room_url, last_heartbeat_at, started_at")
+          .eq("creator_id", profile.id)
+          .eq("is_active", true)
+          .not("daily_room_url", "is", null)
+          .order("started_at", { ascending: false })
+          .limit(1);
+
     const [packagesRes, availabilityRes, liveSessionsRes] = await Promise.all([
       supabase
         .from("call_packages")
@@ -48,18 +69,9 @@ export async function GET(
         .eq("creator_id", profile.id)
         .eq("is_active", true)
         .order("day_of_week"),
-      supabase
-        .from("live_sessions")
-        .select("id, is_active, daily_room_url, last_heartbeat_at, started_at")
-        .eq("creator_id", profile.id)
-        .eq("is_active", true)
-        .not("daily_room_url", "is", null)
-        .order("started_at", { ascending: false }),
+      liveSessionQuery,
     ]);
 
-    const cp = Array.isArray(profile.creator_profiles)
-      ? profile.creator_profiles[0]
-      : profile.creator_profiles;
     const sessions = liveSessionsRes.data ?? [];
     const freshActiveSession = sessions.find(
       (s: any) =>
@@ -109,7 +121,7 @@ export async function GET(
       })),
     }, {
       headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Cache-Control": CREATOR_CACHE_CONTROL,
       },
     });
   } catch (error) {
@@ -118,7 +130,7 @@ export async function GET(
       { error: message },
       {
         status: 500,
-        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+        headers: { "Cache-Control": CREATOR_CACHE_CONTROL },
       }
     );
   }
