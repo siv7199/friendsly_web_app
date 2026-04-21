@@ -1,8 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DailyProvider, useDaily } from "@daily-co/daily-react";
 import DailyIframe, { type DailyCall } from "@daily-co/daily-js";
+
+let sharedCallObject: DailyCall | null = null;
+
+function getSharedCallObject() {
+  if (!sharedCallObject) {
+    sharedCallObject = DailyIframe.createCallObject();
+  }
+  return sharedCallObject;
+}
 
 function CallJoiner({
   url,
@@ -33,6 +42,8 @@ function CallJoiner({
     if (didJoin.current) return;
     didJoin.current = true;
     let disposed = false;
+    let timeoutId: number | null = null;
+    let joinTimedOut = false;
 
     const notifyJoined = () => {
       if (disposed || notifiedJoined.current) return;
@@ -73,16 +84,35 @@ function CallJoiner({
         startAudioOff: !startAudio,
       });
       const timeoutPromise = new Promise<never>((_, reject) => {
-        window.setTimeout(() => reject(new Error("Daily join timed out.")), 15000);
+        timeoutId = window.setTimeout(() => {
+          joinTimedOut = true;
+          reject(new Error("Daily join timed out."));
+        }, 15000);
       });
 
       // Join the room before acquiring devices. Camera/mic permissions can stall
       // on some browsers, especially when testing two tabs against one webcam.
       await Promise.race([joinPromise, timeoutPromise]);
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+      if (disposed) {
+        suppressNextLeave.current = true;
+        try { await daily.leave(); } catch {}
+        return;
+      }
       notifyJoined();
     }
 
     joinMeeting().catch((e: unknown) => {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+      if (disposed) return;
+      if (joinTimedOut) {
+        suppressNextLeave.current = true;
+        try { void daily.leave(); } catch {}
+      }
       console.error("Failed to join Daily call", e);
       onError?.(e);
     });
@@ -94,9 +124,12 @@ function CallJoiner({
       hasJoinedMeeting.current = false;
       notifiedJoined.current = false;
       suppressNextLeave.current = true;
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
       daily.off("joined-meeting", handleJoinedMeeting);
       daily.off("left-meeting", handleLeftMeeting);
-      if (shouldLeave) {
+      if (shouldLeave || daily.meetingState() === "joining-meeting") {
         daily.leave().catch(() => {});
       }
     };
@@ -125,23 +158,23 @@ export function CallContainer({
   startVideo?: boolean;
   startAudio?: boolean;
 }) {
-  const callObjectRef = useRef<DailyCall | null>(null);
-
-  if (!callObjectRef.current) {
-    callObjectRef.current = DailyIframe.createCallObject();
-  }
+  const [callObject, setCallObject] = useState<DailyCall | null>(null);
 
   useEffect(() => {
-    const callObject = callObjectRef.current;
+    const nextCallObject = getSharedCallObject();
+    setCallObject(nextCallObject);
+
     return () => {
-      if (!callObject) return;
-      callObject.destroy().catch(() => {});
-      callObjectRef.current = null;
+      try {
+        void nextCallObject.leave();
+      } catch {}
     };
   }, []);
 
+  if (!callObject) return null;
+
   return (
-    <DailyProvider callObject={callObjectRef.current}>
+    <DailyProvider callObject={callObject}>
       <CallJoiner
         url={url}
         token={token}

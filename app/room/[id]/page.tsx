@@ -78,7 +78,6 @@ function BookingVideoStage({
       )
     : 0;
   const remainingSeconds = Math.max(0, bookingDurationSeconds - elapsedSeconds);
-  const showCreatorControlStrip = isCreator;
   const dailyVideoFillStyles = {
     __html: `
       .booking-stage-video,
@@ -163,7 +162,7 @@ function BookingVideoStage({
       </div>
 
       <div className="grid flex-1 min-h-0 gap-3 auto-rows-fr md:grid-cols-2 md:items-stretch">
-        <div className={cn("flex min-h-0 flex-col", showCreatorControlStrip ? "gap-3" : "")}>
+        <div className="flex min-h-0 flex-col">
         <div className="relative min-h-[240px] flex-1 md:min-h-0 rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center">
           {localSessionId && camOn ? (
             <div className="booking-stage-video w-full h-full relative overflow-hidden">
@@ -186,7 +185,16 @@ function BookingVideoStage({
             <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">You</p>
             <p className="text-sm font-semibold truncate">{localName}</p>
           </div>
-          <div className={cn("absolute right-3 bottom-3 flex items-center gap-2 z-20", showCreatorControlStrip && "md:hidden")}>
+          {isCreator ? (
+            <div className="absolute right-3 top-3 z-20 min-w-[120px] rounded-xl border border-brand-live/25 bg-black/45 px-4 py-2 text-center text-white backdrop-blur-sm">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-200/90">Session Time</p>
+              <p className="text-lg font-black tabular-nums text-emerald-100">{formatCallTimer(elapsedSeconds)}</p>
+              {bookingDurationSeconds > 0 ? (
+                <p className="text-[10px] text-emerald-100/75">{formatCallTimer(remainingSeconds)} remaining</p>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="absolute right-3 bottom-3 flex items-center gap-2 z-20">
             <button
               onClick={toggleMic}
               disabled={!canUseMedia}
@@ -219,47 +227,6 @@ function BookingVideoStage({
             </button>
           </div>
         </div>
-        {showCreatorControlStrip ? (
-          <div className="hidden md:flex items-center justify-center gap-3 rounded-2xl border border-brand-border bg-brand-surface/80 px-4 py-3">
-            <button
-              onClick={toggleMic}
-              disabled={!canUseMedia}
-              title={canUseMedia ? "Toggle microphone" : "Microphone unlocks at the scheduled start time"}
-              className={cn(
-                "w-11 h-11 rounded-full border flex items-center justify-center transition-colors",
-                !canUseMedia
-                  ? "cursor-not-allowed border-brand-border bg-brand-surface/70 text-brand-ink-muted opacity-60"
-                  : micOn
-                  ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light"
-                  : "border-red-500/40 bg-red-500/20 text-red-400"
-              )}
-            >
-              {micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-            </button>
-            <button
-              onClick={toggleCam}
-              disabled={!canUseMedia}
-              title={canUseMedia ? "Toggle camera" : "Camera unlocks at the scheduled start time"}
-              className={cn(
-                "w-11 h-11 rounded-full border flex items-center justify-center transition-colors",
-                !canUseMedia
-                  ? "cursor-not-allowed border-brand-border bg-brand-surface/70 text-brand-ink-muted opacity-60"
-                  : camOn
-                  ? "border-brand-primary bg-brand-primary/10 text-brand-primary-light"
-                  : "border-red-500/40 bg-red-500/20 text-red-400"
-              )}
-            >
-              {camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-            </button>
-            <div className="min-w-[120px] rounded-xl border border-brand-live/25 bg-brand-live/10 px-4 py-2 text-center">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-brand-live">Session Time</p>
-              <p className="text-lg font-black tabular-nums text-brand-live">{formatCallTimer(elapsedSeconds)}</p>
-              {bookingDurationSeconds > 0 ? (
-                <p className="text-[10px] text-brand-live/75">{formatCallTimer(remainingSeconds)} remaining</p>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
         </div>
 
         <div className="relative min-h-[240px] md:min-h-0 rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center">

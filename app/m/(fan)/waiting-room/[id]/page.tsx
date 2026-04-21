@@ -7,7 +7,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { notFound } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -53,7 +52,9 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
   const { user } = useAuthContext();
   const routeTarget = useMemo(() => parseLiveRouteParam(params.id), [params.id]);
   const [creatorState, setCreatorState] = useState<CreatorState | null>(null);
+  const [creatorMissing, setCreatorMissing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null);
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -68,103 +69,132 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
   const activeEntryIdRef = useRef<string | null>(null);
 
   const loadLiveState = useCallback(async () => {
-    const supabase = createClient();
-    const creatorLookupColumn = isUuidLike(routeTarget.creatorRef) ? "id" : "username";
+    try {
+      setLoadError(null);
+      const supabase = createClient();
+      const creatorLookupColumn = isUuidLike(routeTarget.creatorRef) ? "id" : "username";
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, full_name, username, avatar_initials, avatar_color, avatar_url, creator_profiles(live_join_fee)")
-      .eq(creatorLookupColumn, creatorLookupColumn === "username" ? routeTarget.creatorRef.toLowerCase() : routeTarget.creatorRef)
-      .maybeSingle();
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, username, avatar_initials, avatar_color, avatar_url, creator_profiles(live_join_fee)")
+        .eq(creatorLookupColumn, creatorLookupColumn === "username" ? routeTarget.creatorRef.toLowerCase() : routeTarget.creatorRef)
+        .maybeSingle();
 
-    if (profile) {
-      const creatorProfile = Array.isArray((profile as any).creator_profiles)
-        ? (profile as any).creator_profiles[0]
-        : (profile as any).creator_profiles;
+      if (profileError) {
+        throw profileError;
+      }
 
-      setCreatorState({
-        id: profile.id,
-        name: profile.full_name,
-        username: `@${profile.username}`,
-        avatarInitials: profile.avatar_initials,
-        avatarColor: profile.avatar_color,
-        avatarUrl: profile.avatar_url ? `/api/public/avatar/${profile.id}` : undefined,
-        liveJoinFee: creatorProfile?.live_join_fee != null
-          ? Number(creatorProfile.live_join_fee)
-          : undefined,
+      if (profile) {
+        const creatorProfile = Array.isArray((profile as any).creator_profiles)
+          ? (profile as any).creator_profiles[0]
+          : (profile as any).creator_profiles;
+
+        setCreatorState({
+          id: profile.id,
+          name: profile.full_name,
+          username: `@${profile.username}`,
+          avatarInitials: profile.avatar_initials,
+          avatarColor: profile.avatar_color,
+          avatarUrl: profile.avatar_url ? `/api/public/avatar/${profile.id}` : undefined,
+          liveJoinFee: creatorProfile?.live_join_fee != null
+            ? Number(creatorProfile.live_join_fee)
+            : undefined,
+        });
+        setCreatorMissing(false);
+      }
+
+      if (!profile) {
+        setCreatorState(null);
+        setCreatorMissing(true);
+        setLiveSessionId(null);
+        setRoomUrl(null);
+        setToken(null);
+        setQueue([]);
+        setActiveFanAdmittedAt(null);
+        setActiveFan(null);
+        setSessionEnded(false);
+        setLoading(false);
+        return;
+      }
+
+      const sessionQuery = supabase
+        .from("live_sessions")
+        .select("id, daily_room_url")
+        .eq("creator_id", profile.id)
+        .eq("is_active", true);
+
+      const { data: session, error: sessionError } = routeTarget.sessionId
+        ? await sessionQuery.eq("id", routeTarget.sessionId).maybeSingle()
+        : await sessionQuery.order("started_at", { ascending: false }).limit(1).maybeSingle();
+
+      if (sessionError) {
+        throw sessionError;
+      }
+
+      if (!session) {
+        if (liveSessionId) setSessionEnded(true);
+        setLiveSessionId(null);
+        setRoomUrl(null);
+        setQueue([]);
+        setActiveFanAdmittedAt(null);
+        setActiveFan(null);
+        setLoading(false);
+        return;
+      }
+
+      setSessionEnded(false);
+      setLiveSessionId(session.id);
+      setRoomUrl(session.daily_room_url ?? null);
+
+      const { data: entries, error: entriesError } = await supabase
+        .from("live_queue_entries")
+        .select(`
+          id, fan_id, topic, joined_at, admitted_at, admitted_daily_session_id, status,
+          fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
+        `)
+        .eq("session_id", session.id)
+        .in("status", ["waiting", "active"])
+        .order("joined_at", { ascending: true });
+
+      if (entriesError) {
+        throw entriesError;
+      }
+
+      const activeEntry = (entries ?? []).find((e: any) => e.status === "active");
+      setActiveFanAdmittedAt(activeEntry?.admitted_at ?? null);
+      setActiveFan(activeEntry ? mapQueueProfile(activeEntry, "Current Fan") : null);
+
+      const waitingEntries = (entries ?? []).filter((e: any) => e.status === "waiting");
+      const activeRemainingSeconds =
+        getLiveStageRemainingSeconds(activeEntry?.admitted_at, Date.now()) || LIVE_STAGE_SECONDS;
+
+      const nextQueue: QueueEntry[] = (entries ?? []).map((entry: any) => {
+        const position = waitingEntries.findIndex((c: any) => c.id === entry.id) + 1;
+        return {
+          id: entry.id,
+          fanId: entry.fan_id,
+          fanName: entry.fan?.full_name ?? "Fan",
+          fanUsername: entry.fan?.username ? `@${entry.fan.username}` : "@fan",
+          avatarInitials: entry.fan?.avatar_initials ?? "F",
+          avatarColor: entry.fan?.avatar_color ?? "bg-brand-primary",
+          avatarUrl: entry.fan?.avatar_url ?? undefined,
+          position: position > 0 ? position : 0,
+          waitTime: "",
+          waitSeconds: position > 0 ? activeRemainingSeconds + (position - 1) * LIVE_STAGE_SECONDS : 0,
+          topic: entry.topic ?? undefined,
+          joinedAt: entry.joined_at,
+          admittedAt: entry.admitted_at ?? undefined,
+          status: entry.status,
+        };
       });
-    }
 
-    if (!profile) {
+      setQueue(nextQueue);
       setLoading(false);
-      return;
-    }
-
-    const sessionQuery = supabase
-      .from("live_sessions")
-      .select("id, daily_room_url")
-      .eq("creator_id", profile.id)
-      .eq("is_active", true);
-
-    const { data: session } = routeTarget.sessionId
-      ? await sessionQuery.eq("id", routeTarget.sessionId).maybeSingle()
-      : await sessionQuery.order("started_at", { ascending: false }).limit(1).maybeSingle();
-
-    if (!session) {
-      if (liveSessionId) setSessionEnded(true);
-      setLiveSessionId(null);
-      setRoomUrl(null);
-      setQueue([]);
-      setActiveFanAdmittedAt(null);
-      setActiveFan(null);
+    } catch (error) {
+      console.error("Failed to load mobile live waiting room", error);
+      setLoadError("We couldn't load this live room right now. Please try again.");
       setLoading(false);
-      return;
     }
-
-    setSessionEnded(false);
-    setLiveSessionId(session.id);
-    setRoomUrl(session.daily_room_url ?? null);
-
-    const { data: entries } = await supabase
-      .from("live_queue_entries")
-      .select(`
-        id, fan_id, topic, joined_at, admitted_at, admitted_daily_session_id, status,
-        fan:profiles!fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)
-      `)
-      .eq("session_id", session.id)
-      .in("status", ["waiting", "active"])
-      .order("joined_at", { ascending: true });
-
-    const activeEntry = (entries ?? []).find((e: any) => e.status === "active");
-    setActiveFanAdmittedAt(activeEntry?.admitted_at ?? null);
-    setActiveFan(activeEntry ? mapQueueProfile(activeEntry, "Current Fan") : null);
-
-    const waitingEntries = (entries ?? []).filter((e: any) => e.status === "waiting");
-    const activeRemainingSeconds =
-      getLiveStageRemainingSeconds(activeEntry?.admitted_at, Date.now()) || LIVE_STAGE_SECONDS;
-
-    const nextQueue: QueueEntry[] = (entries ?? []).map((entry: any) => {
-      const position = waitingEntries.findIndex((c: any) => c.id === entry.id) + 1;
-      return {
-        id: entry.id,
-        fanId: entry.fan_id,
-        fanName: entry.fan?.full_name ?? "Fan",
-        fanUsername: entry.fan?.username ? `@${entry.fan.username}` : "@fan",
-        avatarInitials: entry.fan?.avatar_initials ?? "F",
-        avatarColor: entry.fan?.avatar_color ?? "bg-brand-primary",
-        avatarUrl: entry.fan?.avatar_url ?? undefined,
-        position: position > 0 ? position : 0,
-        waitTime: "",
-        waitSeconds: position > 0 ? activeRemainingSeconds + (position - 1) * LIVE_STAGE_SECONDS : 0,
-        topic: entry.topic ?? undefined,
-        joinedAt: entry.joined_at,
-        admittedAt: entry.admitted_at ?? undefined,
-        status: entry.status,
-      };
-    });
-
-    setQueue(nextQueue);
-    setLoading(false);
   }, [liveSessionId, routeTarget.creatorRef, routeTarget.sessionId]);
 
   useEffect(() => { void loadLiveState(); }, [loadLiveState]);
@@ -293,7 +323,36 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
     );
   }
 
-  if (!creatorState) return notFound();
+  if (loadError) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-violet-500 px-6 text-center">
+        <p className="text-white text-2xl font-brand">friendsly</p>
+        <p className="text-base font-semibold text-white">Live room unavailable</p>
+        <p className="max-w-sm text-sm text-white/70">{loadError}</p>
+        <button
+          onClick={() => { setLoading(true); void loadLiveState(); }}
+          className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-violet-600"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (creatorMissing || !creatorState) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-violet-500 px-6 text-center">
+        <p className="text-white text-2xl font-brand">friendsly</p>
+        <p className="text-base font-semibold text-white">Creator not found</p>
+        <p className="max-w-sm text-sm text-white/70">
+          This live link may be invalid, or the creator profile is no longer available.
+        </p>
+        <a href="/discover" className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-violet-600">
+          Browse creators
+        </a>
+      </div>
+    );
+  }
 
   if (sessionEnded) {
     return (
