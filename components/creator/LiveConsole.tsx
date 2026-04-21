@@ -295,14 +295,77 @@ function LiveVideoStage({
             )}
             <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
             <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
-            <div className="absolute left-4 bottom-4 right-4 flex items-end justify-between gap-3 z-20">
-              <div className="rounded-xl bg-black/45 px-3 py-2 text-white">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Host</p>
-                <p className="text-sm font-semibold">{creatorName}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={toggleMic} className={cn("w-11 h-11 rounded-full border flex items-center justify-center transition-colors", micOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary" : "border-red-500/40 bg-red-500/20 text-red-400")}>{micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}</button>
-                <button onClick={toggleCam} className={cn("w-11 h-11 rounded-full border flex items-center justify-center transition-colors", camOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary" : "border-red-500/40 bg-red-500/20 text-red-400")}>{camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}</button>
+            <div className="absolute left-3 bottom-3 rounded-xl bg-black/45 px-3 py-2 text-white z-20 max-w-[calc(100%-1.5rem)] md:left-4 md:bottom-4 md:max-w-[calc(100%-2rem)]">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Host</p>
+              <p className="text-sm font-semibold">{creatorName}</p>
+            </div>
+            <div className="absolute right-4 bottom-4 hidden items-center gap-2 z-20 md:flex">
+              <button onClick={toggleMic} className={cn("w-11 h-11 rounded-full border flex items-center justify-center transition-colors backdrop-blur-sm", micOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary" : "border-red-500/40 bg-red-500/20 text-red-400")}>{micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}</button>
+              <button onClick={toggleCam} className={cn("w-11 h-11 rounded-full border flex items-center justify-center transition-colors backdrop-blur-sm", camOn ? "border-brand-primary bg-brand-primary/10 text-brand-primary" : "border-red-500/40 bg-red-500/20 text-red-400")}>{camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}</button>
+            </div>
+            <div className="absolute inset-x-3 bottom-3 z-20 md:hidden">
+              <div className="rounded-[22px] border border-[rgba(184,146,255,0.34)] bg-[linear-gradient(135deg,rgba(96,43,141,0.48),rgba(58,17,90,0.24))] p-2.5 shadow-[0_18px_40px_rgba(32,10,55,0.28)] backdrop-blur-sm">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/78">
+                    <span className="h-2 w-2 rounded-full bg-brand-live" />
+                    Queue · {queueCount}
+                  </div>
+                  {queue.length > 0 ? (
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <div className="flex items-center -space-x-2">
+                        {queue.slice(0, 3).map((entry: any) => (
+                          <div key={entry.id} className="rounded-full border border-[rgba(255,255,255,0.2)] bg-[rgba(26,12,42,0.86)] p-0.5">
+                            <Avatar initials={entry.avatarInitials} color={entry.avatarColor} imageUrl={entry.avatarUrl} size="sm" />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="truncate text-xs font-medium text-white/86">
+                        {queue.slice(0, 3).map((entry: any) => entry.fanName).join(" / ")}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="min-w-0 flex-1 truncate text-xs text-white/72">
+                      No fans yet — share your link
+                    </p>
+                  )}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={toggleMic}
+                    className={cn(
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors",
+                      micOn ? "border-white/20 bg-[rgba(22,8,34,0.56)] text-white" : "border-red-500/35 bg-red-500/20 text-red-300"
+                    )}
+                  >
+                    {micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={toggleCam}
+                    className={cn(
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors",
+                      camOn ? "border-white/20 bg-[rgba(22,8,34,0.56)] text-white" : "border-red-500/35 bg-red-500/20 text-red-300"
+                    )}
+                  >
+                    {camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={admitNext}
+                    disabled={queueCount < 1 || (Boolean(currentFan) && activeFanElapsedSeconds < LIVE_STAGE_MIN_SECONDS)}
+                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-full border border-white/20 bg-[rgba(22,8,34,0.56)] px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-[rgba(22,8,34,0.8)] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <SkipForward className="w-3.5 h-3.5" />
+                    {currentFan && activeFanElapsedSeconds < LIVE_STAGE_MIN_SECONDS
+                      ? `Min ${formatCountdown(LIVE_STAGE_MIN_SECONDS - activeFanElapsedSeconds)}`
+                      : "Admit"}
+                  </button>
+                  <button
+                    onClick={endSession}
+                    className="inline-flex shrink-0 items-center justify-center gap-1 rounded-full border border-red-500/40 bg-red-500/30 px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-red-500/50"
+                  >
+                    <StopCircle className="w-3.5 h-3.5" />
+                    End
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -344,8 +407,8 @@ function LiveVideoStage({
       </div>
 
       <div className="min-h-[420px] rounded-[28px] border border-brand-border bg-brand-surface p-3 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0 xl:min-h-0">
-        {/* Queue strip at top of chat column */}
-        <div className="rounded-[20px] border border-brand-border bg-brand-elevated p-2.5 shrink-0">
+        {/* Queue strip at top of chat column — desktop only (mobile shows it as an overlay on the video) */}
+        <div className="hidden md:block rounded-[20px] border border-brand-border bg-brand-elevated p-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2 mb-2">
             <p className="text-[11px] uppercase tracking-[0.24em] text-brand-ink-muted">
               Queue · {queueCount}

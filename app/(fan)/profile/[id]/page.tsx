@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookingModal } from "@/components/fan/BookingModal";
 import { createClient } from "@/lib/supabase/client";
@@ -900,161 +899,259 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       </div>
 
       {/* ─────────────────── DESKTOP LAYOUT ─────────────────── */}
-      <div className="hidden md:block px-6 lg:px-8 py-6 max-w-5xl mx-auto space-y-5">
+      <div className="hidden md:block px-6 lg:px-8 py-6 max-w-6xl mx-auto space-y-6">
         {/* Back */}
         <Link href="/discover" className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors">
           <ArrowLeft className="w-4 h-4" />
           Back to Discover
         </Link>
 
-        {/* Profile Hero */}
-        <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-          <div className="flex items-start gap-5">
-            <Avatar
-              initials={creator.avatarInitials}
-              color={creator.avatarColor}
-              imageUrl={creator.avatarUrl}
-              size="lg"
-              isLive={creator.isLive}
-              className="shrink-0 border-2 border-brand-surface ring-1 ring-brand-border"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h1 className="text-2xl font-serif font-normal text-brand-ink leading-tight">{creator.name}</h1>
-                  <p className="text-brand-ink-subtle text-sm mt-0.5">{creator.username}</p>
+        {/* Two-column split: photo/bio on left, offering cards stacked on right */}
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          {/* ── LEFT: Creator photo + identity + bio ── */}
+          <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+            {/* Large portrait photo */}
+            <div className="relative aspect-square overflow-hidden rounded-3xl border border-brand-border bg-brand-elevated">
+              {creator.avatarUrl ? (
+                <img src={creator.avatarUrl} alt={creator.name} className="h-full w-full object-cover" />
+              ) : (
+                <div className={cn("flex h-full w-full items-center justify-center", creator.avatarColor ?? "bg-brand-primary")}>
+                  <span className="text-8xl font-bold text-white/70">{creator.avatarInitials}</span>
                 </div>
-                {creator.isLive && (
-                  <Badge variant="live" className="shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-brand-live animate-pulse" />
-                    LIVE NOW
-                  </Badge>
-                )}
-              </div>
+              )}
+              {creator.isLive && (
+                <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-brand-live px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-md">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                  LIVE NOW
+                </div>
+              )}
+              {creator.isNew && !creator.isLive && (
+                <div className="absolute left-3 bottom-3 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-brand-ink shadow-md">
+                  New Creator
+                </div>
+              )}
+            </div>
 
+            {/* Name + identity block */}
+            <div>
+              <h1 className="flex items-center gap-2 text-[2rem] font-serif font-normal leading-tight text-brand-ink">
+                {creator.name}
+                <CheckCircle2 className="h-5 w-5 text-brand-primary" />
+              </h1>
+              {creator.category && (
+                <p className="mt-1 text-sm text-brand-ink-muted">{creator.category}</p>
+              )}
+              <p className="mt-1 text-xs text-brand-ink-subtle">{creator.username}</p>
               {creator.rating > 0 && (
-                <div className="flex items-center gap-1.5 mt-2">
-                  <Star className="w-4 h-4 fill-brand-gold text-brand-gold" />
-                  <span className="font-bold text-brand-gold">{creator.rating}</span>
-                  <span className="text-sm text-brand-ink-subtle">({creator.reviewCount} reviews)</span>
+                <div className="mt-2 flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Star key={n} className={cn("h-4 w-4", n <= Math.round(creator.rating) ? "fill-brand-gold text-brand-gold" : "text-brand-border")} />
+                  ))}
+                  <span className="ml-1 text-sm font-bold text-brand-gold">{creator.rating}</span>
+                  <span className="text-xs text-brand-ink-subtle">({creator.reviewCount})</span>
                 </div>
               )}
+            </div>
 
-              {creator.bio && (
-                <p className="mt-2 text-sm text-brand-ink-muted leading-relaxed line-clamp-3">{creator.bio}</p>
-              )}
-
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                {socialLinks.map(({ key, label, href, icon: Icon }) => (
-                  <a key={key} href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-brand-border bg-brand-elevated px-3 py-1.5 text-xs font-medium text-brand-ink-muted transition-colors hover:border-brand-primary/50 hover:text-brand-ink">
-                    <Icon className="h-3 w-3" />
-                    <span>{getSocialHandleLabel(href) || label}</span>
-                  </a>
-                ))}
-                {creator.tags.slice(0, 3).map((tag) => (
-                  <span key={tag} className="text-xs px-3 py-1.5 rounded-full bg-brand-elevated border border-brand-border text-brand-ink-subtle">{tag}</span>
-                ))}
-              </div>
-
-              <div className="flex flex-wrap gap-2 mt-3">
+            {/* Pricing + scheduled pills */}
+            {(hasPackages || hasLiveRate || scheduledLiveCountdown) && (
+              <div className="flex flex-wrap gap-2">
                 {scheduledLiveCountdown && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-info/10 border border-brand-info/30">
-                    <Calendar className="w-3.5 h-3.5 text-brand-info" />
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-brand-info/30 bg-brand-info/10 px-3 py-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-brand-info" />
                     <span className="text-xs font-bold text-brand-info">{scheduledLiveCountdown}</span>
-                    {scheduledLiveLabel && <span className="text-xs text-brand-ink-muted">{scheduledLiveLabel}</span>}
                   </div>
                 )}
                 {hasLiveRate && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-live/10 border border-brand-live/30">
-                    <Zap className="w-3.5 h-3.5 text-brand-live" />
-                    <span className="text-xs font-bold text-brand-live">{formatCurrency(creator.liveJoinFee!)}</span>
-                    <span className="text-xs text-brand-ink-subtle">/ min</span>
-                  </div>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live">
+                    <Zap className="h-3 w-3" />
+                    {formatCurrency(creator.liveJoinFee!)} / min
+                  </span>
                 )}
                 {hasPackages && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary/10 border border-brand-primary/30">
-                    <Calendar className="w-3.5 h-3.5 text-brand-primary-light" />
-                    <span className="text-xs font-bold text-brand-primary-light">from {formatCurrency(creator.callPrice)}</span>
-                    <span className="text-xs text-brand-ink-subtle">/ session</span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-brand-primary/25 bg-brand-primary/5 px-3 py-1.5 text-xs font-semibold text-brand-primary-light">
+                    from {formatCurrency(creator.callPrice)} / session
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* About + socials */}
+            {(creator.bio || socialLinks.length > 0) && (
+              <div className="border-t border-brand-border pt-4">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h2 className="text-base font-bold text-brand-ink">About</h2>
+                  {socialLinks.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      {socialLinks.map(({ key, label, href, icon: Icon }) => (
+                        <a
+                          key={key}
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={label}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-border bg-brand-elevated text-brand-ink-muted transition-colors hover:border-brand-primary/40 hover:text-brand-ink"
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {creator.bio && (
+                  <p className="text-sm leading-relaxed text-brand-ink-muted whitespace-pre-line">{creator.bio}</p>
+                )}
+                {creator.tags.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {creator.tags.slice(0, 6).map((tag) => (
+                      <span key={tag} className="rounded-full border border-brand-border bg-brand-elevated px-2.5 py-1 text-[11px] font-medium text-brand-ink-subtle">
+                        {tag}
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>
-            </div>
+            )}
           </div>
-        </div>
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-3 gap-5">
-          {/* Left: Sessions + Calendar */}
-          <div className="col-span-2 space-y-5">
-            {/* Book a Session */}
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-              <h2 className="text-base font-bold text-brand-ink mb-4">Book a Session</h2>
+          {/* ── RIGHT: Stacked offering cards ── */}
+          <div className="space-y-4">
+            {/* Book a Session card */}
+            <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card">
+              <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-ink px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
+                <Video className="h-3 w-3" />
+                Book a video call
+              </div>
+              <h2 className="text-xl font-serif font-normal text-brand-ink">Book a Session</h2>
+              <p className="mt-1 text-sm text-brand-ink-muted">
+                Book a 1:1 live video consultation &amp; get personalized advice.
+              </p>
+
               {!hasPackages ? (
-                <div className="rounded-xl border border-brand-border bg-brand-elevated text-center py-8">
-                  <p className="text-brand-ink-subtle text-sm">No booking packages available yet.</p>
-                  <p className="text-brand-ink-subtle text-xs mt-1">Check back soon or watch their public live.</p>
+                <div className="mt-4 rounded-2xl border border-brand-border bg-brand-elevated py-8 text-center">
+                  <p className="text-sm text-brand-ink-subtle">No booking packages available yet.</p>
+                  <p className="mt-1 text-xs text-brand-ink-subtle">Check back soon or watch their public live.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {activePackages.map((pkg) => (
-                    <div
-                      key={pkg.id}
-                      className="p-4 rounded-xl border border-brand-primary/30 bg-brand-primary/10 cursor-pointer hover:border-brand-primary/60 transition-colors"
-                      onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-bold text-brand-ink">{pkg.name}</p>
-                          <p className="text-sm text-brand-ink-subtle mt-1">{pkg.description}</p>
-                          <div className="flex items-center gap-3 mt-2 text-xs text-brand-ink-subtle">
-                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{pkg.duration} min</span>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0 ml-4">
-                          <p className="text-xl font-display font-bold text-gradient-gold">{formatCurrency(pkg.price)}</p>
-                          <p className="text-[11px] text-brand-ink-subtle mt-0.5">per session</p>
-                        </div>
-                      </div>
+                <>
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm text-brand-ink-muted">Starting at</p>
+                      <p className="text-2xl font-display font-bold text-brand-ink">
+                        {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
+                      </p>
                     </div>
-                  ))}
-                </div>
+                    {creator.rating > 0 && (
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <Star key={n} className={cn("h-3.5 w-3.5", n <= Math.round(creator.rating) ? "fill-brand-gold text-brand-gold" : "text-brand-border")} />
+                        ))}
+                        <span className="ml-1 text-sm font-bold text-brand-gold">{creator.rating}</span>
+                        <span className="text-xs text-brand-ink-subtle">({creator.reviewCount})</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {activePackages.map((pkg) => (
+                      <button
+                        key={pkg.id}
+                        type="button"
+                        onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
+                        className="flex w-full items-start justify-between gap-4 rounded-2xl border border-brand-primary/25 bg-brand-primary/5 p-4 text-left transition-colors hover:border-brand-primary/50 hover:bg-brand-primary/10"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-brand-ink">{pkg.name}</p>
+                          {pkg.description && (
+                            <p className="mt-1 text-sm text-brand-ink-subtle line-clamp-2">{pkg.description}</p>
+                          )}
+                          <span className="mt-2 inline-flex items-center gap-1 text-xs text-brand-ink-subtle">
+                            <Clock className="h-3 w-3" />
+                            {pkg.duration} min
+                          </span>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-lg font-display font-bold text-brand-gold">{formatCurrency(pkg.price)}</p>
+                          <p className="mt-0.5 text-[11px] text-brand-ink-subtle">per session</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <Button variant="primary" size="lg" className="mt-4 w-full" onClick={() => setShowBooking(true)}>
+                    See times
+                  </Button>
+                </>
               )}
             </div>
 
-            {/* Availability Calendar */}
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-bold text-brand-ink flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-brand-primary-light" />
-                  Availability
-                </h2>
+            {/* Join Live card (when creator is live) */}
+            {creator.isLive && hasLiveRate && (
+              <div className="rounded-3xl border border-brand-live/30 bg-brand-live/5 p-6 shadow-card">
+                <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-live px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                  Live right now
+                </div>
+                <h2 className="text-xl font-serif font-normal text-brand-ink">Join the Live Queue</h2>
+                <p className="mt-1 text-sm text-brand-ink-muted">
+                  Free to watch — pay by the minute only when you're on stage with {creator.name}.
+                </p>
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-brand-ink-muted">Live rate</p>
+                    <p className="text-2xl font-display font-bold text-brand-live">{formatCurrency(creator.liveJoinFee!)}<span className="ml-1 text-sm font-medium text-brand-ink-subtle">/ min</span></p>
+                  </div>
+                  <p className="text-xs text-brand-ink-subtle">
+                    {creator.queueCount > 0 ? `${creator.queueCount} waiting` : "Be the first in line"}
+                  </p>
+                </div>
+                <Link href={liveHref ?? "#"}>
+                  <Button variant="live" size="lg" className="mt-4 w-full gap-2">
+                    <Zap className="h-4 w-4" />
+                    Watch Live
+                  </Button>
+                </Link>
+              </div>
+            )}
+
+            {/* Availability card */}
+            <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-serif font-normal text-brand-ink flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-brand-primary-light" />
+                    Availability
+                  </h2>
+                  <p className="mt-1 text-xs text-brand-ink-subtle">
+                    Times shown in your local {getTimeZoneAbbreviation(new Date(), viewerTimeZone)} · Creator schedules in {formatTimeZoneLabel(creator.timeZone ?? "America/New_York")}
+                  </p>
+                </div>
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
                     disabled={weekOffset === 0}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-elevated text-xs font-medium text-brand-ink-muted hover:text-brand-ink hover:border-brand-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1 rounded-lg border border-brand-border bg-brand-elevated px-2.5 py-1.5 text-xs font-medium text-brand-ink-muted transition-colors hover:border-brand-primary/40 hover:text-brand-ink disabled:cursor-not-allowed disabled:opacity-30"
                   >
-                    <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                    <ChevronLeft className="h-3.5 w-3.5" /> Prev
                   </button>
-                  <span className="text-xs font-semibold text-brand-primary-light px-2 min-w-[80px] text-center">
+                  <span className="min-w-[80px] px-2 text-center text-xs font-semibold text-brand-primary-light">
                     {weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : `${weekOffset} weeks out`}
                   </span>
                   <button
                     onClick={() => setWeekOffset((w) => Math.min(3, w + 1))}
                     disabled={weekOffset >= 3}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-brand-border bg-brand-elevated text-xs font-medium text-brand-ink-muted hover:text-brand-ink hover:border-brand-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1 rounded-lg border border-brand-border bg-brand-elevated px-2.5 py-1.5 text-xs font-medium text-brand-ink-muted transition-colors hover:border-brand-primary/40 hover:text-brand-ink disabled:cursor-not-allowed disabled:opacity-30"
                   >
-                    Next <ChevronRight className="w-3.5 h-3.5" />
+                    Next <ChevronRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
 
               {activePackages.length > 1 && (
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="mb-4 flex flex-wrap gap-2">
                   <button
                     onClick={() => setAvailabilityPackageId("all")}
-                    className={cn("px-3 py-1.5 rounded-full border text-xs font-medium transition-colors", availabilityPackageId === "all" ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light" : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink")}
+                    className={cn("rounded-full border px-3 py-1.5 text-xs font-medium transition-colors", availabilityPackageId === "all" ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light" : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink")}
                   >
                     All offerings
                   </button>
@@ -1062,7 +1159,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     <button
                       key={pkg.id}
                       onClick={() => setAvailabilityPackageId(pkg.id)}
-                      className={cn("px-3 py-1.5 rounded-full border text-xs font-medium transition-colors", availabilityPackageId === pkg.id ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light" : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink")}
+                      className={cn("rounded-full border px-3 py-1.5 text-xs font-medium transition-colors", availabilityPackageId === pkg.id ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light" : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink")}
                     >
                       {pkg.name}
                     </button>
@@ -1070,12 +1167,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </div>
               )}
 
-              <p className="text-xs text-brand-ink-subtle mb-4">
-                Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}). Creator schedules in {formatTimeZoneLabel(creator.timeZone ?? "America/New_York")}.
-              </p>
-
               {filteredAvailability.length === 0 ? (
-                <p className="text-sm text-brand-ink-subtle text-center py-6">No availability set for this offering yet.</p>
+                <p className="py-6 text-center text-sm text-brand-ink-subtle">No availability set for this offering yet.</p>
               ) : (
                 <div className="grid grid-cols-7 gap-1.5">
                   {weekDates.map((date) => {
@@ -1087,21 +1180,21 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     return (
                       <div
                         key={date.toISOString()}
-                        className={cn("rounded-xl p-2 text-center border transition-all", isToday ? "border-brand-primary/50 bg-brand-primary/10" : hasSlots ? "border-brand-live/30 bg-brand-live/5" : "border-brand-border bg-brand-elevated opacity-50")}
+                        className={cn("rounded-xl border p-2 text-center transition-all", isToday ? "border-brand-primary/50 bg-brand-primary/10" : hasSlots ? "border-brand-live/30 bg-brand-live/5" : "border-brand-border bg-brand-elevated opacity-50")}
                       >
-                        <p className="text-[10px] uppercase text-brand-ink-subtle font-medium">{DAY_NAMES[dow]}</p>
-                        <p className={cn("text-base font-bold mt-0.5", isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-ink" : "text-brand-ink-subtle")}>
+                        <p className="text-[10px] font-medium uppercase text-brand-ink-subtle">{DAY_NAMES[dow]}</p>
+                        <p className={cn("mt-0.5 text-base font-bold", isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-ink" : "text-brand-ink-subtle")}>
                           {date.getDate()}
                         </p>
                         {hasSlots ? (
                           <div className="mt-1 space-y-0.5">
                             {slots.slice(0, 2).map((s, i) => (
-                              <p key={i} className="text-[9px] text-brand-live leading-tight">{s}</p>
+                              <p key={i} className="text-[9px] leading-tight text-brand-live">{s}</p>
                             ))}
                             {slots.length > 2 && <p className="text-[9px] text-brand-ink-subtle">+{slots.length - 2} more</p>}
                           </div>
                         ) : (
-                          <p className="text-[9px] text-brand-ink-subtle mt-1">{isPast ? "—" : "Off"}</p>
+                          <p className="mt-1 text-[9px] text-brand-ink-subtle">{isPast ? "—" : "Off"}</p>
                         )}
                       </div>
                     );
@@ -1109,77 +1202,40 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Right: CTA sidebar */}
-          <div className="space-y-4 sticky top-4 self-start">
-            <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 flex flex-col gap-4">
-              {creator.isLive && hasLiveRate && (
-                <div className="p-3 rounded-xl bg-brand-live/10 border border-brand-live/30 text-center">
-                  <div className="flex items-center justify-center gap-1.5 mb-1">
-                    <span className="w-2 h-2 rounded-full bg-brand-live animate-pulse" />
-                    <span className="text-xs font-bold text-brand-live uppercase tracking-wider">Live Right Now</span>
-                  </div>
-                  <p className="text-xl font-display font-bold text-brand-live">{formatCurrency(creator.liveJoinFee!)}</p>
-                  <p className="text-xs text-brand-ink-subtle">per minute</p>
-                  <p className="text-[11px] text-brand-ink-subtle mt-1">
-                    {creator.queueCount > 0 ? `${creator.queueCount} waiting` : "Watch now and request a turn"}
-                  </p>
-                </div>
-              )}
-
+            {/* What to expect card */}
+            <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card">
+              <h2 className="text-xl font-serif font-normal text-brand-ink">What to expect</h2>
+              <div className="mt-4 rounded-2xl bg-brand-elevated p-4">
+                <p className="text-sm font-bold text-brand-ink">
+                  {hasPackages ? `${activePackages[0]?.duration ?? 15} minute session` : "Live-first conversations"}
+                </p>
+                <ul className="mt-3 space-y-2 text-sm text-brand-ink-muted">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-live" />
+                    <span>Video call via Daily.co — no downloads</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-live" />
+                    <span>Instant booking confirmation</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-live" />
+                    <span>Cancel up to 24h before for a full refund</span>
+                  </li>
+                  {hasLiveRate && (
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-live" />
+                      <span>Live: free to watch, paid by the minute on stage</span>
+                    </li>
+                  )}
+                </ul>
+              </div>
               {hasPackages && (
-                <div className="flex items-baseline gap-2">
-                  <p className="text-2xl font-display font-bold text-brand-ink">{formatCurrency(Math.min(...activePackages.map((p) => p.price)))}</p>
-                  <p className="text-xs text-brand-ink-subtle">per session</p>
-                </div>
+                <p className="mt-3 text-center text-[11px] text-brand-ink-subtle">
+                  Next available: {creator.nextAvailable}
+                </p>
               )}
-
-              <div className="space-y-2 text-sm">
-                {["Video call via Daily.co", "Instant booking confirmation", "Cancel up to 24h before"].map((item) => (
-                  <div key={item} className="flex items-center gap-2 text-brand-ink-subtle">
-                    <CheckCircle2 className="w-4 h-4 text-brand-live shrink-0" />
-                    <span>{item}</span>
-                  </div>
-                ))}
-                {hasLiveRate && (
-                  <div className="flex items-center gap-2 text-brand-ink-subtle">
-                    <CheckCircle2 className="w-4 h-4 text-brand-live shrink-0" />
-                    <span>Live: free to watch, paid by the minute on stage</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                {hasPackages ? (
-                  <Button variant="gold" size="lg" className="w-full gap-2" onClick={() => setShowBooking(true)}>
-                    <Video className="w-4 h-4" />
-                    Book from {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
-                  </Button>
-                ) : (
-                  <Button variant="ghost" size="lg" className="w-full opacity-50 cursor-not-allowed" disabled>
-                    Bookings Coming Soon
-                  </Button>
-                )}
-
-                {creator.isLive && hasLiveRate ? (
-                  <Link href={liveHref ?? "#"}>
-                    <Button variant="live" size="lg" className="w-full gap-2">
-                      <Zap className="w-4 h-4" />
-                      Watch Live {creator.queueCount > 0 ? `• ${creator.queueCount} waiting` : ""}
-                    </Button>
-                  </Link>
-                ) : hasLiveRate ? (
-                  <Button variant="outline" size="lg" disabled className="w-full gap-2 opacity-50 cursor-not-allowed">
-                    <Zap className="w-4 h-4 text-brand-ink-subtle" />
-                    <span className="text-sm truncate">Queue Offline</span>
-                  </Button>
-                ) : null}
-              </div>
-
-              <p className="text-[11px] text-center text-brand-ink-subtle">
-                Next available: {creator.nextAvailable}
-              </p>
             </div>
           </div>
         </div>

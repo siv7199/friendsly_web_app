@@ -516,12 +516,12 @@ export default function DiscoverPage() {
           <div className="flex items-end justify-between gap-3">
             <div>
               <h2 className="text-[1.9rem] font-serif font-normal leading-tight text-brand-ink md:text-[2.35rem]">
-                Live Now! Stop in have 1 on 1 conversations
+                {liveCreators.length > 0 ? "Live Now" : "Trending Creators"}
               </h2>
               <p className="mt-1 text-sm text-brand-ink-muted">
                 {liveCreators.length > 0
-                  ? "These creators are live right now and ready for quick access."
-                  : "No one is live right this second, so we are showing the closest matches from your current filters."}
+                  ? "These creators are streaming live right now."
+                  : "No one is live right now — showing trending creators instead."}
               </p>
             </div>
             <div className="hidden items-center gap-2 rounded-full border border-brand-border bg-white px-3 py-1.5 text-xs text-brand-ink-subtle md:flex">
@@ -589,11 +589,8 @@ export default function DiscoverPage() {
         <section className="space-y-4 lg:hidden">
           <div>
             <h2 className="text-[1.75rem] font-serif font-normal leading-tight text-brand-ink md:text-[2.2rem]">
-              Other Creators
+              More Creators
             </h2>
-            <p className="mt-1 text-sm text-brand-ink-muted">
-              Browse and book a session with any creator.
-            </p>
           </div>
 
           {otherCreators.length === 0 ? (
