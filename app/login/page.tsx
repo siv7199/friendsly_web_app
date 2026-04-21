@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,8 @@ export default function AuthPage() {
   const [resetSending, setResetSending] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
+  const signInEmailRef = useRef<HTMLInputElement | null>(null);
+  const signInPasswordRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user?.role) {
@@ -59,9 +61,37 @@ export default function AuthPage() {
     setRequestedTab(t === "signup" ? "signup" : t === "signin" ? "signin" : null);
   }, []);
 
+  useEffect(() => {
+    if (tab !== "signin") return;
+
+    const syncAutofilledValues = () => {
+      const emailValue = signInEmailRef.current?.value ?? "";
+      const passwordValue = signInPasswordRef.current?.value ?? "";
+
+      if (emailValue && emailValue !== siEmail) setSiEmail(emailValue);
+      if (passwordValue && passwordValue !== siPassword) setSiPassword(passwordValue);
+    };
+
+    const frameId = window.requestAnimationFrame(syncAutofilledValues);
+    const timeoutId = window.setTimeout(syncAutofilledValues, 250);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [tab, siEmail, siPassword]);
+
   async function handleSignIn(e: FormEvent) {
     e.preventDefault();
-    await login(siEmail, siPassword);
+    const email = signInEmailRef.current?.value?.trim() || siEmail.trim();
+    const password = signInPasswordRef.current?.value || siPassword;
+
+    if (!email || !password) return;
+
+    if (email !== siEmail) setSiEmail(email);
+    if (password !== siPassword) setSiPassword(password);
+
+    await login(email, password);
   }
 
   async function handleSignUp(e: FormEvent) {
@@ -144,9 +174,11 @@ export default function AuthPage() {
                     placeholder="you@example.com"
                     value={siEmail}
                     onChange={(e) => setSiEmail(e.target.value)}
+                    onInput={(e) => setSiEmail((e.target as HTMLInputElement).value)}
                     icon={<Mail className="w-4 h-4" />}
                     required
                     autoComplete="email"
+                    ref={signInEmailRef}
                   />
                   <div className="relative">
                     <Input
@@ -155,10 +187,12 @@ export default function AuthPage() {
                       placeholder="Your password"
                       value={siPassword}
                       onChange={(e) => setSiPassword(e.target.value)}
+                      onInput={(e) => setSiPassword((e.target as HTMLInputElement).value)}
                       icon={<Lock className="w-4 h-4" />}
                       required
                       autoComplete="current-password"
                       className="pr-14"
+                      ref={signInPasswordRef}
                     />
                     <button
                       type="button"
@@ -232,7 +266,7 @@ export default function AuthPage() {
                     </p>
                   )}
 
-                  <Button type="submit" variant="primary" size="sm" className="w-full" disabled={isLoading || !siEmail || !siPassword}>
+                  <Button type="submit" variant="primary" size="sm" className="w-full" disabled={isLoading || !(siEmail.trim() || signInEmailRef.current?.value?.trim()) || !(siPassword || signInPasswordRef.current?.value)}>
                     {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Signing in...</> : "Sign In"}
                   </Button>
                 </form>
