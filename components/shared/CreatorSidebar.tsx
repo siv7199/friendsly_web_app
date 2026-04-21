@@ -9,12 +9,8 @@ import {
   Settings2,
   CalendarDays,
   Radio,
-  Settings,
-  LogOut,
-  LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Avatar } from "@/components/ui/avatar";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { isCreatorProfile } from "@/types";
@@ -22,7 +18,7 @@ import { getCreatorLiveConsolePath } from "@/lib/routes";
 
 export function CreatorSidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuthContext();
+  const { user } = useAuthContext();
 
   const isLive = user && isCreatorProfile(user) ? user.is_live : false;
 
@@ -38,11 +34,6 @@ export function CreatorSidebar() {
     { label: "Calendar",         href: "/calendar",   icon: CalendarDays,    highlight: false },
     { label: "Go Live",          href: liveHref,      icon: Radio,           highlight: true  },
   ];
-
-  async function handleLogout() {
-    await logout();
-    window.location.replace("/");
-  }
 
   return (
     <aside className="hidden w-[220px] shrink-0 self-start fan-rail animate-rail-enter md:sticky md:top-0 md:flex md:h-screen md:flex-col">
@@ -85,46 +76,8 @@ export function CreatorSidebar() {
         })}
       </nav>
 
-      {/* Profile footer */}
-      <div className="px-3 pb-5 pt-4 border-t border-brand-border/60">
-        <div className="flex items-center gap-2.5">
-          <Avatar
-            initials={user?.avatar_initials ?? "?"}
-            color={user?.avatar_color ?? "bg-violet-600"}
-            size="sm"
-            isLive={isLive}
-            imageUrl={user?.avatar_url && user?.id ? `/api/public/avatar/${user.id}` : undefined}
-          />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-brand-ink truncate leading-tight">
-              {user?.full_name ?? "Guest"}
-            </p>
-            <p className="text-[11px] text-brand-ink-subtle truncate">
-              {user?.username ? `@${user.username}` : ""}
-            </p>
-          </div>
-          <div className="flex items-center gap-0.5">
-            <Link
-              href="/support"
-              className="text-brand-ink-subtle hover:text-brand-ink-muted transition-colors p-1.5 rounded-lg hover:bg-brand-elevated"
-            >
-              <LifeBuoy className="w-3.5 h-3.5" />
-            </Link>
-            <Link
-              href="/settings"
-              className="text-brand-ink-subtle hover:text-brand-ink-muted transition-colors p-1.5 rounded-lg hover:bg-brand-elevated"
-            >
-              <Settings className="w-3.5 h-3.5" />
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="text-brand-ink-subtle hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50"
-              title="Sign out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
+      <div className="px-5 pb-6 pt-4 text-[11px] text-brand-ink-subtle border-t border-brand-border/60 truncate">
+        {user?.username ? `@${user.username}` : user?.full_name ?? "Friendsly"}
       </div>
     </aside>
   );

@@ -15,8 +15,11 @@ export function MobileAccountBar() {
 
   return (
     <div
-      className="sticky top-0 z-40 border-b border-brand-border/70 bg-white/95 px-4 pb-3 backdrop-blur supports-[backdrop-filter]:bg-white/85"
-      style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+      className="sticky inset-x-0 top-0 z-40 border-b border-brand-border/70 bg-white/95 px-4 pb-3 shadow-[0_10px_30px_rgba(26,22,40,0.06)] backdrop-blur supports-[backdrop-filter]:bg-white/88 md:fixed md:bottom-0 md:left-[220px] md:top-auto md:border-b-0 md:border-t md:py-3 md:shadow-[0_-10px_30px_rgba(26,22,40,0.08)]"
+      style={{
+        paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)",
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)",
+      }}
     >
       <div className="mx-auto flex max-w-6xl items-center gap-3">
         <Avatar
