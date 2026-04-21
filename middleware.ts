@@ -18,7 +18,7 @@ const PROTECTED_FAN     = ["/discover", "/profile", "/waiting-room", "/bookings"
 const PROTECTED_CREATOR = ["/dashboard", "/management", "/calendar", "/live", "/settings", "/earnings", "/room", "/m/live", "/m/room"];
 const MOBILE_CALL_ROUTES = ["/waiting-room", "/live", "/room", "/guest-room"];
 const ONBOARDING_PREFIX = "/onboarding";
-const AUTH_ROUTES       = ["/", "/login", "/signup"];
+const AUTH_ROUTES       = ["/login", "/signup"];
 
 function isProtected(pathname: string): boolean {
   return [...PROTECTED_FAN, ...PROTECTED_CREATOR].some(
@@ -113,7 +113,7 @@ export async function middleware(request: NextRequest) {
 
   // 5. No session + protected route → send to login
   if (isProtected(pathname)) {
-    const url = new URL("/", request.url);
+    const url = new URL("/login", request.url);
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }

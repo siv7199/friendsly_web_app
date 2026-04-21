@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Barlow, Cormorant_Garamond, Nunito_Sans } from "next/font/google";
+import { Barlow, Cormorant_Garamond, Nunito_Sans, Pacifico } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/lib/context/AuthContext";
@@ -34,6 +34,13 @@ const bodyFont = Nunito_Sans({
   adjustFontFallback: false,
 });
 
+const pacificoFont = Pacifico({
+  subsets: ["latin"],
+  variable: "--font-pacifico",
+  display: "swap",
+  weight: "400",
+});
+
 export const metadata: Metadata = {
   title: "Friendsly — Connect with Your Favorite Creators",
   description:
@@ -52,7 +59,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${brandFont.variable} ${serifFont.variable}`}>
+    <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${brandFont.variable} ${serifFont.variable} ${pacificoFont.variable}`}>
       <body className="bg-brand-bg text-brand-ink antialiased min-h-screen font-sans">
         <AuthProvider>
           <GlobalLiveStatusManager />
