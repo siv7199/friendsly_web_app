@@ -750,6 +750,82 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
           <div className="mx-4 my-5 border-t border-brand-border" />
 
+          {/* Book a Session */}
+          {hasPackages && (
+            <div className="px-4 mb-6">
+              <Button variant="primary" size="lg" className="w-full mb-3" onClick={() => setShowBooking(true)}>
+                See times
+              </Button>
+              <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
+              <div
+                className={cn(
+                  "grid gap-2",
+                  activePackages.length === 1 && "grid-cols-1",
+                  activePackages.length === 2 && "grid-cols-2",
+                  activePackages.length >= 3 && "grid-cols-3",
+                )}
+              >
+                {activePackages.map((pkg) => (
+                  (() => {
+                    const accent = getPackageAccentClasses(activePackages.findIndex((candidate) => candidate.id === pkg.id));
+                    return (
+                  <button
+                    key={pkg.id}
+                    type="button"
+                    className={cn(
+                      "flex w-full min-w-0 flex-col items-start gap-1 rounded-2xl border p-3 text-left transition-colors active:opacity-80",
+                      accent.card,
+                    )}
+                    onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
+                  >
+                    <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
+                    <span className="inline-flex items-center gap-1 text-[11px] text-brand-ink-subtle">
+                      <Clock className="h-3 w-3" />
+                      {pkg.duration} min
+                    </span>
+                    <p className={cn("mt-1 text-base font-display font-bold", accent.price)}>{formatCurrency(pkg.price)}</p>
+                  </button>
+                    );
+                  })()
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showLiveCard && (
+            <div className="mx-4 mb-6 rounded-3xl border border-brand-live/20 bg-brand-surface p-5 shadow-card">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
+                    <Zap className="h-3 w-3" />
+                    Live
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-sm text-brand-ink-muted">
+                Free to watch - pay by the minute only when you're on stage with {creator.name}.
+              </p>
+
+              <div className="mt-4 rounded-3xl border border-brand-live/15 bg-brand-live/5 px-4 py-5">
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-live">Countdown</p>
+                <p className="mt-3 text-base font-semibold text-brand-ink">{countdownPrimaryText}</p>
+                {countdownSecondaryText ? (
+                  <p className="mt-2 text-sm text-brand-ink-muted">{countdownSecondaryText}</p>
+                ) : null}
+              </div>
+
+              {creator.isLive && hasLiveRate && (
+                <Link href={liveHref ?? "#"} className="mt-4 block">
+                  <Button variant="live" size="lg" className="w-full gap-2">
+                    <Zap className="h-4 w-4" />
+                    Watch NOW for free
+                  </Button>
+                </Link>
+              )}
+            </div>
+          )}
+
           {/* Availability */}
           <div className="px-4 mb-6">
             <h2 className="text-base font-bold text-brand-ink mb-3">Availability</h2>
@@ -854,62 +930,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               </div>
             )}
           </div>
-
-          {/* Book a Session */}
-          {hasPackages && (
-            <div className="px-4 mb-6">
-              <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
-              <div className="space-y-3">
-                {activePackages.map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    className="flex items-center justify-between p-4 rounded-2xl border border-brand-primary/20 bg-[rgba(133,117,201,0.06)] cursor-pointer active:bg-brand-primary/10 transition-colors"
-                    onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
-                  >
-                    <p className="font-bold text-brand-ink">{pkg.name}</p>
-                    <p className="font-bold text-brand-gold">{formatCurrency(pkg.price)}</p>
-                  </div>
-                ))}
-              </div>
-              <Button variant="primary" size="lg" className="mt-4 w-full" onClick={() => setShowBooking(true)}>
-                See times
-              </Button>
-            </div>
-          )}
-
-          {showLiveCard && (
-            <div className="mx-4 mb-6 rounded-3xl border border-brand-live/20 bg-brand-surface p-5 shadow-card">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
-                    <Zap className="h-3 w-3" />
-                    Live
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-sm text-brand-ink-muted">
-                Free to watch - pay by the minute only when you're on stage with {creator.name}.
-              </p>
-
-              <div className="mt-4 rounded-3xl border border-brand-live/15 bg-brand-live/5 px-4 py-5">
-                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-live">Countdown</p>
-                <p className="mt-3 text-base font-semibold text-brand-ink">{countdownPrimaryText}</p>
-                {countdownSecondaryText ? (
-                  <p className="mt-2 text-sm text-brand-ink-muted">{countdownSecondaryText}</p>
-                ) : null}
-              </div>
-
-              {creator.isLive && hasLiveRate && (
-                <Link href={liveHref ?? "#"} className="mt-4 block">
-                  <Button variant="live" size="lg" className="w-full gap-2">
-                    <Zap className="h-4 w-4" />
-                    Watch NOW for free
-                  </Button>
-                </Link>
-              )}
-            </div>
-          )}
 
           {/* Reviews (mobile) */}
           {(reviews.length > 0 || (isFan && !isOwnProfile) || creator.reviewCount === 0) && (
@@ -1159,6 +1179,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </div>
               ) : (
                 <>
+                  <Button variant="primary" size="lg" className="mt-4 w-full" onClick={() => setShowBooking(true)}>
+                    See times
+                  </Button>
+
                   <div className="mt-4 flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm text-brand-ink-muted">Starting at</p>
@@ -1177,7 +1201,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     )}
                   </div>
 
-                  <div className="mt-4 space-y-2">
+                  <div
+                    className={cn(
+                      "mt-4 grid gap-2",
+                      activePackages.length === 1 && "grid-cols-1",
+                      activePackages.length === 2 && "grid-cols-2",
+                      activePackages.length >= 3 && "grid-cols-3",
+                    )}
+                  >
                     {activePackages.map((pkg) => (
                       (() => {
                         const accent = getPackageAccentClasses(activePackages.findIndex((candidate) => candidate.id === pkg.id));
@@ -1186,31 +1217,19 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         key={pkg.id}
                         type="button"
                         onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
-                        className={cn("flex w-full items-start justify-between gap-4 rounded-2xl border p-4 text-left transition-colors", accent.card)}
+                        className={cn("flex w-full min-w-0 flex-col items-start gap-1 rounded-2xl border p-3 text-left transition-colors", accent.card)}
                       >
-                        <div className="min-w-0">
-                          <p className="font-bold text-brand-ink">{pkg.name}</p>
-                          {pkg.description && (
-                            <p className="mt-1 text-sm text-brand-ink-subtle line-clamp-2">{pkg.description}</p>
-                          )}
-                          <span className="mt-2 inline-flex items-center gap-1 text-xs text-brand-ink-subtle">
-                            <Clock className="h-3 w-3" />
-                            {pkg.duration} min
-                          </span>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className={cn("text-lg font-display font-bold", accent.price)}>{formatCurrency(pkg.price)}</p>
-                          <p className="mt-0.5 text-[11px] text-brand-ink-subtle">per session</p>
-                        </div>
+                        <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
+                        <span className="inline-flex items-center gap-1 text-xs text-brand-ink-subtle">
+                          <Clock className="h-3 w-3" />
+                          {pkg.duration} min
+                        </span>
+                        <p className={cn("mt-1 text-lg font-display font-bold", accent.price)}>{formatCurrency(pkg.price)}</p>
                       </button>
                         );
                       })()
                     ))}
                   </div>
-
-                  <Button variant="primary" size="lg" className="mt-6 w-full" onClick={() => setShowBooking(true)}>
-                    See times
-                  </Button>
                 </>
               )}
             </div>

@@ -14,6 +14,11 @@ import type { CallPackage } from "@/types";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import {
+  MAX_ACTIVE_PACKAGES,
+  MIN_BOOKING_PRICE,
+  MIN_LIVE_RATE_PER_MINUTE,
+} from "@/lib/pricing-limits";
 export default function ManagementPage() {
   const { user } = useAuthContext();
 
@@ -28,7 +33,19 @@ export default function ManagementPage() {
   const [liveRateSaved, setLiveRateSaved] = useState(false);
   const parsedLiveRate = parseFloat(liveRate);
   const isLiveRateFilled = liveRate.trim().length > 0;
-  const isLiveRateValid = !isLiveRateFilled || (Number.isFinite(parsedLiveRate) && parsedLiveRate > 0);
+  const isLiveRateValid =
+    !isLiveRateFilled ||
+    (Number.isFinite(parsedLiveRate) && parsedLiveRate >= MIN_LIVE_RATE_PER_MINUTE);
+
+  const [toggleWarning, setToggleWarning] = useState<string | null>(null);
+  const activePackageCount = packages.filter((p) => p.isActive).length;
+  const atPackageCap = activePackageCount >= MAX_ACTIVE_PACKAGES;
+  const parsedFormPrice = parseInt(form.price);
+  const isFormPriceFilled = form.price.trim().length > 0;
+  const isFormPriceValid =
+    isFormPriceFilled &&
+    Number.isFinite(parsedFormPrice) &&
+    parsedFormPrice >= MIN_BOOKING_PRICE;
 
   const supabase = createClient();
 
@@ -158,6 +175,7 @@ export default function ManagementPage() {
   }
 
   function handleSave() {
+    if (!isFormPriceValid) return;
     if (editingPackage) {
       setPackages((prev) =>
         prev.map((p) =>
@@ -182,7 +200,20 @@ export default function ManagementPage() {
   }
 
   function toggleActive(id: string) {
-    setPackages((prev) => prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p)));
+    setPackages((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (target && !target.isActive) {
+        const activeCount = prev.filter((p) => p.isActive).length;
+        if (activeCount >= MAX_ACTIVE_PACKAGES) {
+          setToggleWarning(
+            `You can only have ${MAX_ACTIVE_PACKAGES} active packages at a time. Disable another first.`
+          );
+          setTimeout(() => setToggleWarning(null), 3500);
+          return prev;
+        }
+      }
+      return prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p));
+    });
   }
 
   async function deletePackage(id: string) {
@@ -198,11 +229,27 @@ export default function ManagementPage() {
             <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">Manage Offerings</h1>
             <p className="text-brand-ink-subtle mt-1">Set your call packages, pricing, and availability.</p>
           </div>
-          <Button variant="primary" onClick={openNew} className="gap-2">
-            <Plus className="w-4 h-4" />
-            New Package
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button
+              variant="primary"
+              onClick={openNew}
+              disabled={atPackageCap}
+              className="gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              New Package
+            </Button>
+            <p className="text-xs text-brand-ink-subtle">
+              Up to {MAX_ACTIVE_PACKAGES} active packages.
+            </p>
+          </div>
         </div>
+
+        {toggleWarning && (
+          <div className="rounded-xl border border-amber-300/40 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {toggleWarning}
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-4">
           {[
@@ -260,7 +307,7 @@ export default function ManagementPage() {
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink-subtle text-sm">$</span>
                 <input
                   type="number"
-                  min="0.01"
+                  min={MIN_LIVE_RATE_PER_MINUTE}
                   step="0.10"
                   placeholder="Enter amount"
                   value={liveRate}
@@ -268,9 +315,12 @@ export default function ManagementPage() {
                   className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated pl-7 pr-3 text-sm text-brand-ink placeholder:text-brand-ink-subtle focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
                 />
               </div>
+              <p className="mt-2 text-xs text-brand-ink-subtle">
+                Minimum ${MIN_LIVE_RATE_PER_MINUTE} per minute.
+              </p>
               {isLiveRateFilled && !isLiveRateValid && (
-                <p className="mt-2 text-xs text-red-400">
-                  Enter an amount greater than $0 to save your per-minute rate.
+                <p className="mt-1 text-xs text-red-400">
+                  Per-minute rate must be at least ${MIN_LIVE_RATE_PER_MINUTE}.
                 </p>
               )}
             </div>
@@ -323,14 +373,25 @@ export default function ManagementPage() {
                 value={form.duration}
                 onChange={(e) => setForm({ ...form, duration: e.target.value })}
               />
-              <Input
-                label="Price (USD)"
-                type="number"
-                placeholder="25"
-                value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
-                icon={<DollarSign className="w-4 h-4" />}
-              />
+              <div>
+                <Input
+                  label="Price (USD)"
+                  type="number"
+                  min={MIN_BOOKING_PRICE}
+                  placeholder="25"
+                  value={form.price}
+                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  icon={<DollarSign className="w-4 h-4" />}
+                />
+                <p className="mt-1.5 text-xs text-brand-ink-subtle">
+                  Minimum ${MIN_BOOKING_PRICE}.
+                </p>
+                {isFormPriceFilled && !isFormPriceValid && (
+                  <p className="mt-1 text-xs text-red-400">
+                    Price must be at least ${MIN_BOOKING_PRICE}.
+                  </p>
+                )}
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium text-brand-ink-muted mb-2 block">Description</label>
@@ -347,7 +408,7 @@ export default function ManagementPage() {
               <Button
                 variant="primary"
                 className="flex-1"
-                disabled={!form.name || !form.price || !form.duration}
+                disabled={!form.name || !form.duration || !isFormPriceValid}
                 onClick={handleSave}
               >
                 {editingPackage ? "Save Changes" : "Create Package"}

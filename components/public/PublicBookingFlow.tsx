@@ -726,7 +726,13 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
             </div>
 
             {packages.length > 1 && (
-              <div className="mt-5 space-y-3">
+              <div
+                className={cn(
+                  "mt-5 grid gap-2",
+                  packages.length === 2 && "grid-cols-2",
+                  packages.length >= 3 && "grid-cols-3",
+                )}
+              >
                 {packages.map((pkg) => (
                   <button
                     key={pkg.id}
@@ -736,20 +742,15 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                       setSelectedTime(null);
                     }}
                     className={cn(
-                      "w-full max-w-full overflow-hidden rounded-2xl border p-4 text-left transition-all",
+                      "flex w-full min-w-0 max-w-full flex-col items-start gap-1 overflow-hidden rounded-2xl border p-3 text-left transition-all",
                       selectedPackage?.id === pkg.id
                         ? "border-brand-primary bg-brand-primary/10"
-                        : "border-brand-border bg-brand-elevated hover:border-brand-primary/40"
+                        : "border-brand-border bg-brand-elevated hover:border-brand-primary/40",
                     )}
                   >
-                    <div className="flex min-w-0 items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-bold text-brand-ink">{pkg.name}</p>
-                        <p className="mt-1 text-sm text-brand-ink-subtle">{pkg.description}</p>
-                        <p className="mt-2 text-xs text-brand-ink-muted">{pkg.duration} min</p>
-                      </div>
-                      <p className="shrink-0 text-right text-base font-bold text-amber-600">{formatCurrency(pkg.price)}</p>
-                    </div>
+                    <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
+                    <p className="text-[11px] text-brand-ink-muted">{pkg.duration} min</p>
+                    <p className="mt-1 text-base font-bold text-amber-600">{formatCurrency(pkg.price)}</p>
                   </button>
                 ))}
               </div>
