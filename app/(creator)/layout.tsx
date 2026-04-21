@@ -8,7 +8,7 @@ import { MobileAccountBar } from "@/components/shared/MobileAccountBar";
 
 export default function CreatorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isImmersiveLiveRoute = pathname === "/live";
+  const isImmersiveLiveRoute = pathname === "/live" || pathname.startsWith("/live/");
 
   return (
     <div className="flex min-h-screen bg-brand-bg">

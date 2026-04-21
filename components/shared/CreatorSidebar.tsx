@@ -18,15 +18,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { isCreatorProfile } from "@/types";
-
-const NAV_ITEMS = [
-  { label: "Dashboard",        href: "/dashboard",  icon: LayoutDashboard, highlight: false },
-  { label: "Analytics",        href: "/analytics",  icon: BarChart3,       highlight: false },
-  { label: "Earnings",         href: "/earnings",   icon: DollarSign,      highlight: false },
-  { label: "Bookings / Offerings", href: "/management", icon: Settings2,       highlight: false },
-  { label: "Calendar",         href: "/calendar",   icon: CalendarDays,    highlight: false },
-  { label: "Go Live",          href: "/live",       icon: Radio,           highlight: true  },
-];
+import { getCreatorLiveConsolePath } from "@/lib/routes";
 
 export function CreatorSidebar() {
   const pathname = usePathname();
@@ -34,6 +26,19 @@ export function CreatorSidebar() {
   const { user, logout } = useAuthContext();
 
   const isLive = user && isCreatorProfile(user) ? user.is_live : false;
+
+  const liveHref = user
+    ? getCreatorLiveConsolePath({ id: user.id, username: user.username })
+    : "/live";
+
+  const NAV_ITEMS = [
+    { label: "Dashboard",        href: "/dashboard",  icon: LayoutDashboard, highlight: false },
+    { label: "Analytics",        href: "/analytics",  icon: BarChart3,       highlight: false },
+    { label: "Earnings",         href: "/earnings",   icon: DollarSign,      highlight: false },
+    { label: "Bookings / Offerings", href: "/management", icon: Settings2,       highlight: false },
+    { label: "Calendar",         href: "/calendar",   icon: CalendarDays,    highlight: false },
+    { label: "Go Live",          href: liveHref,      icon: Radio,           highlight: true  },
+  ];
 
   async function handleLogout() {
     await logout();

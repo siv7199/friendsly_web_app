@@ -1,13 +1,26 @@
-"use client";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { normalizeCreatorSlug } from "@/lib/routes";
 
-import { LiveConsole } from "@/components/creator/LiveConsole";
+export default async function MobileCreatorLiveRedirectPage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-export default function MobileCreatorLivePage() {
-  return (
-    <div className="px-4 py-4 min-h-[100dvh] overflow-x-hidden flex flex-col">
-      <div className="mx-auto w-full max-w-[1600px] flex-1 flex min-h-0">
-        <LiveConsole />
-      </div>
-    </div>
-  );
+  if (!user) {
+    redirect("/?next=/m/live");
+  }
+
+  const metaUsername = (user.user_metadata?.username ?? null) as string | null;
+  let slug = normalizeCreatorSlug(metaUsername);
+
+  if (!slug) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .maybeSingle();
+    slug = normalizeCreatorSlug(profile?.username ?? null);
+  }
+
+  redirect(`/m/live/${slug ?? user.id}`);
 }

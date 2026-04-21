@@ -1,0 +1,1057 @@
+"use client";
+
+// MobileLiveConsole — iPhone-only creator Go-Live screen.
+// Mirrors the visual language of components/mobile/MobileLiveStage.tsx (the fan
+// mobile live page). The session lifecycle is duplicated from
+// components/creator/LiveConsole.tsx to keep desktop behavior untouched; if the
+// desktop logic changes, this file needs the same change.
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CalendarClock, Loader2, Mic, MicOff, Send, SkipForward, StopCircle, Users, Video, VideoOff, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Avatar } from "@/components/ui/avatar";
+import { CallContainer } from "@/components/video/CallContainer";
+import { useAuthContext } from "@/lib/context/AuthContext";
+import { readJsonResponse } from "@/lib/http";
+import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
+import {
+  COMMON_TIME_ZONES,
+  formatDateTimeLocalInTimeZone,
+  formatTimeZoneLabel,
+  getBrowserTimeZone,
+  zonedTimeToUtc,
+} from "@/lib/timezones";
+import {
+  LIVE_STAGE_MAX_MINUTES,
+  LIVE_STAGE_MIN_SECONDS,
+  LIVE_STAGE_SECONDS,
+  getLiveStageElapsedSeconds,
+  getLiveStageRemainingSeconds,
+} from "@/lib/live";
+import {
+  DailyAudioTrack,
+  DailyVideo,
+  useDaily,
+  useLocalSessionId,
+} from "@daily-co/daily-react";
+
+const LIVE_SESSION_HEARTBEAT_MS = 15000;
+const LIVE_SESSION_STALE_MS = 45000;
+
+function isVideoPlayable(p: any) {
+  const s = p?.tracks?.video?.state;
+  return s === "playable" || s === "loading";
+}
+
+function formatCountdown(totalSeconds: number) {
+  const s = Math.max(0, totalSeconds);
+  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+}
+
+function shouldRefreshQueueFromLiveSessionChange(payload: any) {
+  const previousSession = payload.old;
+  const nextSession = payload.new;
+  if (payload.eventType === "INSERT" || payload.eventType === "DELETE") return true;
+  return (
+    previousSession?.is_active !== nextSession?.is_active ||
+    previousSession?.ended_at !== nextSession?.ended_at ||
+    previousSession?.daily_room_url !== nextSession?.daily_room_url
+  );
+}
+
+function mapLiveQueuePerson(entry: any, fallbackName: string) {
+  const profile = entry?.profiles;
+  return {
+    id: entry.id,
+    fanId: entry.fan_id,
+    fanName: profile?.full_name ?? fallbackName,
+    avatarInitials: profile?.avatar_initials ?? "F",
+    avatarColor: profile?.avatar_color ?? "bg-brand-primary",
+    avatarUrl: profile?.avatar_url ?? undefined,
+    admittedDailySessionId: entry.admitted_daily_session_id ?? undefined,
+    admittedAt: entry.admitted_at,
+  };
+}
+
+const VIDEO_FILL = {
+  __html: `
+    .m-live-video, .m-live-video > div, .m-live-video > div > div, .m-live-video video {
+      width: 100% !important; height: 100% !important;
+    }
+    .m-live-video { position: relative; }
+    .m-live-video video { display: block !important; object-fit: cover !important; transform: none !important; }
+    .m-live-video div[style*='position: absolute'] { display: none !important; }
+    @keyframes m-live-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+    .m-live-pulse { animation: m-live-pulse 2.4s ease-in-out infinite; }
+  `,
+};
+
+// ─── Live stage (creator side) ───────────────────────────────────────────
+
+function CreatorMobileLiveStage({
+  creatorId,
+  creatorName,
+  creatorInitials,
+  creatorColor,
+  creatorAvatarUrl,
+  currentFan,
+  queue,
+  queueCount,
+  activeFanElapsedSeconds,
+  initialMic,
+  initialCam,
+  onAdmitNext,
+  onEndSession,
+  sessionId,
+}: {
+  creatorId: string;
+  creatorName: string;
+  creatorInitials: string;
+  creatorColor: string;
+  creatorAvatarUrl?: string;
+  currentFan: any;
+  queue: any[];
+  queueCount: number;
+  activeFanElapsedSeconds: number;
+  initialMic: boolean;
+  initialCam: boolean;
+  onAdmitNext: () => void;
+  onEndSession: () => void;
+  sessionId: string | null;
+}) {
+  const daily = useDaily();
+  const localSessionId = useLocalSessionId();
+  const { user } = useAuthContext();
+
+  const [micOn, setMicOn] = useState(initialMic);
+  const [camOn, setCamOn] = useState(initialCam);
+  const [localVideoActive, setLocalVideoActive] = useState(false);
+  const [fanParticipant, setFanParticipant] = useState<any>(null);
+  const [audienceCount, setAudienceCount] = useState(0);
+
+  const [chatText, setChatText] = useState("");
+  const [sending, setSending] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<
+    { id: string; senderName: string; message: string; isMe: boolean }[]
+  >([]);
+
+  // Sync media when mic/cam toggled
+  useEffect(() => {
+    if (!daily) return;
+    try { daily.setLocalAudio(micOn); } catch {}
+  }, [daily, micOn]);
+
+  useEffect(() => {
+    if (!daily) return;
+    try { daily.setLocalVideo(camOn); } catch {}
+  }, [daily, camOn]);
+
+  // Daily participant sync
+  useEffect(() => {
+    if (!daily) return;
+    const sync = () => {
+      const all = Object.values(daily.participants() ?? {}) as any[];
+      const local = all.find((p) => p?.local || p?.session_id === localSessionId);
+      setLocalVideoActive(isVideoPlayable(local));
+
+      const remote = all.filter((p) => !p?.local);
+      let fanP: any = null;
+      if (currentFan?.fanId) {
+        if (currentFan.admittedDailySessionId) {
+          fanP = remote.find((p) => p?.session_id === currentFan.admittedDailySessionId) ?? null;
+        }
+        if (!fanP) {
+          fanP = remote.find((p) => p?.user_name === currentFan.fanId) ?? null;
+        }
+        if (!fanP) {
+          fanP = remote.find((p) => isVideoPlayable(p)) ?? null;
+        }
+      }
+      setFanParticipant(fanP);
+
+      const visible = all.filter((p) => !p?.hidden).length;
+      setAudienceCount(Math.max(daily?.participantCounts?.().present ?? 0, visible));
+    };
+    sync();
+    daily.on("participant-joined", sync);
+    daily.on("participant-updated", sync);
+    daily.on("participant-left", sync);
+    return () => {
+      daily.off("participant-joined", sync);
+      daily.off("participant-updated", sync);
+      daily.off("participant-left", sync);
+    };
+  }, [daily, currentFan?.fanId, currentFan?.admittedDailySessionId, localSessionId]);
+
+  // Chat (same wiring as MobileLiveStage)
+  useEffect(() => {
+    if (!sessionId) return;
+    const supabase = createClient();
+    supabase
+      .from("live_chat_messages")
+      .select("id, message, user_id, profiles(full_name)")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true })
+      .limit(50)
+      .then(({ data }: { data: any[] | null }) => {
+        if (!data) return;
+        setMessages(data.map((m: any) => ({
+          id: m.id,
+          senderName: m.profiles?.full_name ?? "Fan",
+          message: m.message,
+          isMe: m.user_id === user?.id,
+        })));
+      });
+    const channel = supabase
+      .channel(`chat:${sessionId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "live_chat_messages", filter: `session_id=eq.${sessionId}` },
+        async (payload: any) => {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", payload.new.user_id)
+            .single();
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: payload.new.id,
+              senderName: profile?.full_name ?? "Fan",
+              message: payload.new.message,
+              isMe: payload.new.user_id === user?.id,
+            },
+          ]);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [sessionId, user?.id]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  async function sendChat() {
+    const text = chatText.trim();
+    if (!text || !sessionId || !user) return;
+    setSending(true);
+    setChatText("");
+    const supabase = createClient();
+    await supabase.from("live_chat_messages").insert({
+      creator_id: creatorId,
+      session_id: sessionId,
+      user_id: user.id,
+      message: text,
+    });
+    setSending(false);
+  }
+
+  const audibleIds = useMemo(
+    () => [fanParticipant?.session_id].filter((id): id is string => Boolean(id)),
+    [fanParticipant?.session_id]
+  );
+
+  const fanVideoActive = isVideoPlayable(fanParticipant);
+  const visibleMessages = messages.slice(-5);
+  const admitDisabledByMin = Boolean(currentFan) && activeFanElapsedSeconds < LIVE_STAGE_MIN_SECONDS;
+
+  return (
+    <div className="flex flex-col min-h-[100dvh] bg-violet-500 overflow-hidden">
+      {audibleIds.map((id) => (
+        <DailyAudioTrack key={id} sessionId={id} />
+      ))}
+      <style dangerouslySetInnerHTML={VIDEO_FILL} />
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 pt-5 pb-2 shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => { window.history.back(); }}
+            className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center active:scale-95 transition-all"
+            aria-label="Leave live"
+          >
+            <X className="w-4 h-4 text-white" />
+          </button>
+          <span className="text-white text-xl font-brand tracking-tight select-none">friendsly</span>
+        </div>
+        <div className="flex items-center gap-1.5 bg-[#1a1a3e] rounded-full px-3.5 py-1.5">
+          <Users className="w-3 h-3 text-white/60" />
+          <span className="text-white text-sm font-semibold tabular-nums">
+            {audienceCount > 0 ? audienceCount : queueCount}
+          </span>
+        </div>
+      </div>
+
+      {/* Status line */}
+      <div className="px-5 pb-2 shrink-0">
+        <p className="text-white font-semibold text-sm m-live-pulse">
+          {currentFan
+            ? `On stage with ${currentFan.fanName} · ${formatCountdown(activeFanElapsedSeconds)} / ${LIVE_STAGE_MAX_MINUTES}:00`
+            : queueCount > 0
+              ? `${queueCount} ${queueCount === 1 ? "fan" : "fans"} in line`
+              : "You're live · share your link"}
+        </p>
+      </div>
+
+      {/* Video card */}
+      <div className="relative mx-4 shrink-0" style={{ height: "42vh" }}>
+        <div
+          className="absolute inset-0 rounded-2xl"
+          style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
+        />
+        <div className="relative h-full w-full rounded-2xl overflow-hidden bg-[#1a1a3e]">
+          {localSessionId && camOn && localVideoActive ? (
+            <div className="m-live-video h-full w-full">
+              <DailyVideo sessionId={localSessionId} type="video" mirror className="h-full w-full object-cover" />
+            </div>
+          ) : (
+            <div className="h-full w-full flex flex-col items-center justify-center gap-3">
+              <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="xl" />
+              <p className="text-white/50 text-xs">{camOn ? "Connecting camera…" : "Camera is off"}</p>
+            </div>
+          )}
+          <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-black/25 to-transparent pointer-events-none" />
+
+          {/* PiP — current fan */}
+          <div className="absolute bottom-2.5 right-2.5 w-[28%] aspect-video rounded-xl overflow-hidden bg-[#2d2d5e] shadow-md">
+            {currentFan && fanParticipant && fanVideoActive ? (
+              <div className="m-live-video h-full w-full">
+                <DailyVideo sessionId={fanParticipant.session_id} type="video" className="h-full w-full object-cover" />
+              </div>
+            ) : (
+              <div className="h-full w-full flex items-center justify-center">
+                {currentFan ? (
+                  <Avatar initials={currentFan.avatarInitials} color={currentFan.avatarColor} imageUrl={currentFan.avatarUrl} size="sm" />
+                ) : (
+                  <Users className="w-4 h-4 text-white/30" />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Mic / Cam controls */}
+          <div className="absolute bottom-2.5 left-2.5 flex gap-1.5">
+            <button
+              onClick={() => setMicOn((v) => !v)}
+              className={cn(
+                "w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 border backdrop-blur-sm",
+                micOn ? "border-violet-400/50 bg-violet-500/20 text-white" : "border-red-400/50 bg-red-500/20 text-red-300"
+              )}
+            >
+              {micOn ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={() => setCamOn((v) => !v)}
+              className={cn(
+                "w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 border backdrop-blur-sm",
+                camOn ? "border-violet-400/50 bg-violet-500/20 text-white" : "border-red-400/50 bg-red-500/20 text-red-300"
+              )}
+            >
+              {camOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Queue avatar row */}
+      <div className="px-4 pt-3 pb-2 shrink-0">
+        <div className="flex items-center gap-3 overflow-x-auto rounded-2xl bg-white/8 px-3.5 py-3 scrollbar-hide">
+          {queue.length === 0 && (
+            <p className="text-white/50 text-xs">No fans in line</p>
+          )}
+          {queue.slice(0, 9).map((entry: any) => (
+            <div key={entry.id} className="flex flex-col items-center gap-1.5 shrink-0 px-1">
+              <Avatar
+                initials={entry.avatarInitials ?? entry.fanName?.[0] ?? "F"}
+                color={entry.avatarColor ?? "bg-white/20"}
+                imageUrl={entry.avatarUrl}
+                size="sm"
+              />
+              <span className="text-[10px] font-medium text-white/60">
+                {entry.fanName?.split(" ")[0] ?? "Fan"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* White panel */}
+      <div className="flex-1 rounded-t-3xl bg-white overflow-hidden flex flex-col min-h-0 mt-2">
+        {/* Admit / End controls */}
+        <div className="px-5 pt-4 pb-3 shrink-0 flex gap-2">
+          <button
+            onClick={onAdmitNext}
+            disabled={queueCount < 1 || admitDisabledByMin}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-full bg-emerald-500 text-white font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50"
+          >
+            <SkipForward className="w-3.5 h-3.5" />
+            {admitDisabledByMin
+              ? `Min ${formatCountdown(LIVE_STAGE_MIN_SECONDS - activeFanElapsedSeconds)}`
+              : currentFan ? "Next fan" : "Admit"}
+          </button>
+          <button
+            onClick={onEndSession}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-red-500 text-white font-semibold text-sm transition-all active:scale-[0.98]"
+          >
+            <StopCircle className="w-3.5 h-3.5" />
+            End
+          </button>
+        </div>
+
+        {/* Chat */}
+        <div className="relative overflow-hidden px-5 min-h-0" style={{ height: "140px" }}>
+          <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white to-transparent pointer-events-none z-10" />
+          <div className="flex flex-col justify-end h-full gap-2 pb-2">
+            {visibleMessages.length === 0 && (
+              <p className="text-center text-slate-400 text-xs py-2">Chat is quiet — say hi to your fans</p>
+            )}
+            {visibleMessages.map((msg, i) => {
+              const isFaded = i === 0 && visibleMessages.length >= 5;
+              return (
+                <div
+                  key={msg.id}
+                  className={cn("flex gap-2", msg.isMe && "justify-end", isFaded && "opacity-20")}
+                >
+                  {!msg.isMe && (
+                    <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-[9px] font-bold text-slate-500">{msg.senderName[0]}</span>
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-[72%] rounded-2xl px-3 py-1.5 text-sm",
+                      msg.isMe ? "bg-violet-500 text-white rounded-br-sm" : "bg-slate-100 text-slate-800 rounded-bl-sm"
+                    )}
+                  >
+                    {!msg.isMe && (
+                      <p className="text-[10px] font-semibold text-slate-500 mb-0.5">{msg.senderName}</p>
+                    )}
+                    <p className="leading-snug">{msg.message}</p>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={chatEndRef} />
+          </div>
+        </div>
+
+        {/* Chat input */}
+        <div className="px-4 pt-2 pb-6 flex items-center gap-2 shrink-0">
+          <input
+            type="text"
+            value={chatText}
+            onChange={(e) => setChatText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") void sendChat(); }}
+            placeholder="Reply to your fans…"
+            style={{ fontSize: "16px", touchAction: "manipulation" }}
+            className="flex-1 bg-slate-100 rounded-full px-4 py-2.5 text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300 transition-all"
+          />
+          <button
+            onClick={() => void sendChat()}
+            disabled={!chatText.trim() || sending}
+            className="w-10 h-10 rounded-full bg-violet-500 flex items-center justify-center shrink-0 transition-all active:scale-95 disabled:opacity-40"
+          >
+            <Send className="w-4 h-4 text-white" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Top-level container ─────────────────────────────────────────────────
+
+type SessionState = "idle" | "live";
+
+export function MobileLiveConsole() {
+  const router = useRouter();
+  const { user } = useAuthContext();
+  const [sessionState, setSessionState] = useState<SessionState>("idle");
+  const [roomUrl, setRoomUrl] = useState("");
+  const [token, setToken] = useState("");
+  const [micOn, setMicOn] = useState(false);
+  const [camOn, setCamOn] = useState(false);
+  const [liveRate, setLiveRate] = useState<number | null>(null);
+  const [currentFan, setCurrentFan] = useState<any>(null);
+  const [queue, setQueue] = useState<any[]>([]);
+  const [initializing, setInitializing] = useState(true);
+  const [loadingRate, setLoadingRate] = useState(true);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [startError, setStartError] = useState("");
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [creatorJoined, setCreatorJoined] = useState(false);
+  const [scheduledLiveAt, setScheduledLiveAt] = useState("");
+  const [scheduledLiveTimeZone, setScheduledLiveTimeZone] = useState(getBrowserTimeZone());
+  const [savingScheduledLive, setSavingScheduledLive] = useState(false);
+  const [creatorProfileAvatarUrl, setCreatorProfileAvatarUrl] = useState<string | undefined>();
+
+  const finishingFanRef = useRef(false);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const previewStreamRef = useRef<MediaStream | null>(null);
+  const initStartedRef = useRef(false);
+  const endingSessionRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
+
+  const creatorName = user?.full_name ?? "You";
+  const creatorInitials = user?.avatar_initials ?? "??";
+  const creatorColor = user?.avatar_color ?? "bg-violet-600";
+  const creatorAvatarUrl = creatorProfileAvatarUrl ?? user?.avatar_url ?? undefined;
+  const activeFanRemainingSeconds = getLiveStageRemainingSeconds(currentFan?.admittedAt, currentTime);
+  const activeFanElapsedSeconds = getLiveStageElapsedSeconds(currentFan?.admittedAt, currentTime);
+
+  function isRecentHeartbeat(value?: string | null) {
+    if (!value) return false;
+    return Date.now() - new Date(value).getTime() <= LIVE_SESSION_STALE_MS;
+  }
+
+  function hasConfiguredLiveRate(value: number | null | undefined) {
+    return typeof value === "number" && !Number.isNaN(value) && value > 0;
+  }
+
+  function applySessionId(nextSessionId: string | null) {
+    sessionIdRef.current = nextSessionId;
+    setSessionId(nextSessionId);
+  }
+
+  async function fetchLatestLiveSettings(userId: string) {
+    const supabase = createClient();
+    const { data: profile } = await supabase
+      .from("creator_profiles")
+      .select("live_join_fee, scheduled_live_at, scheduled_live_timezone, timezone")
+      .eq("id", userId)
+      .maybeSingle();
+    const { data: publicProfile } = await supabase
+      .from("profiles")
+      .select("avatar_url")
+      .eq("id", userId)
+      .maybeSingle();
+
+    setCreatorProfileAvatarUrl(publicProfile?.avatar_url ?? undefined);
+
+    const parsedRate = profile?.live_join_fee != null ? Number(profile.live_join_fee) : null;
+    const nextScheduledTimeZone = profile?.scheduled_live_timezone || profile?.timezone || getBrowserTimeZone();
+
+    setLiveRate(parsedRate);
+    setScheduledLiveTimeZone(nextScheduledTimeZone);
+    setScheduledLiveAt(
+      profile?.scheduled_live_at
+        ? formatDateTimeLocalInTimeZone(profile.scheduled_live_at, nextScheduledTimeZone)
+        : ""
+    );
+
+    return {
+      liveRate: parsedRate,
+      scheduledLiveAt: profile?.scheduled_live_at ?? null,
+      scheduledLiveTimeZone: nextScheduledTimeZone,
+    };
+  }
+
+  // Camera preview while idle
+  useEffect(() => {
+    if (sessionState !== "idle") return;
+    async function startPreview() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: camOn, audio: false });
+        previewStreamRef.current = stream;
+        if (previewVideoRef.current) previewVideoRef.current.srcObject = stream;
+      } catch {}
+    }
+    if (camOn) startPreview();
+    else {
+      previewStreamRef.current?.getTracks().forEach((t) => t.stop());
+      previewStreamRef.current = null;
+      if (previewVideoRef.current) previewVideoRef.current.srcObject = null;
+    }
+    return () => { previewStreamRef.current?.getTracks().forEach((t) => t.stop()); };
+  }, [sessionState, camOn]);
+
+  // Tick clock
+  useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  // Initial load — resume an active session if one exists
+  useEffect(() => {
+    if (initStartedRef.current || !user) return;
+    initStartedRef.current = true;
+    const currentUser = user;
+    const supabase = createClient();
+
+    async function init() {
+      try {
+        await fetchLatestLiveSettings(currentUser.id);
+        setLoadingRate(false);
+
+        const { data: activeSessions } = await supabase
+          .from("live_sessions")
+          .select("*")
+          .eq("creator_id", currentUser.id)
+          .eq("is_active", true)
+          .order("started_at", { ascending: false });
+
+        const existingSession = activeSessions?.find((s: any) => !!s.daily_room_url) ?? null;
+        if (existingSession && isRecentHeartbeat(existingSession.last_heartbeat_at)) {
+          applySessionId(existingSession.id);
+          setRoomUrl(existingSession.daily_room_url);
+          try {
+            const tokenRes = await fetch("/api/daily/token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                roomName: existingSession.daily_room_url.split("/").pop(),
+                isOwner: true,
+                userName: currentUser.id,
+              }),
+            });
+            const tokenData = await readJsonResponse<{ token?: string }>(tokenRes);
+            if (tokenData?.token) setToken(tokenData.token);
+          } catch {}
+          setSessionState("live");
+        } else if (existingSession) {
+          await supabase
+            .from("live_sessions")
+            .update({ is_active: false, ended_at: new Date().toISOString(), last_heartbeat_at: null })
+            .eq("id", existingSession.id);
+          await supabase
+            .from("creator_profiles")
+            .update({ is_live: false, current_live_session_id: null })
+            .eq("id", currentUser.id);
+        }
+      } catch {} finally {
+        setInitializing(false);
+      }
+    }
+    init();
+  }, [user]);
+
+  async function finalizeQueueEntry(entry: any, status: "completed" | "skipped") {
+    if (!entry) return;
+    try {
+      await fetch("/api/live/finalize-charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queueEntryId: entry.id, status }),
+      });
+    } catch {}
+  }
+
+  // Queue subscription
+  useEffect(() => {
+    if (!user || !sessionId) return;
+    const currentUser = user;
+    const supabase = createClient();
+
+    async function fetchQueue(targetSid: string) {
+      const { data } = await supabase
+        .from("live_queue_entries")
+        .select("id, topic, joined_at, status, admitted_at, admitted_daily_session_id, fan_id, profiles:fan_id(full_name, username, avatar_initials, avatar_color, avatar_url)")
+        .eq("session_id", targetSid)
+        .in("status", ["waiting", "active"])
+        .order("joined_at", { ascending: true });
+
+      if (!data) return;
+
+      const active = data.find((e: any) => e.status === "active");
+      const activeRemainingSeconds = getLiveStageRemainingSeconds(active?.admitted_at, Date.now());
+      const waiting = data.filter((e: any) => e.status === "waiting");
+
+      setQueue(waiting.map((e: any, idx: number) => ({
+        id: e.id,
+        fanId: e.fan_id,
+        fanName: e.profiles.full_name,
+        avatarInitials: e.profiles.avatar_initials,
+        avatarColor: e.profiles.avatar_color,
+        avatarUrl: e.profiles.avatar_url ?? undefined,
+        admittedDailySessionId: e.admitted_daily_session_id ?? undefined,
+        position: idx + 1,
+        waitSeconds: activeRemainingSeconds + (idx * LIVE_STAGE_SECONDS),
+        topic: e.topic ?? undefined,
+        joinedAt: e.joined_at,
+        creator_id: currentUser.id,
+      })));
+
+      if (active) setCurrentFan(mapLiveQueuePerson(active, "Current Fan"));
+      else setCurrentFan(null);
+    }
+
+    fetchQueue(sessionId);
+    const channel = supabase
+      .channel(`lq-mobile-${currentUser.id}-${sessionId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_queue_entries", filter: `session_id=eq.${sessionId}` }, () => fetchQueue(sessionId))
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions", filter: `id=eq.${sessionId}` }, (payload: any) => {
+        if (shouldRefreshQueueFromLiveSessionChange(payload)) void fetchQueue(sessionId);
+      })
+      .subscribe();
+
+    function refreshIfVisible() {
+      if (document.visibilityState !== "visible") return;
+      if (!sessionId) return;
+      void fetchQueue(sessionId);
+    }
+
+    const hb = window.setInterval(refreshIfVisible, 15000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    return () => {
+      supabase.removeChannel(channel);
+      window.clearInterval(hb);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [user, sessionId]);
+
+  // Beforeunload disconnect
+  useEffect(() => {
+    if (sessionState !== "live" || !user) return;
+    const handleUnload = () => {
+      if (sessionId) {
+        navigator.sendBeacon(
+          "/api/live/disconnect",
+          new Blob([JSON.stringify({ creatorId: user.id, sessionId })], { type: "application/json" })
+        );
+      }
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, [user, sessionId, sessionState]);
+
+  // Heartbeat
+  useEffect(() => {
+    if (!creatorJoined || !user || !sessionId) return;
+    const supabase = createClient();
+    const heartbeat = async () => {
+      await supabase
+        .from("live_sessions")
+        .update({ last_heartbeat_at: new Date().toISOString() })
+        .eq("id", sessionId)
+        .eq("creator_id", user.id)
+        .eq("is_active", true);
+    };
+    heartbeat();
+    const interval = window.setInterval(heartbeat, LIVE_SESSION_HEARTBEAT_MS);
+    return () => window.clearInterval(interval);
+  }, [creatorJoined, user, sessionId]);
+
+  // Auto-finish on stage timeout
+  useEffect(() => {
+    if (!currentFan?.admittedAt || finishingFanRef.current) return;
+    if (activeFanRemainingSeconds > 0) return;
+    finishingFanRef.current = true;
+    finalizeQueueEntry(currentFan, "completed").finally(() => {
+      setCurrentFan(null);
+      finishingFanRef.current = false;
+    });
+  }, [activeFanRemainingSeconds, currentFan]);
+
+  async function startSession() {
+    if (!user) return;
+    setStartError("");
+    setCreatorJoined(false);
+    const latestSettings = await fetchLatestLiveSettings(user.id);
+    if (!hasConfiguredLiveRate(latestSettings.liveRate)) {
+      setStartError("Set an amount per minute in Management before going live.");
+      return;
+    }
+    if (previewStreamRef.current) {
+      previewStreamRef.current.getTracks().forEach((t) => t.stop());
+      previewStreamRef.current = null;
+    }
+    try {
+      const res = await fetch("/api/daily/room", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userName: user.id }),
+      });
+      const data = await readJsonResponse<{ url?: string; token?: string }>(res);
+      if (data?.url && data?.token) {
+        const supabase = createClient();
+        await supabase
+          .from("live_sessions")
+          .update({ is_active: false, ended_at: new Date().toISOString(), last_heartbeat_at: null })
+          .eq("creator_id", user.id)
+          .eq("is_active", true);
+
+        const { data: newSession } = await supabase
+          .from("live_sessions")
+          .insert({ creator_id: user.id, join_fee: latestSettings.liveRate ?? 0, is_active: false, daily_room_url: data.url, last_heartbeat_at: null })
+          .select("id")
+          .single();
+
+        if (newSession?.id) {
+          const sid = newSession.id;
+          applySessionId(sid);
+          const heartbeatAt = new Date().toISOString();
+          await supabase
+            .from("live_sessions")
+            .update({ is_active: true, ended_at: null, last_heartbeat_at: heartbeatAt })
+            .eq("id", sid);
+          await supabase
+            .from("creator_profiles")
+            .update({ is_live: true, current_live_session_id: sid, scheduled_live_at: null, scheduled_live_timezone: null })
+            .eq("id", user.id);
+          setRoomUrl(data.url);
+          setToken(data.token);
+          setScheduledLiveAt("");
+          setSessionState("live");
+        }
+      }
+    } catch {
+      setStartError("Failed to start session.");
+    }
+  }
+
+  async function admitNext() {
+    if (queue.length === 0 || !user || !sessionId || finishingFanRef.current || !creatorJoined) return;
+    if (currentFan && activeFanElapsedSeconds < LIVE_STAGE_MIN_SECONDS) return;
+    const supabase = createClient();
+    const nextFan = queue[0];
+    if (currentFan) await finalizeQueueEntry(currentFan, "completed");
+    const { error } = await supabase
+      .from("live_queue_entries")
+      .update({ status: "active", admitted_at: new Date().toISOString(), admitted_daily_session_id: null })
+      .eq("id", nextFan.id);
+    if (!error) setCurrentFan({ ...nextFan, admittedAt: new Date().toISOString() });
+  }
+
+  async function endSession() {
+    if (!user || !sessionId) return;
+    endingSessionRef.current = true;
+    if (currentFan) await finalizeQueueEntry(currentFan, "completed");
+    try {
+      await fetch("/api/live/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatorId: user.id, sessionId }),
+      });
+    } catch {}
+    setSessionState("idle");
+    setCreatorJoined(false);
+    setRoomUrl("");
+    setToken("");
+    applySessionId(null);
+    setQueue([]);
+    setCurrentFan(null);
+    window.setTimeout(() => { endingSessionRef.current = false; }, 1000);
+  }
+
+  async function handleCreatorJoined() {
+    setCreatorJoined(true);
+    const activeSessionId = sessionIdRef.current;
+    if (!user || !activeSessionId) return;
+    const supabase = createClient();
+    await supabase
+      .from("live_sessions")
+      .update({ is_active: true, ended_at: null, last_heartbeat_at: new Date().toISOString() })
+      .eq("id", activeSessionId);
+  }
+
+  async function handleCreatorLeft() {
+    setCreatorJoined(false);
+    const activeSessionId = sessionIdRef.current;
+    if (endingSessionRef.current || !user || !activeSessionId) return;
+    try {
+      await fetch("/api/live/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatorId: user.id, sessionId: activeSessionId }),
+      });
+    } catch {}
+  }
+
+  async function saveScheduledLive(nextValue?: string) {
+    if (!user) return;
+    setSavingScheduledLive(true);
+    const supabase = createClient();
+    let scheduledLiveIso: string | null = null;
+    if (nextValue) {
+      const [datePart, timePart] = nextValue.split("T");
+      if (datePart && timePart) {
+        const [year, month, day] = datePart.split("-").map(Number);
+        const [hour, minute] = timePart.split(":").map(Number);
+        scheduledLiveIso = zonedTimeToUtc(
+          { year, month, day, hour, minute },
+          scheduledLiveTimeZone
+        ).toISOString();
+      }
+    }
+    await supabase
+      .from("creator_profiles")
+      .update({
+        scheduled_live_at: scheduledLiveIso,
+        scheduled_live_timezone: nextValue ? scheduledLiveTimeZone : null,
+      })
+      .eq("id", user.id);
+    setScheduledLiveAt(nextValue ?? "");
+    setSavingScheduledLive(false);
+  }
+
+  if (initializing) {
+    return (
+      <div className="min-h-[100dvh] bg-violet-500 flex flex-col items-center justify-center px-6 text-center">
+        <Loader2 className="w-10 h-10 text-white animate-spin mb-4" />
+        <p className="text-white font-bold text-base">Resuming session…</p>
+        <p className="text-white/70 text-sm mt-1">Syncing your live queue.</p>
+      </div>
+    );
+  }
+
+  if (loadingRate) {
+    return (
+      <div className="min-h-[100dvh] bg-violet-500 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-white border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  // ── Idle (pre-live) ───────────────────────────────────────────────
+  if (sessionState === "idle") {
+    return (
+      <div className="min-h-[100dvh] bg-violet-500 flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center active:scale-95 transition-all"
+              aria-label="Back"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
+            <span className="text-white text-xl font-brand tracking-tight select-none">friendsly</span>
+          </div>
+        </div>
+
+        {/* Camera preview card */}
+        <div className="relative mx-4 shrink-0" style={{ height: "42vh" }}>
+          <div
+            className="absolute inset-0 rounded-2xl"
+            style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
+          />
+          <div className="relative h-full w-full rounded-2xl overflow-hidden bg-[#1a1a3e] flex items-center justify-center">
+            {camOn ? (
+              <video ref={previewVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="xl" />
+            )}
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
+            <div className="absolute left-3 bottom-3 rounded-xl bg-black/45 px-3 py-1.5 text-white">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-white/70">Host</p>
+              <p className="text-sm font-semibold">{creatorName}</p>
+            </div>
+            <div className="absolute right-3 bottom-3 flex items-center gap-1.5">
+              <button
+                onClick={() => setMicOn((v) => !v)}
+                className={cn(
+                  "w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 border backdrop-blur-sm",
+                  micOn ? "border-violet-400/50 bg-violet-500/20 text-white" : "border-red-400/50 bg-red-500/20 text-red-300"
+                )}
+              >
+                {micOn ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                onClick={() => setCamOn((v) => !v)}
+                className={cn(
+                  "w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 border backdrop-blur-sm",
+                  camOn ? "border-violet-400/50 bg-violet-500/20 text-white" : "border-red-400/50 bg-red-500/20 text-red-300"
+                )}
+              >
+                {camOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* White panel — schedule + start */}
+        <div className="flex-1 rounded-t-3xl bg-white overflow-y-auto flex flex-col mt-3 px-5 pt-5 pb-8 gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-slate-800 mb-3">
+              <CalendarClock className="w-4 h-4 text-violet-600" />
+              <p className="text-sm font-semibold">Announce when you're going live</p>
+            </div>
+            <input
+              type="datetime-local"
+              value={scheduledLiveAt}
+              onChange={(e) => setScheduledLiveAt(e.target.value)}
+              style={{ fontSize: "16px" }}
+              className="block h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:border-violet-500"
+            />
+            <select
+              value={scheduledLiveTimeZone}
+              onChange={(e) => setScheduledLiveTimeZone(e.target.value)}
+              className="mt-3 block h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:border-violet-500"
+            >
+              {COMMON_TIME_ZONES.map((timeZone) => (
+                <option key={timeZone} value={timeZone}>
+                  {formatTimeZoneLabel(timeZone)}
+                </option>
+              ))}
+            </select>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => saveScheduledLive("")}
+                className="flex-1 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-semibold text-sm transition-all active:scale-[0.98]"
+              >
+                Clear
+              </button>
+              <button
+                onClick={() => saveScheduledLive(scheduledLiveAt)}
+                disabled={savingScheduledLive}
+                className="flex-1 py-2 rounded-full bg-violet-600 text-white font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                {savingScheduledLive ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+
+          {!hasConfiguredLiveRate(liveRate) ? (
+            <p className="text-sm text-amber-700 px-1">Set an amount per minute in Management before going live.</p>
+          ) : null}
+
+          <button
+            onClick={startSession}
+            className="mt-1 w-full py-3.5 rounded-full bg-red-500 text-white font-semibold text-base transition-all active:scale-[0.98] shadow-[0_18px_40px_rgba(239,68,68,0.35)]"
+          >
+            Start Live Session
+          </button>
+          {startError ? <p className="text-red-500 text-sm text-center">{startError}</p> : null}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Live ──────────────────────────────────────────────────────────
+  return (
+    <CallContainer
+      url={roomUrl}
+      token={token}
+      startVideo={camOn}
+      startAudio={micOn}
+      onJoin={handleCreatorJoined}
+      onLeave={handleCreatorLeft}
+    >
+      <CreatorMobileLiveStage
+        creatorId={user?.id ?? ""}
+        creatorName={creatorName}
+        creatorInitials={creatorInitials}
+        creatorColor={creatorColor}
+        creatorAvatarUrl={creatorAvatarUrl}
+        currentFan={currentFan}
+        queue={queue}
+        queueCount={queue.length}
+        activeFanElapsedSeconds={activeFanElapsedSeconds}
+        initialMic={micOn}
+        initialCam={camOn}
+        onAdmitNext={admitNext}
+        onEndSession={endSession}
+        sessionId={sessionId}
+      />
+    </CallContainer>
+  );
+}

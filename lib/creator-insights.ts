@@ -1,5 +1,6 @@
 import type { CreatorAnalyticsSnapshot } from "@/lib/analytics";
 import type { CreatorProfile, CreatorStats } from "@/types";
+import { getCreatorLiveConsolePath } from "@/lib/routes";
 
 export interface CreatorInsight {
   id: string;
@@ -111,7 +112,7 @@ export function getCreatorInsights({
       title: "Your profile is in a strong place",
       description: "Keep your calendar updated and go live regularly to turn profile traffic into repeat bookings.",
       ctaLabel: "Go Live",
-      ctaHref: "/live",
+      ctaHref: getCreatorLiveConsolePath({ id: user.id, username: user.username }),
       tone: "momentum",
     });
   }

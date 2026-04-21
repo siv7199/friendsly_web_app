@@ -7,6 +7,8 @@ import {
   LayoutDashboard, Settings2, CalendarDays, Radio, DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthContext } from "@/lib/context/AuthContext";
+import { getCreatorLiveConsolePath } from "@/lib/routes";
 
 const FAN_ITEMS = [
   { label: "Discover",  href: "/discover",  icon: Compass },
@@ -15,18 +17,24 @@ const FAN_ITEMS = [
   { label: "Saved",     href: "/saved",     icon: Heart },
 ];
 
-const CREATOR_ITEMS = [
-  { label: "Dashboard", href: "/dashboard",  icon: LayoutDashboard },
-  { label: "Earnings",  href: "/earnings",   icon: DollarSign },
-  { label: "Offerings", href: "/management", icon: Settings2 },
-  { label: "Calendar",  href: "/calendar",   icon: CalendarDays },
-  { label: "Go Live",   href: "/live",       icon: Radio, highlight: true },
-];
-
 export function BottomNav({ type }: { type: "fan" | "creator" }) {
   const pathname = usePathname();
-  const items = type === "fan" ? FAN_ITEMS : CREATOR_ITEMS;
+  const { user } = useAuthContext();
   const isFan = type === "fan";
+
+  const liveHref = user
+    ? getCreatorLiveConsolePath({ id: user.id, username: user.username })
+    : "/live";
+
+  const CREATOR_ITEMS = [
+    { label: "Dashboard", href: "/dashboard",  icon: LayoutDashboard },
+    { label: "Earnings",  href: "/earnings",   icon: DollarSign },
+    { label: "Offerings", href: "/management", icon: Settings2 },
+    { label: "Calendar",  href: "/calendar",   icon: CalendarDays },
+    { label: "Go Live",   href: liveHref,      icon: Radio, highlight: true },
+  ];
+
+  const items = type === "fan" ? FAN_ITEMS : CREATOR_ITEMS;
 
   return (
     <nav className={cn(

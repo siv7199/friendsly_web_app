@@ -1,11 +1,26 @@
-import { LiveConsole } from "@/components/creator/LiveConsole";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { normalizeCreatorSlug } from "@/lib/routes";
 
-export default function LivePage() {
-  return (
-    <div className="px-4 md:px-6 py-4 min-h-screen lg:h-[100dvh] overflow-x-hidden lg:overflow-hidden flex flex-col">
-      <div className="mx-auto w-full max-w-[1600px] flex-1 flex min-h-0">
-        <LiveConsole />
-      </div>
-    </div>
-  );
+export default async function CreatorLiveRedirectPage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/?next=/live");
+  }
+
+  const metaUsername = (user.user_metadata?.username ?? null) as string | null;
+  let slug = normalizeCreatorSlug(metaUsername);
+
+  if (!slug) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .maybeSingle();
+    slug = normalizeCreatorSlug(profile?.username ?? null);
+  }
+
+  redirect(`/live/${slug ?? user.id}`);
 }

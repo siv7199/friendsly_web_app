@@ -12,6 +12,10 @@ export function getCreatorProfilePath(params: { id: string; username?: string | 
   return `/profile/${normalizeCreatorSlug(params.username) ?? params.id}`;
 }
 
+export function getCreatorLiveConsolePath(params: { id: string; username?: string | null }) {
+  return `/live/${normalizeCreatorSlug(params.username) ?? params.id}`;
+}
+
 export function getLiveSessionPath(params: {
   creatorId: string;
   creatorUsername?: string | null;

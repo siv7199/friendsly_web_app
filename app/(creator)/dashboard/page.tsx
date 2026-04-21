@@ -28,6 +28,7 @@ import { deriveBookingStatus, getBookingGrossAmount, getNextAutoCancelCheckDelay
 import { getCreatorAnalyticsSnapshot } from "@/lib/analytics";
 import { getCreatorInsights, type CreatorInsight } from "@/lib/creator-insights";
 import { localDateKey } from "@/lib/timezones";
+import { getCreatorLiveConsolePath } from "@/lib/routes";
 
 interface DashReview {
   id: string;
@@ -502,7 +503,7 @@ export default function DashboardPage() {
           <p className="text-sm font-serif italic text-brand-ink-muted">Good afternoon,</p>
           <h1 className="truncate text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">{displayName} 👋</h1>
         </div>
-        <Link href="/live">
+        <Link href={user ? getCreatorLiveConsolePath({ id: user.id, username: user.username }) : "/live"}>
           <Button variant="live" className="w-full gap-2 shadow-glow-live sm:w-auto">
             <Radio className="w-4 h-4" />
             Go Live
