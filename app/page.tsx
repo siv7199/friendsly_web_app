@@ -65,94 +65,15 @@ export default function AuthPage() {
 
   return (
     <main className="min-h-screen bg-[#0f0f18] flex flex-col items-center justify-center px-4 py-10 relative overflow-hidden">
-      {/* Blurred Discover page background */}
+      {/* Blurred fan dashboard screenshot background */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
-        {/* Discover page replica — blurred */}
-        <div className="absolute inset-0 bg-[#10101a]" style={{ filter: "blur(8px)", transform: "scale(1.05)" }}>
-          {/* Sidebar rail */}
-          <div className="absolute left-0 top-0 bottom-0 w-[200px] bg-[#13131f] border-r border-white/[0.06] flex flex-col gap-3 px-4 pt-6">
-            <div className="h-6 w-24 rounded-lg bg-violet-500/40" />
-            <div className="mt-4 flex flex-col gap-2">
-              {[70, 55, 55, 55, 55].map((w, i) => (
-                <div key={i} className="flex items-center gap-2.5">
-                  <div className="w-4 h-4 rounded bg-white/10" />
-                  <div className={`h-3 rounded bg-white/${i === 0 ? "30" : "10"}`} style={{ width: `${w}%` }} />
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* Main content area */}
-          <div className="absolute left-[200px] right-0 top-0 bottom-0 px-8 pt-6">
-            {/* Page header */}
-            <div className="flex items-center justify-between mb-5">
-              <div className="h-7 w-36 rounded-xl bg-white/10" />
-              <div className="h-9 w-64 rounded-xl bg-white/[0.07] border border-white/[0.08]" />
-            </div>
-            {/* Live now banner */}
-            <div className="mb-5 h-24 rounded-2xl bg-gradient-to-r from-violet-900/70 via-purple-900/60 to-indigo-900/70 border border-violet-500/30 flex items-center px-6 gap-4">
-              <div className="w-10 h-10 rounded-full bg-violet-500/60 flex items-center justify-center">
-                <div className="w-3 h-3 rounded-full bg-red-400 animate-pulse" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="h-3.5 w-32 rounded bg-white/40" />
-                <div className="h-2.5 w-48 rounded bg-white/20" />
-              </div>
-              <div className="ml-auto flex gap-2">
-                {["MK","AR","JT"].map((init, i) => (
-                  <div key={i} className={`w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${["bg-violet-600","bg-indigo-500","bg-purple-600"][i]}`}>{init}</div>
-                ))}
-                <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-[10px] text-white/60">+4</div>
-              </div>
-            </div>
-            {/* Category pills */}
-            <div className="flex gap-2 mb-5 flex-wrap">
-              {["All", "Fitness & Wellness", "Business", "Finance", "Beauty", "Tech & Career", "Music"].map((label, i) => (
-                <div key={label} className={`h-8 rounded-full px-4 flex items-center text-xs font-medium ${i === 0 ? "bg-violet-600 text-white" : "bg-white/[0.07] text-white/50 border border-white/[0.08]"}`}>{label}</div>
-              ))}
-            </div>
-            {/* Creator cards grid */}
-            <div className="grid grid-cols-4 gap-4">
-              {[
-                { initials: "MK", grad: "from-violet-700 to-purple-800", name: "Maya Kwan", cat: "Fitness & Wellness", live: true, rating: "4.9", reviews: "312" },
-                { initials: "JR", grad: "from-indigo-600 to-blue-800", name: "Jordan Reed", cat: "Business & Startups", live: false, rating: "4.8", reviews: "198" },
-                { initials: "AL", grad: "from-pink-600 to-purple-700", name: "Aria Langley", cat: "Beauty & Skincare", live: true, rating: "5.0", reviews: "547" },
-                { initials: "DS", grad: "from-violet-800 to-indigo-900", name: "Dev Sharma", cat: "Tech & Career", live: false, rating: "4.7", reviews: "89" },
-                { initials: "NW", grad: "from-emerald-700 to-teal-800", name: "Nia Walsh", cat: "Finance & Investing", live: false, rating: "4.9", reviews: "231" },
-                { initials: "CM", grad: "from-purple-600 to-pink-700", name: "Cass Monroe", cat: "Music & Arts", live: true, rating: "4.8", reviews: "405" },
-                { initials: "TK", grad: "from-blue-700 to-indigo-800", name: "Theo Kato", cat: "Gaming & Esports", live: false, rating: "4.6", reviews: "167" },
-                { initials: "RJ", grad: "from-rose-700 to-pink-800", name: "Rena James", cat: "Content Creation", live: false, rating: "4.9", reviews: "289" },
-              ].map((c, i) => (
-                <div key={i} className="rounded-2xl bg-[#1a1a2e] border border-white/[0.07] overflow-hidden">
-                  {/* Card header gradient */}
-                  <div className={`bg-gradient-to-br ${c.grad} h-28 flex flex-col items-center justify-center relative`}>
-                    <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center text-white text-lg font-bold">{c.initials}</div>
-                    {c.live && (
-                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-full">
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                        <span className="text-[9px] font-bold text-white">LIVE</span>
-                      </div>
-                    )}
-                  </div>
-                  {/* Card body */}
-                  <div className="p-3">
-                    <div className="text-white text-sm font-semibold mb-0.5">{c.name}</div>
-                    <div className="text-white/40 text-[11px] mb-2">{c.cat}</div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        <span className="text-yellow-400 text-xs">★</span>
-                        <span className="text-white/70 text-xs font-medium">{c.rating}</span>
-                        <span className="text-white/30 text-[10px]">({c.reviews})</span>
-                      </div>
-                      <div className="h-6 w-16 rounded-lg bg-violet-600/50" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        {/* Overlay — darkens just enough for the auth card to pop */}
-        <div className="absolute inset-0 bg-[#0c0c18]/70" />
+        <img
+          src="/fan_dashboard.png"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover object-top"
+          style={{ filter: "blur(6px)", transform: "scale(1.04)" }}
+        />
+        <div className="absolute inset-0 bg-[#0c0c18]/65" />
       </div>
 
       {/* Logo + tagline */}
