@@ -41,10 +41,10 @@ function CreatorCard({ color, name, cat, price, followers, live }: typeof creato
 
 export default function LandingPage() {
   return (
-    <div style={{ background: "#fff", color: TEXT, fontFamily: "var(--font-sans, Inter, sans-serif)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div className="lp-root" style={{ background: "#fff", color: TEXT, fontFamily: "var(--font-sans, Inter, sans-serif)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
 
       {/* ── HEADER ── */}
-      <header style={{
+      <header className="lp-header" style={{
         position: "sticky", top: 0, zIndex: 100,
         background: "rgba(255,255,255,0.94)",
         backdropFilter: "blur(12px)",
@@ -82,7 +82,7 @@ export default function LandingPage() {
       <main style={{ flex: 1 }}>
 
         {/* ── HERO ── */}
-        <section style={{
+        <section className="lp-hero" style={{
           padding: "110px 56px 80px",
           display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
           position: "relative", overflow: "hidden", background: "#fff",
@@ -122,12 +122,12 @@ export default function LandingPage() {
             Book a private video call with the influencers, coaches, and experts you follow — on your schedule.
           </p>
 
-          <div className="lp-fadeup-4" style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 72, position: "relative", zIndex: 1 }}>
+          <div className="lp-fadeup-4 lp-hero-actions" style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 72, position: "relative", zIndex: 1 }}>
             <Link href="/login?tab=signup" className="lp-btn-primary">Join the Waitlist</Link>
             <Link href="/discover" className="lp-btn-outline">Browse Creators</Link>
           </div>
 
-          <div className="lp-fadeup-5" style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 1000, margin: "0 auto" }}>
+          <div className="lp-fadeup-5 lp-hero-art" style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 1000, margin: "0 auto" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/phones-hero.png"
@@ -141,7 +141,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── HOW IT WORKS ── */}
-        <section style={{ padding: "100px 56px", background: BG2 }}>
+        <section className="lp-section-alt" style={{ padding: "100px 56px", background: BG2 }}>
           <div style={{ maxWidth: 1100, margin: "0 auto" }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: PURPLE, marginBottom: 16, textAlign: "center" }}>
               How it works
@@ -150,7 +150,7 @@ export default function LandingPage() {
               Three steps to your{" "}
               <em style={{ fontStyle: "normal", color: PURPLE }}>dream conversation</em>
             </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
+            <div className="lp-grid-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
               {[
                 { num: "01", title: "Find Your Creator", desc: "Browse creators across every niche — fitness, business, music, fashion, and more. Filter by availability, price, and category." },
                 { num: "02", title: "Book a Session", desc: "Choose your time, pay securely, and get instant confirmation. Meet & Greet sessions are short, affordable, and perfect for your first connection." },
@@ -169,8 +169,8 @@ export default function LandingPage() {
         </section>
 
         {/* ── CREATORS MARQUEE ── */}
-        <section style={{ padding: "100px 0", background: "#fff", overflow: "hidden" }}>
-          <div style={{ padding: "0 56px", marginBottom: 48, display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+        <section className="lp-section" style={{ padding: "100px 0", background: "#fff", overflow: "hidden" }}>
+          <div className="lp-creators-head" style={{ padding: "0 56px", marginBottom: 48, display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: PURPLE, marginBottom: 8 }}>
                 Creators on Friendsly
@@ -196,12 +196,12 @@ export default function LandingPage() {
         </section>
 
         {/* ── FRIENDSLY LIVE ── */}
-        <section style={{ padding: "100px 56px", background: "#fff", position: "relative", overflow: "hidden" }}>
+        <section className="lp-section" style={{ padding: "100px 56px", background: "#fff", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: -120, right: -120, width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, #ede9fe 0%, transparent 65%)", pointerEvents: "none" }} />
-          <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center", position: "relative", zIndex: 1 }}>
+          <div className="lp-grid-2" style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center", position: "relative", zIndex: 1 }}>
 
             {/* Live mockup */}
-            <div style={{ position: "relative" }}>
+            <div className="lp-live-visual" style={{ position: "relative" }}>
               <div style={{ background: "#0f0a1e", borderRadius: 28, overflow: "hidden", boxShadow: "0 24px 64px rgba(109,40,217,0.22), 0 4px 16px rgba(0,0,0,0.12)" }}>
                 {/* Stage header */}
                 <div style={{ padding: "20px 24px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
@@ -308,8 +308,8 @@ export default function LandingPage() {
         </section>
 
         {/* ── CHAT DEMO ── */}
-        <section style={{ padding: "100px 56px", background: BG2 }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
+        <section className="lp-section-alt" style={{ padding: "100px 56px", background: BG2 }}>
+          <div className="lp-grid-2" style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
             {/* Chat UI */}
             <div>
               <div style={{ background: "#fff", border: `1.5px solid ${BORDER}`, borderRadius: 28, padding: 24, boxShadow: "0 8px 32px rgba(109,40,217,0.07)" }}>
@@ -367,7 +367,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── CTA ── */}
-        <section style={{ padding: "100px 56px", background: PURPLE, textAlign: "center", position: "relative", overflow: "hidden" }}>
+        <section className="lp-section-dark" style={{ padding: "100px 56px", background: PURPLE, textAlign: "center", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: -150, left: -150, width: 400, height: 400, borderRadius: "50%", background: "rgba(255,255,255,0.06)", pointerEvents: "none" }} />
           <div style={{ position: "absolute", bottom: -100, right: -100, width: 300, height: 300, borderRadius: "50%", background: "rgba(255,255,255,0.05)", pointerEvents: "none" }} />
           <div style={{ position: "relative", zIndex: 1, maxWidth: 640, margin: "0 auto" }}>
@@ -391,7 +391,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── DISCLAIMER ── */}
-        <div style={{ textAlign: "center", padding: "32px 48px" }}>
+        <div className="lp-disclaimer" style={{ textAlign: "center", padding: "32px 48px" }}>
           <p style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6 }}>
             By using Friendsly, you agree to our{" "}
             <Link href="/terms" style={{ color: PURPLE_MUTED, textDecoration: "none" }}>Terms of Service</Link>
@@ -404,7 +404,7 @@ export default function LandingPage() {
       </main>
 
       {/* ── FOOTER ── */}
-      <footer style={{
+      <footer className="lp-footer" style={{
         background: BG2,
         borderTop: `1px solid ${BORDER}`,
         padding: "32px 48px",
@@ -424,7 +424,7 @@ export default function LandingPage() {
             <Link key={href} href={href} style={{ fontSize: 13, color: MUTED, textDecoration: "none" }}>{label}</Link>
           ))}
         </div>
-        <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, textAlign: "right" }}>
+        <div className="lp-footer-copy" style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, textAlign: "right" }}>
           © 2026 Friendsly. All rights reserved.<br />
           You must be 18 or older to use this platform.
         </div>

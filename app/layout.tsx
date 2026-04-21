@@ -60,7 +60,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${brandFont.variable} ${serifFont.variable} ${pacificoFont.variable}`}>
-      <body className="bg-brand-bg text-brand-ink antialiased min-h-screen font-sans">
+      <body className="bg-brand-bg text-brand-ink antialiased min-h-[100svh] font-sans">
         <AuthProvider>
           <GlobalLiveStatusManager />
           {children}

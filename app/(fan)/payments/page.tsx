@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -143,22 +143,6 @@ export default function PaymentsPage() {
     loadPayments();
   }, [user]);
 
-  const totals = useMemo(() => {
-    const totalSpent = payments.reduce((sum, payment) => sum + payment.amount, 0);
-    const bookingSpent = payments
-      .filter((payment) => payment.type === "booking")
-      .reduce((sum, payment) => sum + payment.amount, 0);
-    const liveSpent = payments
-      .filter((payment) => payment.type === "live")
-      .reduce((sum, payment) => sum + payment.amount, 0);
-
-    return {
-      totalSpent,
-      bookingSpent,
-      liveSpent,
-    };
-  }, [payments]);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -172,24 +156,11 @@ export default function PaymentsPage() {
       <div>
         <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">Payment History</h1>
         <p className="text-brand-ink-subtle mt-1">Every booking and live-session charge tied to your fan account.</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Total Spent</p>
-          <p className="mt-2 text-3xl font-display font-bold text-brand-ink">{formatCurrency(totals.totalSpent)}</p>
-          <p className="mt-2 text-sm text-brand-ink-muted">{payments.length} total charges</p>
-        </div>
-        <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Booked Calls</p>
-          <p className="mt-2 text-3xl font-display font-bold text-brand-ink">{formatCurrency(totals.bookingSpent)}</p>
-          <p className="mt-2 text-sm text-brand-ink-muted">Prepaid 1-on-1 sessions</p>
-        </div>
-        <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-brand-ink-muted">Live Sessions</p>
-          <p className="mt-2 text-3xl font-display font-bold text-brand-ink">{formatCurrency(totals.liveSpent)}</p>
-          <p className="mt-2 text-sm text-brand-ink-muted">Pay-per-minute live receipts</p>
-        </div>
+        {payments.length > 0 && (
+          <p className="mt-2 text-sm text-brand-ink-muted">
+            {payments.length} receipt{payments.length === 1 ? "" : "s"}
+          </p>
+        )}
       </div>
 
       {payments.length === 0 ? (

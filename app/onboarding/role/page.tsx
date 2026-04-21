@@ -65,7 +65,7 @@ export default function RoleSelectionPage() {
   }
 
   return (
-    <main className="min-h-screen bg-brand-bg flex flex-col items-center justify-center px-4 py-12 relative overflow-hidden">
+    <main className="app-safe-screen bg-brand-bg flex flex-col items-center justify-center px-4 py-12 relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[5%] w-[500px] h-[500px] rounded-full bg-brand-primary opacity-8 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[5%] w-[400px] h-[400px] rounded-full bg-amber-900 opacity-8 blur-[100px]" />
@@ -79,7 +79,7 @@ export default function RoleSelectionPage() {
         <h1 className="text-3xl md:text-4xl font-serif font-normal text-brand-ink">
           How will you use <span className="text-gradient-primary">Friendsly</span>?
         </h1>
-        <p className="text-brand-ink-subtle mt-2">
+        <p className="mx-auto mt-3 max-w-[32rem] text-sm leading-6 text-brand-ink md:text-base">
           {user?.full_name ? `Hey ${user.full_name.split(" ")[0]}, pick the path that fits you.` : "Pick the path that fits you best."}
         </p>
       </div>
@@ -94,11 +94,11 @@ export default function RoleSelectionPage() {
               </div>
 
               <h2 className="text-xl font-bold text-white mb-2">{option.title}</h2>
-              <p className="text-brand-ink-subtle text-sm leading-relaxed mb-5">{option.description}</p>
+              <p className="mb-5 text-sm leading-relaxed text-brand-ink-muted">{option.description}</p>
 
               <div className="space-y-2 mb-6">
                 {option.perks.map((perk) => (
-                  <div key={perk} className="flex items-center gap-2 text-sm text-brand-ink-subtle">
+                  <div key={perk} className="flex items-center gap-2 text-sm text-brand-ink-muted">
                     <CheckCircle2 className="w-3.5 h-3.5 text-brand-live shrink-0" />
                     <span>{perk}</span>
                   </div>
@@ -106,7 +106,7 @@ export default function RoleSelectionPage() {
               </div>
 
               {option.role === "creator" && (
-                <div className="mb-5 flex items-start gap-2 rounded-xl border border-brand-gold/20 bg-brand-gold/5 px-3 py-2 text-xs text-brand-ink-subtle">
+                <div className="mb-5 flex items-start gap-2 rounded-xl border border-brand-gold/20 bg-brand-gold/5 px-3 py-2 text-xs leading-5 text-brand-ink-muted">
                   <ShieldCheck className="w-3.5 h-3.5 mt-0.5 shrink-0 text-brand-gold" />
                   <span>Creator access is approved manually before accounts can go live or accept paid bookings.</span>
                 </div>

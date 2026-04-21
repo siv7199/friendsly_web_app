@@ -24,6 +24,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  min-height: 100svh;
 }
 
 /* native password reveal controls suppressed */
@@ -118,6 +119,20 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
   /* Purple-tinted section divider */
   .section-divider {
     border-color: #E0D9F5;
+  }
+
+  .app-safe-screen {
+    min-height: 100svh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .app-safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .app-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 
@@ -284,4 +299,92 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
 .lp-btn-outline:hover {
   background: #ede9fe;
   transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .lp-root {
+    min-height: 100svh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .lp-header {
+    height: auto !important;
+    padding: calc(env(safe-area-inset-top) + 0.875rem) 1rem 0.875rem !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.875rem !important;
+  }
+
+  .lp-header nav {
+    width: 100%;
+    gap: 0.75rem !important;
+    flex-wrap: wrap !important;
+    justify-content: space-between;
+  }
+
+  .lp-header nav a {
+    font-size: 0.8125rem !important;
+  }
+
+  .lp-hero {
+    padding: 3.5rem 1rem 3rem !important;
+  }
+
+  .lp-hero-actions {
+    width: 100%;
+    flex-direction: column !important;
+    margin-bottom: 2.5rem !important;
+  }
+
+  .lp-hero-actions a {
+    width: 100%;
+    text-align: center;
+  }
+
+  .lp-hero-art {
+    max-width: 100% !important;
+  }
+
+  .lp-section,
+  .lp-section-alt,
+  .lp-section-dark,
+  .lp-footer,
+  .lp-disclaimer {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .lp-section,
+  .lp-section-alt,
+  .lp-section-dark {
+    padding-top: 4.5rem !important;
+    padding-bottom: 4.5rem !important;
+  }
+
+  .lp-grid-3,
+  .lp-grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .lp-creators-head {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .lp-live-visual {
+    margin-bottom: 1.5rem;
+  }
+
+  .lp-footer {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .lp-footer-copy {
+    text-align: left !important;
+  }
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
@@ -28,7 +28,7 @@ import { isNewCreator } from "@/lib/creators";
 import { getSocialHandleLabel, sanitizeSocialUrl } from "@/lib/social";
 import { getLiveSessionPath, isUuidLike } from "@/lib/routes";
 
-// ── Availability Calendar helpers ─────────────────────────────────────────────
+// â”€â”€ Availability Calendar helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LIVE_SESSION_STALE_MS = 45000;
@@ -87,6 +87,12 @@ function formatShortDate(date: Date) {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+function formatLiveStatusLabel(creator: Creator, scheduledLiveLabel: string | null) {
+  if (creator.isLive) return "Live now";
+  if (scheduledLiveLabel) return `Going live ${scheduledLiveLabel}`;
+  return "Next live coming soon";
+}
+
 interface AvailabilitySlot {
   id?: string;
   day_of_week: number;
@@ -95,7 +101,7 @@ interface AvailabilitySlot {
   package_id?: string | null;
 }
 
-// ── Creator data fetcher ──────────────────────────────────────────────────────
+// â”€â”€ Creator data fetcher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function fetchCreatorData(creatorRef: string): Promise<{
   creator: Creator | null;
@@ -251,7 +257,7 @@ async function fetchCreatorData(creatorRef: string): Promise<{
   };
 }
 
-// ── Review type ───────────────────────────────────────────────────────────────
+// â”€â”€ Review type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface Review {
   id: string;
@@ -264,7 +270,7 @@ interface Review {
   date: string;
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function ProfilePage({ params }: { params: { id: string } }) {
   const { user } = useAuthContext();
@@ -478,7 +484,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     };
   }, [creator?.id, loadCreatorData, user?.id, user?.role]);
 
-  // ── Review submission ─────────────────────────────────────────────────────
+  // â”€â”€ Review submission â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function handleSubmitReview() {
     if (!user || !creator || reviewRating === 0 || !reviewComment.trim()) return;
     setSubmittingReview(true);
@@ -560,6 +566,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       minute: "2-digit",
     })}${abbreviation ? ` ${abbreviation}` : ""}`;
   })();
+  const liveStatusLabel = formatLiveStatusLabel(creator, scheduledLiveLabel);
+  const liveSupportCopy = creator.isLive
+    ? "Live is free to watch. You only pay by the minute when you are on stage."
+    : "Live is free to watch and pay by the minute only when you step on stage.";
+  const showLiveCard = creator.isLive || Boolean(hasLiveRate || scheduledLiveLabel || scheduledLiveCountdown);
 
   // Map availability slots: { [dayOfWeek]: string[] of formatted time ranges }
   const filteredAvailability = availability.filter((slot) =>
@@ -576,7 +587,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       const ampm = h >= 12 ? "PM" : "AM";
       return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
     };
-    availMap[day_of_week].push(`${fmt(start_time)} – ${fmt(end_time)}`);
+    availMap[day_of_week].push(`${fmt(start_time)} â€“ ${fmt(end_time)}`);
   });
 
   Object.assign(availMap, getAvailabilityWindowsForViewer({
@@ -609,10 +620,13 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
   return (
     <>
-      {/* ─────────────────── MOBILE LAYOUT ─────────────────── */}
-      <div className="md:hidden min-h-screen bg-white flex flex-col">
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ MOBILE LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div className="app-safe-screen md:hidden bg-white flex flex-col">
         {/* Sticky mobile header */}
-        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-sm border-b border-brand-border">
+        <div
+          className="sticky top-0 z-20 flex items-center justify-between border-b border-brand-border bg-white/95 px-4 pb-3 backdrop-blur-sm"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+        >
           <Link
             href="/discover"
             className="flex items-center justify-center w-9 h-9 rounded-full text-brand-ink-muted hover:text-brand-ink transition-colors"
@@ -629,7 +643,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         </div>
 
         {/* Scrollable body */}
-        <div className={cn("flex-1", hasPackages && "pb-24")}>
+        <div className={cn("flex-1", (hasPackages || (creator.isLive && hasLiveRate)) && "pb-32")}>
           {/* Hero image */}
           <div className="relative mx-4 mt-4 aspect-square rounded-2xl overflow-hidden">
             {creator.avatarUrl ? (
@@ -677,7 +691,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             {/* Price pills */}
             <div className="flex flex-wrap gap-2 mt-2.5">
               {hasLiveRate && (
-                <span className="px-3 py-1.5 rounded-full border border-brand-border bg-brand-surface text-xs font-medium text-brand-ink">
+                <span className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live">
+                  <Zap className="h-3 w-3" />
                   {formatCurrency(creator.liveJoinFee!)} / min
                 </span>
               )}
@@ -704,6 +719,50 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           </div>
 
           <div className="mx-4 my-5 border-t border-brand-border" />
+
+          {showLiveCard && (
+            <div className="mx-4 mb-6 rounded-3xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
+                    <Zap className="h-3 w-3" />
+                    Live
+                  </div>
+                  <h2 className="mt-3 text-lg font-bold text-brand-ink">{liveStatusLabel}</h2>
+                  <p className="mt-1 text-sm leading-6 text-brand-ink-muted">{liveSupportCopy}</p>
+                </div>
+                {hasLiveRate && (
+                  <div className="shrink-0 rounded-2xl border border-brand-live/20 bg-brand-live/10 px-3 py-2 text-right">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-brand-live">Queue price</p>
+                    <p className="mt-1 text-base font-bold text-brand-live">{formatCurrency(creator.liveJoinFee!)} / min</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-brand-live/15 bg-brand-live/5 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Live</p>
+                <p className="mt-2 text-sm font-semibold text-brand-ink">
+                  Free to watch, pay by the minute on stage
+                </p>
+                <p className="mt-1 text-sm text-brand-ink-muted">
+                  {creator.isLive
+                    ? creator.queueCount > 0
+                      ? `${creator.queueCount} fan${creator.queueCount === 1 ? "" : "s"} waiting to go on stage`
+                      : "Stage is open now"
+                    : scheduledLiveCountdown ?? scheduledLiveLabel ?? "Next live time will be posted here"}
+                </p>
+              </div>
+
+              {creator.isLive && hasLiveRate && (
+                <Link href={liveHref ?? "#"} className="mt-4 block">
+                  <Button variant="live" size="lg" className="w-full gap-2">
+                    <Zap className="h-4 w-4" />
+                    Watch Live
+                  </Button>
+                </Link>
+              )}
+            </div>
+          )}
 
           {/* Availability */}
           <div className="px-4 mb-6">
@@ -772,12 +831,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         isToday
                           ? "border-brand-primary/50 bg-brand-primary/10"
                           : hasSlots
-                          ? "border-brand-primary/25 bg-brand-surface active:bg-brand-primary/10"
+                          ? "border-brand-info/35 bg-brand-info/10 active:bg-brand-info/15"
                           : "border-brand-border bg-brand-elevated opacity-50"
                       )}
                     >
                       <p className="text-[9px] uppercase text-brand-ink-subtle font-medium">{DAY_NAMES[dow]}</p>
-                      <p className={cn("text-sm font-bold mt-0.5", isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-ink" : "text-brand-ink-subtle")}>
+                      <p className={cn("text-sm font-bold mt-0.5", isToday ? "text-brand-primary-light" : hasSlots ? "text-brand-info" : "text-brand-ink-subtle")}>
                         {date.getDate()}
                       </p>
                     </button>
@@ -885,26 +944,41 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         </div>
 
         {/* Sticky bottom CTA */}
-        {hasPackages && (
-          <div className="fixed bottom-0 left-0 right-0 z-20 px-4 py-3 bg-white/95 backdrop-blur-sm border-t border-brand-border">
-            <Button variant="primary" size="lg" className="w-full" onClick={() => setShowBooking(true)}>
-              Book from {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
-            </Button>
+        {(hasPackages || (creator.isLive && hasLiveRate)) && (
+          <div
+            className="fixed bottom-0 left-0 right-0 z-20 border-t border-brand-border bg-white/95 px-4 pb-3 pt-3 backdrop-blur-sm"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
+          >
+            <div className={cn("grid gap-2", hasPackages && creator.isLive && hasLiveRate ? "grid-cols-2" : "grid-cols-1")}>
+              {hasPackages && (
+                <Button variant="primary" size="lg" className="w-full" onClick={() => setShowBooking(true)}>
+                  Book Session
+                </Button>
+              )}
+              {creator.isLive && hasLiveRate && (
+                <Link href={liveHref ?? "#"}>
+                  <Button variant="live" size="lg" className="w-full gap-2">
+                    <Zap className="w-4 h-4" />
+                    Watch Live
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
         )}
-        {creator.isLive && hasLiveRate && (
+        {false && creator && (
           <div className={cn("fixed bottom-0 left-0 right-0 z-20 px-4 py-3 bg-white/95 backdrop-blur-sm border-t border-brand-border flex flex-col gap-2", hasPackages && "pb-20")}>
             <Link href={liveHref ?? "#"}>
               <Button variant="live" size="lg" className="w-full gap-2">
                 <Zap className="w-4 h-4" />
-                Join Live · {formatCurrency(creator.liveJoinFee!)} / min
+                Join Live · {formatCurrency(creator?.liveJoinFee ?? 0)} / min
               </Button>
             </Link>
           </div>
         )}
       </div>
 
-      {/* ─────────────────── DESKTOP LAYOUT ─────────────────── */}
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ DESKTOP LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="hidden md:block px-6 lg:px-8 py-6 max-w-6xl mx-auto space-y-6">
         {/* Back */}
         <Link href="/discover" className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors">
@@ -914,7 +988,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
         {/* Two-column split: photo/bio on left, offering cards stacked on right */}
         <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          {/* ── LEFT: Creator photo + identity + bio ── */}
+          {/* â”€â”€ LEFT: Creator photo + identity + bio â”€â”€ */}
           <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
             {/* Large portrait photo */}
             <div className="relative aspect-square overflow-hidden rounded-3xl border border-brand-border bg-brand-elevated">
@@ -1020,7 +1094,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             )}
           </div>
 
-          {/* ── RIGHT: Stacked offering cards ── */}
+          {/* â”€â”€ RIGHT: Stacked offering cards â”€â”€ */}
           <div className="space-y-4">
             {/* Book a Session card */}
             <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card">
@@ -1091,32 +1165,46 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            {/* Join Live card (when creator is live) */}
-            {creator.isLive && hasLiveRate && (
-              <div className="rounded-3xl border border-brand-live/30 bg-brand-live/5 p-6 shadow-card">
+            {showLiveCard && (
+              <div className="rounded-3xl border border-brand-live/25 bg-brand-live/5 p-6 shadow-card">
                 <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-live px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
-                  Live right now
+                  <Zap className="h-3 w-3" />
+                  Live
                 </div>
-                <h2 className="text-xl font-serif font-normal text-brand-ink">Join the Live Queue</h2>
+                <h2 className="text-xl font-serif font-normal text-brand-ink">Live</h2>
                 <p className="mt-1 text-sm text-brand-ink-muted">
-                  Free to watch — pay by the minute only when you're on stage with {creator.name}.
+                  Free to watch â€” pay by the minute only when you're on stage with {creator.name}.
                 </p>
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm text-brand-ink-muted">Live rate</p>
-                    <p className="text-2xl font-display font-bold text-brand-live">{formatCurrency(creator.liveJoinFee!)}<span className="ml-1 text-sm font-medium text-brand-ink-subtle">/ min</span></p>
+                <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+                  <div className="rounded-2xl border border-brand-live/15 bg-white/70 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Next live</p>
+                    <p className="mt-2 text-base font-semibold text-brand-ink">{liveStatusLabel}</p>
+                    <p className="mt-1 text-sm text-brand-ink-muted">
+                      {creator.isLive
+                        ? creator.queueCount > 0
+                          ? `${creator.queueCount} fan${creator.queueCount === 1 ? "" : "s"} waiting to go on stage`
+                          : "Be the first on stage"
+                        : scheduledLiveCountdown ?? scheduledLiveLabel ?? "Next live time will appear here"}
+                    </p>
                   </div>
-                  <p className="text-xs text-brand-ink-subtle">
-                    {creator.queueCount > 0 ? `${creator.queueCount} waiting` : "Be the first in line"}
-                  </p>
+                  {hasLiveRate && (
+                    <div className="rounded-2xl border border-brand-live/15 bg-white/70 px-4 py-3 text-right">
+                      <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Queue price</p>
+                      <p className="mt-2 text-2xl font-display font-bold text-brand-live">
+                        {formatCurrency(creator.liveJoinFee!)}
+                        <span className="ml-1 text-sm font-medium text-brand-ink-subtle">/ min</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <Link href={liveHref ?? "#"}>
-                  <Button variant="live" size="lg" className="mt-4 w-full gap-2">
-                    <Zap className="h-4 w-4" />
-                    Watch Live
-                  </Button>
-                </Link>
+                {creator.isLive && hasLiveRate && (
+                  <Link href={liveHref ?? "#"}>
+                    <Button variant="live" size="lg" className="mt-4 w-full gap-2">
+                      <Zap className="h-4 w-4" />
+                      Watch Live
+                    </Button>
+                  </Link>
+                )}
               </div>
             )}
 
@@ -1129,7 +1217,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     Availability
                   </h2>
                   <p className="mt-1 text-xs text-brand-ink-subtle">
-                    Times shown in your local {getTimeZoneAbbreviation(new Date(), viewerTimeZone)} · Creator schedules in {formatTimeZoneLabel(creator.timeZone ?? "America/New_York")}
+                    Times shown in your local {getTimeZoneAbbreviation(new Date(), viewerTimeZone)} Â· Creator schedules in {formatTimeZoneLabel(creator.timeZone ?? "America/New_York")}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -1202,7 +1290,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                           isToday
                             ? "border-brand-primary/50 bg-brand-primary/10 hover:border-brand-primary"
                             : hasSlots
-                            ? "border-brand-live/30 bg-brand-live/5 hover:border-brand-live/60 hover:bg-brand-live/10 cursor-pointer"
+                            ? "border-brand-info/35 bg-brand-info/10 hover:border-brand-info hover:bg-brand-info/15 cursor-pointer"
                             : "border-brand-border bg-brand-elevated opacity-50 cursor-not-allowed"
                         )}
                       >
@@ -1213,12 +1301,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         {hasSlots ? (
                           <div className="mt-1 space-y-0.5">
                             {slots.slice(0, 2).map((s, i) => (
-                              <p key={i} className="text-[9px] leading-tight text-brand-live">{s}</p>
+                              <p key={i} className="text-[9px] leading-tight text-brand-info">{s}</p>
                             ))}
                             {slots.length > 2 && <p className="text-[9px] text-brand-ink-subtle">+{slots.length - 2} more</p>}
                           </div>
                         ) : (
-                          <p className="mt-1 text-[9px] text-brand-ink-subtle">{isPast ? "—" : "Off"}</p>
+                          <p className="mt-1 text-[9px] text-brand-ink-subtle">{isPast ? "â€”" : "Off"}</p>
                         )}
                       </button>
                     );
@@ -1344,3 +1432,5 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     </>
   );
 }
+
+
