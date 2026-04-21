@@ -893,7 +893,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               </p>
 
               <div className="mt-4 rounded-3xl border border-brand-live/15 bg-brand-live/5 px-4 py-5">
-                <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Countdown</p>
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-live">Countdown</p>
                 <p className="mt-3 text-base font-semibold text-brand-ink">{countdownPrimaryText}</p>
                 {countdownSecondaryText ? (
                   <p className="mt-2 text-sm text-brand-ink-muted">{countdownSecondaryText}</p>
@@ -1226,7 +1226,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </p>
                 <div className="mt-5">
                   <div className="rounded-3xl border border-brand-live/15 bg-white/70 px-5 py-5">
-                    <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Countdown</p>
+                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-live">Countdown</p>
                     <p className="mt-3 text-lg font-semibold text-brand-ink">{countdownPrimaryText}</p>
                     {countdownSecondaryText ? (
                       <p className="mt-2 text-sm text-brand-ink-muted">{countdownSecondaryText}</p>
