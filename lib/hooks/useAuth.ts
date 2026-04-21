@@ -413,12 +413,14 @@ export function useAuth() {
   // ── logout ────────────────────────────────────────────────────────────────
   const logout = useCallback(async (): Promise<void> => {
     const supabase = createClient();
-    if (state.user?.role === "creator") {
-      // End any active live session — the DB trigger sets is_live = false automatically.
+    const currentUser = state.user;
+    // Clear state immediately so components see unauthenticated on next render
+    setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
+    if (currentUser?.role === "creator") {
       await supabase
         .from("live_sessions")
         .update({ is_active: false, ended_at: new Date().toISOString() })
-        .eq("creator_id", state.user.id)
+        .eq("creator_id", currentUser.id)
         .eq("is_active", true);
     }
     await supabase.auth.signOut();

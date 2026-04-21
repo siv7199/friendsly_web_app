@@ -34,7 +34,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, full_name: string, nextPath?: string | null) => Promise<SignupResult>;
   signInWithOAuth: (provider: OAuthProvider, nextPath?: string | null) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   deleteAccount: () => void;
   updateProfile: (updates: Partial<MockProfile>) => void;
   setRole: (role: UserRole) => void;

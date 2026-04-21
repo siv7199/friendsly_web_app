@@ -64,11 +64,47 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="min-h-screen bg-brand-bg flex flex-col items-center justify-center px-4 py-10 relative overflow-hidden">
-      {/* Ambient background */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden>
-        <div className="absolute top-[-10%] left-[20%] w-[480px] h-[480px] rounded-full bg-brand-primary opacity-[0.07] blur-[110px]" />
-        <div className="absolute bottom-[-10%] right-[15%] w-[380px] h-[380px] rounded-full bg-brand-primary opacity-[0.05] blur-[90px]" />
+    <main className="min-h-screen bg-[#0f0f18] flex flex-col items-center justify-center px-4 py-10 relative overflow-hidden">
+      {/* Blurred Discover page background */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
+        <div className="absolute inset-0" style={{ filter: "blur(18px) brightness(0.45)", transform: "scale(1.04)" }}>
+          {/* Top search bar hint */}
+          <div className="mx-6 mt-6 h-10 rounded-2xl bg-white/5 border border-white/8" />
+          {/* Category pills */}
+          <div className="flex gap-2 mx-6 mt-3">
+            {["All", "Fitness", "Business", "Finance", "Beauty", "Tech", "Music"].map((c, i) => (
+              <div key={c} className={`h-7 rounded-full px-3 shrink-0 text-xs flex items-center font-medium ${i === 0 ? "bg-violet-600 text-white" : "bg-white/8 text-white/50"}`}>{c}</div>
+            ))}
+          </div>
+          {/* Creator cards grid */}
+          <div className="grid grid-cols-3 gap-3 mx-6 mt-4">
+            {[
+              { initials: "MK", color: "bg-violet-700", name: "Maya K.", cat: "Fitness & Wellness", live: true, rating: "4.9" },
+              { initials: "JR", color: "bg-indigo-600", name: "Jordan R.", cat: "Business & Startups", live: false, rating: "4.8" },
+              { initials: "AL", color: "bg-purple-700", name: "Aria L.", cat: "Beauty & Skincare", live: true, rating: "5.0" },
+              { initials: "DS", color: "bg-violet-800", name: "Dev S.", cat: "Tech & Career", live: false, rating: "4.7" },
+              { initials: "NW", color: "bg-indigo-700", name: "Nia W.", cat: "Finance", live: false, rating: "4.9" },
+              { initials: "CM", color: "bg-purple-600", name: "Cass M.", cat: "Music & Arts", live: true, rating: "4.8" },
+              { initials: "TK", color: "bg-violet-600", name: "Theo K.", cat: "Gaming", live: false, rating: "4.6" },
+              { initials: "RJ", color: "bg-indigo-800", name: "Rena J.", cat: "Content Creation", live: false, rating: "4.9" },
+              { initials: "PL", color: "bg-purple-800", name: "Pierce L.", cat: "Business", live: true, rating: "5.0" },
+            ].map((c, i) => (
+              <div key={i} className="rounded-2xl bg-white/5 border border-white/8 overflow-hidden">
+                <div className={`${c.color} h-16 flex items-center justify-center relative`}>
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-bold">{c.initials}</div>
+                  {c.live && <div className="absolute top-2 right-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">LIVE</div>}
+                </div>
+                <div className="p-2">
+                  <div className="text-white text-xs font-semibold truncate">{c.name}</div>
+                  <div className="text-white/40 text-[10px] truncate">{c.cat}</div>
+                  <div className="text-yellow-400 text-[10px] mt-1">★ {c.rating}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Dark gradient overlay for readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0f0f18]/60 via-[#0f0f18]/50 to-[#0f0f18]/70" />
       </div>
 
       {/* Logo + tagline */}
