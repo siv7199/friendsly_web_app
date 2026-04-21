@@ -144,7 +144,7 @@ export function FanSidebar() {
   }
 
   return (
-    <aside className="hidden md:flex flex-col w-[220px] min-h-screen fan-rail shrink-0 animate-rail-enter">
+    <aside className="hidden w-[220px] shrink-0 self-start fan-rail animate-rail-enter md:sticky md:top-0 md:flex md:h-screen">
 
       {/* Logo */}
       <div className="px-5 pt-6 pb-5 border-b border-brand-border/60">

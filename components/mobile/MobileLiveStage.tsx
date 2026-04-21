@@ -437,7 +437,7 @@ function MobileLiveInner({
       </div>
 
       {/* ── Video card ── */}
-      <div className="relative mx-3 shrink-0" style={{ height: "min(42dvh, 370px)" }}>
+      <div className="relative mx-3 shrink-0" style={{ height: "min(36dvh, 320px)" }}>
         <div
           className="absolute inset-0 rounded-2xl"
           style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
@@ -528,8 +528,7 @@ function MobileLiveInner({
 
       {/* ── White panel ── */}
       <div
-        className="mt-1 flex shrink-0 flex-col overflow-hidden rounded-t-3xl bg-white/98"
-        style={{ minHeight: "31dvh", maxHeight: "31dvh" }}
+        className="mt-2 flex min-h-[36dvh] flex-1 flex-col overflow-hidden rounded-t-[32px] border-t border-white/70 bg-white shadow-[0_-18px_40px_rgba(15,23,42,0.18)]"
       >
 
         {/* Join / Leave button at top of chat panel */}
@@ -597,7 +596,7 @@ function MobileLiveInner({
         {/* Chat input */}
         <div
           className="flex shrink-0 items-center gap-2 px-4 pt-1.5"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)" }}
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
         >
           <input
             type="text"

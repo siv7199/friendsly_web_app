@@ -538,12 +538,12 @@ export default function DiscoverPage() {
               </p>
             </div>
           ) : (
-            <div className="flex snap-x gap-4 overflow-x-auto pb-2 scrollbar-none md:grid md:grid-cols-2 md:overflow-visible xl:grid-cols-3">
+            <div className="flex snap-x gap-4 overflow-x-auto pb-2 pr-4 scrollbar-none md:grid md:grid-cols-2 md:overflow-visible xl:grid-cols-3">
               {spotlightCreators.map((creator, index) => (
                 <div
                   key={creator.id}
                   style={{ animationDelay: `${index * 35}ms` }}
-                  className="w-[182px] shrink-0 snap-start animate-card-enter md:w-auto"
+                  className="w-[min(82vw,182px)] shrink-0 snap-start animate-card-enter md:w-auto"
                 >
                   <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
                 </div>
@@ -603,12 +603,12 @@ export default function DiscoverPage() {
               </p>
             </div>
           ) : (
-            <div className="flex snap-x gap-4 overflow-x-auto pb-2 scrollbar-none md:grid md:grid-cols-2 md:gap-5 md:overflow-visible xl:grid-cols-3 2xl:grid-cols-4">
+            <div className="flex snap-x gap-4 overflow-x-auto pb-2 pr-4 scrollbar-none md:grid md:grid-cols-2 md:gap-5 md:overflow-visible xl:grid-cols-3 2xl:grid-cols-4">
               {otherCreators.map((creator, index) => (
                 <div
                   key={creator.id}
                   style={{ animationDelay: `${index * 25}ms` }}
-                  className="w-[182px] shrink-0 snap-start animate-card-enter md:w-auto"
+                  className="w-[min(82vw,182px)] shrink-0 snap-start animate-card-enter md:w-auto"
                 >
                   <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
                 </div>

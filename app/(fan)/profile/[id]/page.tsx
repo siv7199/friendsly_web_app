@@ -95,6 +95,12 @@ function formatLiveStatusLabel(creator: Creator, scheduledLiveLabel: string | nu
   return "Next live coming soon";
 }
 
+function formatCountdownHeading(creator: Creator, scheduledLiveLabel: string | null) {
+  if (creator.isLive) return `Go live with ${creator.name}!`;
+  if (scheduledLiveLabel) return `Countdown to ${scheduledLiveLabel}`;
+  return "Next live time will be posted here";
+}
+
 function getPackageAccentClasses(index: number) {
   const accents = [
     {
@@ -617,9 +623,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     })}${abbreviation ? ` ${abbreviation}` : ""}`;
   })();
   const liveStatusLabel = formatLiveStatusLabel(creator, scheduledLiveLabel);
-  const liveSupportCopy = creator.isLive
-    ? "Live is free to watch. You only pay by the minute when you are on stage."
-    : "Live is free to watch and pay by the minute only when you step on stage.";
+  const countdownHeading = formatCountdownHeading(creator, scheduledLiveLabel);
   const showLiveCard = creator.isLive || Boolean(hasLiveRate || scheduledLiveLabel || scheduledLiveCountdown);
 
   // Map availability slots: { [dayOfWeek]: string[] of formatted time ranges }
@@ -775,57 +779,13 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   onClick={() => setShowBooking(true)}
                 >
                   <Calendar className="w-4 h-4" />
-                  Book from {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
+                  See times
                 </Button>
               </div>
             )}
           </div>
 
           <div className="mx-4 my-5 border-t border-brand-border" />
-
-          {showLiveCard && (
-            <div className="mx-4 mb-6 rounded-3xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
-                    <Zap className="h-3 w-3" />
-                    Live
-                  </div>
-                  <h2 className="mt-3 text-lg font-bold text-brand-ink">{liveStatusLabel}</h2>
-                  <p className="mt-1 text-sm leading-6 text-brand-ink-muted">{liveSupportCopy}</p>
-                </div>
-                {hasLiveRate && (
-                  <div className="shrink-0 rounded-2xl border border-brand-live/20 bg-brand-live/10 px-3 py-2 text-right">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-brand-live">Queue price</p>
-                    <p className="mt-1 text-base font-bold text-brand-live">{formatCurrency(creator.liveJoinFee!)} / min</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-brand-live/15 bg-brand-live/5 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Live</p>
-                <p className="mt-2 text-sm font-semibold text-brand-ink">
-                  Free to watch, pay by the minute on stage
-                </p>
-                <p className="mt-1 text-sm text-brand-ink-muted">
-                  {creator.isLive
-                    ? creator.queueCount > 0
-                      ? `${creator.queueCount} fan${creator.queueCount === 1 ? "" : "s"} waiting to go on stage`
-                      : "Stage is open now"
-                    : scheduledLiveCountdown ?? scheduledLiveLabel ?? "Next live time will be posted here"}
-                </p>
-              </div>
-
-              {creator.isLive && hasLiveRate && (
-                <Link href={liveHref ?? "#"} className="mt-4 block">
-                  <Button variant="live" size="lg" className="w-full gap-2">
-                    <Zap className="h-4 w-4" />
-                    Watch Live
-                  </Button>
-                </Link>
-              )}
-            </div>
-          )}
 
           {/* Availability */}
           <div className="px-4 mb-6">
@@ -951,6 +911,47 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             </div>
           )}
 
+          {showLiveCard && (
+            <div className="mx-4 mb-6 rounded-3xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
+                    <Zap className="h-3 w-3" />
+                    Countdown
+                  </div>
+                  <h2 className="mt-3 text-lg font-bold text-brand-ink">{liveStatusLabel}</h2>
+                </div>
+                {hasLiveRate && (
+                  <div className="shrink-0 rounded-2xl border border-brand-live/20 bg-brand-live/10 px-3 py-2 text-right">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-brand-live">Queue price</p>
+                    <p className="mt-1 text-base font-bold text-brand-live">{formatCurrency(creator.liveJoinFee!)} / min</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-brand-live/15 bg-brand-live/5 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Countdown</p>
+                <p className="mt-2 text-sm font-semibold text-brand-ink">{countdownHeading}</p>
+                <p className="mt-1 text-sm text-brand-ink-muted">
+                  {creator.isLive
+                    ? creator.queueCount > 0
+                      ? `${creator.queueCount} fan${creator.queueCount === 1 ? "" : "s"} waiting to go on stage`
+                      : "Watch now for free, then join the queue when you're ready."
+                    : scheduledLiveCountdown ?? scheduledLiveLabel ?? "Next live time will be posted here"}
+                </p>
+              </div>
+
+              {creator.isLive && hasLiveRate && (
+                <Link href={liveHref ?? "#"} className="mt-4 block">
+                  <Button variant="live" size="lg" className="w-full gap-2">
+                    <Zap className="h-4 w-4" />
+                    Watch NOW for free
+                  </Button>
+                </Link>
+              )}
+            </div>
+          )}
+
           {/* About */}
           {creator.bio && (
             <div className="px-4 mb-6">
@@ -960,7 +961,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           )}
 
           {/* Reviews (mobile) */}
-          {(reviews.length > 0 || (isFan && !isOwnProfile)) && (
+          {(reviews.length > 0 || (isFan && !isOwnProfile) || creator.reviewCount === 0) && (
             <div className="px-4 mb-6">
               <h2 className="text-base font-bold text-brand-ink mb-3">
                 Reviews{creator.reviewCount > 0 ? ` (${creator.reviewCount})` : ""}
@@ -1005,6 +1006,13 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               )}
 
               <div className="space-y-3">
+                {reviews.length === 0 && (
+                  <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 text-center">
+                    <Star className="mx-auto mb-3 h-8 w-8 text-brand-ink-subtle" />
+                    <p className="text-brand-ink-subtle">No reviews yet.</p>
+                    <p className="mt-1 text-sm text-brand-ink-subtle">Be the first to leave a review!</p>
+                  </div>
+                )}
                 {reviews.map((review) => (
                   <div key={review.id} className="rounded-2xl border border-brand-border bg-brand-surface p-4">
                     <div className="flex items-start gap-3">
@@ -1038,14 +1046,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             <div className={cn("grid gap-2", hasPackages && creator.isLive && hasLiveRate ? "grid-cols-2" : "grid-cols-1")}>
               {hasPackages && (
                 <Button variant="primary" size="lg" className="w-full" onClick={() => setShowBooking(true)}>
-                  Book Session
+                  See Times
                 </Button>
               )}
               {creator.isLive && hasLiveRate && (
                 <Link href={liveHref ?? "#"}>
                   <Button variant="live" size="lg" className="w-full gap-2">
                     <Zap className="w-4 h-4" />
-                    Watch Live
+                    Watch NOW for free
                   </Button>
                 </Link>
               )}
@@ -1260,22 +1268,22 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               <div className="rounded-3xl border border-brand-live/25 bg-brand-live/5 p-6 shadow-card">
                 <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-live px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
                   <Zap className="h-3 w-3" />
-                  Live
+                    Countdown
                 </div>
-                <h2 className="text-xl font-serif font-normal text-brand-ink">Live</h2>
+                <h2 className="text-xl font-serif font-normal text-brand-ink">Countdown</h2>
                 <p className="mt-1 text-sm text-brand-ink-muted">
                   Free to watch - pay by the minute only when you're on stage with {creator.name}.
                 </p>
                 <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                  <div className="rounded-2xl border border-brand-live/15 bg-white/70 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Next live</p>
-                    <p className="mt-2 text-base font-semibold text-brand-ink">{liveStatusLabel}</p>
+              <div className="rounded-2xl border border-brand-live/15 bg-white/70 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Countdown</p>
+                    <p className="mt-2 text-base font-semibold text-brand-ink">{countdownHeading}</p>
                     <p className="mt-1 text-sm text-brand-ink-muted">
                       {creator.isLive
                         ? creator.queueCount > 0
                           ? `${creator.queueCount} fan${creator.queueCount === 1 ? "" : "s"} waiting to go on stage`
-                          : "Be the first on stage"
-                        : scheduledLiveCountdown ?? scheduledLiveLabel ?? "Next live time will appear here"}
+                          : "Watch now for free, then join the queue when you're ready."
+                        : scheduledLiveCountdown ?? scheduledLiveLabel ?? "Next live time will be posted here"}
                     </p>
                   </div>
                   {hasLiveRate && (
@@ -1292,7 +1300,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <Link href={liveHref ?? "#"}>
                     <Button variant="live" size="lg" className="mt-4 w-full gap-2">
                       <Zap className="h-4 w-4" />
-                      Watch Live
+                      Watch NOW for free
                     </Button>
                   </Link>
                 )}
