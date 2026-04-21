@@ -325,7 +325,10 @@ function MobileLiveInner({
       <style dangerouslySetInnerHTML={VIDEO_FILL} />
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-2 shrink-0">
+      <div
+        className="flex items-center justify-between px-5 pb-2 shrink-0"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 20px)" }}
+      >
         <div className="flex items-center gap-3">
           <button
             onClick={() => { window.history.back(); }}
@@ -573,7 +576,10 @@ function MobileLiveInner({
         </div>
 
         {/* Chat input */}
-        <div className="px-4 pt-2 pb-6 flex items-center gap-2 shrink-0">
+        <div
+          className="px-4 pt-2 flex items-center gap-2 shrink-0"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
+        >
           <input
             type="text"
             value={chatText}

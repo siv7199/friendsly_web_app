@@ -269,7 +269,10 @@ function CreatorMobileLiveStage({
       <style dangerouslySetInnerHTML={VIDEO_FILL} />
 
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-2 shrink-0">
+      <div
+        className="flex items-center justify-between px-5 pb-2 shrink-0"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 20px)" }}
+      >
         <div className="flex items-center gap-3">
           <button
             onClick={() => { window.history.back(); }}
@@ -442,7 +445,10 @@ function CreatorMobileLiveStage({
         </div>
 
         {/* Chat input */}
-        <div className="px-4 pt-2 pb-6 flex items-center gap-2 shrink-0">
+        <div
+          className="px-4 pt-2 flex items-center gap-2 shrink-0"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
+        >
           <input
             type="text"
             value={chatText}
@@ -450,7 +456,7 @@ function CreatorMobileLiveStage({
             onKeyDown={(e) => { if (e.key === "Enter") void sendChat(); }}
             placeholder="Reply to your fans…"
             style={{ fontSize: "16px", touchAction: "manipulation" }}
-            className="flex-1 bg-slate-100 rounded-full px-4 py-2.5 text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300 transition-all"
+            className="flex-1 min-w-0 bg-slate-100 rounded-full px-4 py-2.5 text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300 transition-all"
           />
           <button
             onClick={() => void sendChat()}
@@ -915,7 +921,10 @@ export function MobileLiveConsole() {
     return (
       <div className="min-h-[100dvh] bg-violet-500 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
+        <div
+          className="flex items-center justify-between px-5 pb-3 shrink-0"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 20px)" }}
+        >
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
@@ -969,23 +978,26 @@ export function MobileLiveConsole() {
         </div>
 
         {/* White panel — schedule + start */}
-        <div className="flex-1 rounded-t-3xl bg-white overflow-y-auto flex flex-col mt-3 px-5 pt-5 pb-8 gap-4">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div
+          className="flex-1 rounded-t-3xl bg-white overflow-y-auto flex flex-col mt-3 px-5 pt-5 gap-4"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 32px)" }}
+        >
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 min-w-0">
             <div className="flex items-center gap-2 text-slate-800 mb-3">
-              <CalendarClock className="w-4 h-4 text-violet-600" />
+              <CalendarClock className="w-4 h-4 text-violet-600 shrink-0" />
               <p className="text-sm font-semibold">Announce when you're going live</p>
             </div>
             <input
               type="datetime-local"
               value={scheduledLiveAt}
               onChange={(e) => setScheduledLiveAt(e.target.value)}
-              style={{ fontSize: "16px" }}
-              className="block h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:border-violet-500"
+              style={{ fontSize: "16px", WebkitAppearance: "none", appearance: "none" }}
+              className="block h-11 w-full max-w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:border-violet-500"
             />
             <select
               value={scheduledLiveTimeZone}
               onChange={(e) => setScheduledLiveTimeZone(e.target.value)}
-              className="mt-3 block h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:border-violet-500"
+              className="mt-3 block h-11 w-full max-w-full min-w-0 truncate rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:border-violet-500"
             >
               {COMMON_TIME_ZONES.map((timeZone) => (
                 <option key={timeZone} value={timeZone}>
