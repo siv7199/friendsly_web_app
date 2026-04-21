@@ -8,6 +8,7 @@ import type { Creator, CallPackage } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { getCreatorProfilePath, getLiveSessionPath } from "@/lib/routes";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -111,7 +112,12 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
   const hasLiveRate = Boolean(creator.liveJoinFee && creator.liveJoinFee > 0);
   const hasPackages  = creator.callPrice > 0 || packages.length > 0;
   const liveAudienceCount = creator.isLive ? creator.queueCount + 1 : creator.queueCount;
-  const profileHref = `/profile/${creator.id}`;
+  const profileHref = getCreatorProfilePath({ id: creator.id, username: creator.username });
+  const liveHref = getLiveSessionPath({
+    creatorId: creator.id,
+    creatorUsername: creator.username,
+    sessionId: creator.currentLiveSessionId,
+  });
 
   function shouldIgnoreCardNavigation(target: EventTarget | null) {
     if (!(target instanceof HTMLElement)) return false;
@@ -216,7 +222,7 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
 
           {/* Name */}
           <Link
-            href={`/profile/${creator.id}`}
+            href={profileHref}
             className="line-clamp-2 min-h-[38px] text-[15px] font-serif font-normal leading-tight text-brand-ink transition-colors hover:text-brand-primary"
           >
             {creator.name}
@@ -270,7 +276,7 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
           {creator.isLive ? (
             <div className="flex min-h-[58px] flex-col justify-end space-y-1.5">
               {hasLiveRate ? (
-                <Link href={`/waiting-room/${creator.id}`} className="block">
+                <Link href={liveHref} className="block">
                   <Button
                     variant="primary"
                     size="sm"

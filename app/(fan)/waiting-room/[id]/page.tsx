@@ -12,6 +12,7 @@ import { LiveJoinModal } from "@/components/fan/LiveJoinModal";
 import type { QueueEntry } from "@/types";
 import { Button } from "@/components/ui/button";
 import { LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds, getLiveStageRemainingSeconds } from "@/lib/live";
+import { getCreatorProfilePath, parseLiveRouteParam, isUuidLike } from "@/lib/routes";
 
 type CreatorState = {
   id: string;
@@ -46,6 +47,7 @@ function mapQueueProfile(entry: any, fallbackName: string) {
 
 export default function WaitingRoomPage({ params }: { params: { id: string } }) {
   const { user } = useAuthContext();
+  const routeTarget = useMemo(() => parseLiveRouteParam(params.id), [params.id]);
   const [creatorState, setCreatorState] = useState<CreatorState | null>(null);
   const [loading, setLoading] = useState(true);
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null);
@@ -63,11 +65,12 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
 
   const loadLiveState = useCallback(async () => {
     const supabase = createClient();
+    const creatorLookupColumn = isUuidLike(routeTarget.creatorRef) ? "id" : "username";
 
     const { data: profile } = await supabase
       .from("profiles")
       .select("id, full_name, username, avatar_initials, avatar_color, avatar_url, creator_profiles(live_join_fee)")
-      .eq("id", params.id)
+      .eq(creatorLookupColumn, creatorLookupColumn === "username" ? routeTarget.creatorRef.toLowerCase() : routeTarget.creatorRef)
       .maybeSingle();
 
     if (profile) {
@@ -88,14 +91,20 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       });
     }
 
-    const { data: session } = await supabase
+    if (!profile) {
+      setLoading(false);
+      return;
+    }
+
+    const sessionQuery = supabase
       .from("live_sessions")
       .select("id, daily_room_url")
-      .eq("creator_id", params.id)
-      .eq("is_active", true)
-      .order("started_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq("creator_id", profile.id)
+      .eq("is_active", true);
+
+    const { data: session } = routeTarget.sessionId
+      ? await sessionQuery.eq("id", routeTarget.sessionId).maybeSingle()
+      : await sessionQuery.order("started_at", { ascending: false }).limit(1).maybeSingle();
 
     if (!session) {
       if (liveSessionId) setSessionEnded(true);
@@ -155,7 +164,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
 
     setQueue(nextQueue);
     setLoading(false);
-  }, [liveSessionId, params.id]);
+  }, [liveSessionId, routeTarget.creatorRef, routeTarget.sessionId]);
 
   useEffect(() => {
     void loadLiveState();
@@ -203,9 +212,10 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
 
   useEffect(() => {
     const supabase = createClient();
+    if (!creatorState?.id) return;
     const channel = supabase
-      .channel(`public-live:${params.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${params.id}` }, () => { void loadLiveState(); })
+      .channel(`public-live:${creatorState.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${creatorState.id}` }, () => { void loadLiveState(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, () => { void loadLiveState(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "live_queue_entries" }, () => { void loadLiveState(); })
       .subscribe();
@@ -213,7 +223,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadLiveState, params.id]);
+  }, [creatorState?.id, loadLiveState]);
 
   useEffect(() => {
     setReportedDailySessionId(null);
@@ -307,7 +317,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
           </p>
         </div>
         <div className="flex flex-col w-full max-w-xs gap-3">
-          <Link href={`/profile/${params.id}`}>
+          <Link href={getCreatorProfilePath({ id: creatorState.id, username: creatorState.username })}>
             <Button className="w-full h-12 text-base font-bold shadow-glow-primary" variant="primary">
               Back to Profile
             </Button>
@@ -325,14 +335,14 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
 
   return (
     <>
-      <div className="mx-auto flex min-h-screen w-full max-w-[1320px] flex-col gap-4 overflow-x-hidden px-4 py-4 md:px-6 md:py-5 xl:h-[100dvh] xl:max-h-[100dvh] xl:overflow-hidden">
-        <Link href={`/profile/${creatorState.id}`} className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors shrink-0">
+      <div className="mx-auto flex h-[100dvh] max-h-[100dvh] w-full max-w-[1320px] flex-col gap-2 overflow-hidden px-3 py-3 md:gap-4 md:px-6 md:py-5">
+        <Link href={getCreatorProfilePath({ id: creatorState.id, username: creatorState.username })} className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors shrink-0">
           <ArrowLeft className="w-4 h-4" />
           Back to {creatorState.name}&apos;s profile
         </Link>
 
-        <div className="grid gap-3 xl:flex-1 xl:min-h-0 xl:grid-cols-[minmax(0,1.7fr)_360px]">
-          <div className="xl:min-h-0">
+        <div className="grid flex-1 min-h-0 gap-3 xl:grid-cols-[minmax(0,1.7fr)_360px]">
+          <div className="min-h-0">
             {roomUrl && token ? (
               <PublicLiveRoom
                 roomUrl={roomUrl}
@@ -348,11 +358,16 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
                 isAdmitted={Boolean(myActiveEntry)}
                 stageElapsedSeconds={stageElapsedSeconds}
                 onJoinQueue={() => setShowJoinModal(true)}
+                onLeaveQueue={async () => {
+                  if (!myWaitingEntry?.id) return;
+                  await leaveWaitingQueue(myWaitingEntry.id);
+                }}
                 onLeaveStage={async () => {
                   if (!myActiveEntry?.id) return;
                   await leaveActiveStage(myActiveEntry.id);
                 }}
                 joinDisabled={Boolean(myWaitingEntry || myActiveEntry)}
+                isQueued={Boolean(myWaitingEntry)}
                 queueCount={waitingQueue.length}
                 queuePreview={waitingQueue}
                 onStageSessionReady={reportActiveJoin}
@@ -370,7 +385,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             )}
           </div>
 
-          <div className="min-h-[360px] xl:min-h-0">
+          <div className="hidden min-h-[360px] xl:block xl:min-h-0">
             <WaitingRoom
               queue={[]}
               currentUserPosition={0}
@@ -378,7 +393,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
               creatorInitials={creatorState.avatarInitials}
               creatorColor={creatorState.avatarColor}
               creatorAvatarUrl={creatorState.avatarUrl}
-              creatorId={params.id}
+              creatorId={creatorState.id}
               sessionId={liveSessionId ?? undefined}
               showQueueTab={false}
               activeFanAdmittedAt={activeFanAdmittedAt}

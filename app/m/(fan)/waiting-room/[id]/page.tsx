@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { LiveJoinModal } from "@/components/fan/LiveJoinModal";
 import { MobilePublicLiveRoom } from "@/components/mobile/MobileLiveStage";
 import { LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds, getLiveStageRemainingSeconds } from "@/lib/live";
+import { getCreatorProfilePath, isUuidLike, parseLiveRouteParam } from "@/lib/routes";
 import type { QueueEntry } from "@/types";
 
 type CreatorState = {
@@ -49,6 +50,7 @@ function mapQueueProfile(entry: any, fallbackName: string) {
 
 export default function MobileWaitingRoomPage({ params }: { params: { id: string } }) {
   const { user } = useAuthContext();
+  const routeTarget = useMemo(() => parseLiveRouteParam(params.id), [params.id]);
   const [creatorState, setCreatorState] = useState<CreatorState | null>(null);
   const [loading, setLoading] = useState(true);
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null);
@@ -66,11 +68,12 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
 
   const loadLiveState = useCallback(async () => {
     const supabase = createClient();
+    const creatorLookupColumn = isUuidLike(routeTarget.creatorRef) ? "id" : "username";
 
     const { data: profile } = await supabase
       .from("profiles")
       .select("id, full_name, username, avatar_initials, avatar_color, avatar_url, creator_profiles(live_join_fee)")
-      .eq("id", params.id)
+      .eq(creatorLookupColumn, creatorLookupColumn === "username" ? routeTarget.creatorRef.toLowerCase() : routeTarget.creatorRef)
       .maybeSingle();
 
     if (profile) {
@@ -91,14 +94,20 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
       });
     }
 
-    const { data: session } = await supabase
+    if (!profile) {
+      setLoading(false);
+      return;
+    }
+
+    const sessionQuery = supabase
       .from("live_sessions")
       .select("id, daily_room_url")
-      .eq("creator_id", params.id)
-      .eq("is_active", true)
-      .order("started_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq("creator_id", profile.id)
+      .eq("is_active", true);
+
+    const { data: session } = routeTarget.sessionId
+      ? await sessionQuery.eq("id", routeTarget.sessionId).maybeSingle()
+      : await sessionQuery.order("started_at", { ascending: false }).limit(1).maybeSingle();
 
     if (!session) {
       if (liveSessionId) setSessionEnded(true);
@@ -155,7 +164,7 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
 
     setQueue(nextQueue);
     setLoading(false);
-  }, [liveSessionId, params.id]);
+  }, [liveSessionId, routeTarget.creatorRef, routeTarget.sessionId]);
 
   useEffect(() => { void loadLiveState(); }, [loadLiveState]);
 
@@ -193,14 +202,15 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
 
   useEffect(() => {
     const supabase = createClient();
+    if (!creatorState?.id) return;
     const channel = supabase
-      .channel(`public-live:${params.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${params.id}` }, () => { void loadLiveState(); })
+      .channel(`public-live:${creatorState.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${creatorState.id}` }, () => { void loadLiveState(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, () => { void loadLiveState(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "live_queue_entries" }, () => { void loadLiveState(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [loadLiveState, params.id]);
+  }, [creatorState?.id, loadLiveState]);
 
   useEffect(() => { setReportedDailySessionId(null); }, [myActiveEntry?.id]);
 
@@ -297,7 +307,7 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
           </p>
         </div>
         <a
-          href={`/profile/${params.id}`}
+          href={getCreatorProfilePath({ id: creatorState.id, username: creatorState.username })}
           className="w-full max-w-xs bg-white text-violet-600 font-bold py-3 rounded-full text-center block"
         >
           Back to Profile

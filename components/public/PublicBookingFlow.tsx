@@ -26,6 +26,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { getAvailableStartTimesForViewerDate, getBrowserTimeZone, getTimeZoneAbbreviation } from "@/lib/timezones";
 import { RefundPolicyModal } from "@/components/shared/RefundPolicyModal";
 import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
+import { getLiveSessionPath } from "@/lib/routes";
 
 type CreatorPayload = {
   id: string;
@@ -40,6 +41,7 @@ type CreatorPayload = {
   timeZone: string;
   bookingIntervalMinutes: number;
   isLive: boolean;
+  currentLiveSessionId?: string | null;
 };
 
 type PackagePayload = {
@@ -450,9 +452,14 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
   function handleJoinLive() {
     if (!creator?.isLive) return;
+    const liveHref = getLiveSessionPath({
+      creatorId: creator.id,
+      creatorUsername: creator.slug || creator.username,
+      sessionId: creator.currentLiveSessionId,
+    });
 
     if (user?.role === "fan") {
-      router.push(`/waiting-room/${creator.id}`);
+      router.push(liveHref);
       return;
     }
 
@@ -597,9 +604,14 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     if (user?.role !== "fan") return;
 
     if (authIntent === "live" && creator?.isLive && creator.id && !hasHandledLiveIntentRef.current) {
+      const liveHref = getLiveSessionPath({
+        creatorId: creator.id,
+        creatorUsername: creator.slug || creator.username,
+        sessionId: creator.currentLiveSessionId,
+      });
       hasHandledLiveIntentRef.current = true;
       setAuthIntent(null);
-      router.replace(`/waiting-room/${creator.id}`);
+      router.replace(liveHref);
       return;
     }
 
@@ -627,10 +639,15 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     }
 
     if (user?.role === "fan") {
+      const liveHref = getLiveSessionPath({
+        creatorId: creator.id,
+        creatorUsername: creator.slug || creator.username,
+        sessionId: creator.currentLiveSessionId,
+      });
       hasHandledLiveIntentRef.current = true;
-      router.replace(`/waiting-room/${creator.id}`);
+      router.replace(liveHref);
     }
-  }, [authLoading, creator?.id, creator?.isLive, liveIntentRequested, router, user?.role]);
+  }, [authLoading, creator?.currentLiveSessionId, creator?.id, creator?.isLive, creator?.slug, creator?.username, liveIntentRequested, router, user?.role]);
 
   if (loading) {
     return (

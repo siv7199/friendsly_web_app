@@ -26,6 +26,7 @@ import {
 } from "@/lib/timezones";
 import { isNewCreator } from "@/lib/creators";
 import { getSocialHandleLabel, sanitizeSocialUrl } from "@/lib/social";
+import { getLiveSessionPath, isUuidLike } from "@/lib/routes";
 
 // ── Availability Calendar helpers ─────────────────────────────────────────────
 
@@ -92,13 +93,15 @@ interface AvailabilitySlot {
 
 // ── Creator data fetcher ──────────────────────────────────────────────────────
 
-async function fetchCreatorData(id: string): Promise<{
+async function fetchCreatorData(creatorRef: string): Promise<{
   creator: Creator | null;
   packages: CallPackage[];
   availability: AvailabilitySlot[];
   reviewCount: number;
 }> {
   const supabase = createClient();
+  const creatorLookupColumn = isUuidLike(creatorRef) ? "id" : "username";
+  const creatorLookupValue = creatorLookupColumn === "username" ? creatorRef.toLowerCase() : creatorRef;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -111,30 +114,32 @@ async function fetchCreatorData(id: string): Promise<{
       ),
       live_sessions(id, is_active, daily_room_url, last_heartbeat_at)
     `)
-    .eq("id", id)
+    .eq(creatorLookupColumn, creatorLookupValue)
     .eq("role", "creator")
     .single();
+
+  if (!profile) return { creator: null, packages: [], availability: [], reviewCount: 0 };
 
   const { data: pkgs } = await supabase
     .from("call_packages")
     .select("id, name, duration, price, description, is_active, bookings_count")
-    .eq("creator_id", id)
+    .eq("creator_id", profile.id)
     .eq("is_active", true)
     .order("price");
 
   let avail: AvailabilitySlot[] | null = null;
   const availRes = await supabase
-    .from("creator_availability")
-    .select("id, day_of_week, start_time, end_time, package_id")
-    .eq("creator_id", id)
-    .eq("is_active", true)
-    .order("day_of_week");
+      .from("creator_availability")
+      .select("id, day_of_week, start_time, end_time, package_id")
+      .eq("creator_id", profile.id)
+      .eq("is_active", true)
+      .order("day_of_week");
 
   if (availRes.error) {
     const fallbackAvailRes = await supabase
       .from("creator_availability")
       .select("id, day_of_week, start_time, end_time")
-      .eq("creator_id", id)
+      .eq("creator_id", profile.id)
       .eq("is_active", true)
       .order("day_of_week");
     avail = fallbackAvailRes.data?.map((slot: any) => ({ ...slot, package_id: null })) ?? [];
@@ -145,23 +150,21 @@ async function fetchCreatorData(id: string): Promise<{
   const { count: reviewCount } = await supabase
     .from("reviews")
     .select("*", { count: "exact", head: true })
-    .eq("creator_id", id);
+    .eq("creator_id", profile.id);
 
   const [{ count: completedBookingsCount }, { count: completedLiveQueueCount }] = await Promise.all([
     supabase
       .from("bookings")
       .select("*", { count: "exact", head: true })
-      .eq("creator_id", id)
+      .eq("creator_id", profile.id)
       .eq("status", "completed"),
     supabase
       .from("live_queue_entries")
       .select("id, live_sessions!inner(creator_id)", { count: "exact", head: true })
-      .eq("live_sessions.creator_id", id)
+      .eq("live_sessions.creator_id", profile.id)
       .in("status", ["completed", "skipped"])
       .not("amount_charged", "is", null),
   ]);
-
-  if (!profile) return { creator: null, packages: [], availability: [], reviewCount: 0 };
 
   const cp = Array.isArray(profile.creator_profiles)
     ? profile.creator_profiles[0]
@@ -282,6 +285,13 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const refreshTimeoutsRef = useRef<number[]>([]);
   const liveExpiryTimeoutRef = useRef<number | null>(null);
   const lastLoadAtRef = useRef(0);
+  const liveHref = creator
+    ? getLiveSessionPath({
+        creatorId: creator.id,
+        creatorUsername: creator.username,
+        sessionId: creator.currentLiveSessionId,
+      })
+    : null;
 
   const loadCreatorData = useCallback((supabase = createClient(), incrementProfileView = false) => {
     lastLoadAtRef.current = Date.now();
@@ -304,7 +314,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     const supabase = createClient();
-    let incrementedProfileView = false;
 
     function scheduleRefreshes() {
       refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
@@ -328,14 +337,20 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       liveExpiryTimeoutRef.current = window.setTimeout(() => loadCreatorData(supabase), delay);
     }
 
-    loadCreatorData(supabase, !incrementedProfileView);
-    incrementedProfileView = true;
+    loadCreatorData(supabase, !creator?.id);
+
+    if (!creator?.id) {
+      return () => {
+        refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+        clearLiveExpiry();
+      };
+    }
 
     // Load reviews from Supabase
     supabase
       .from("reviews")
       .select("id, rating, comment, created_at, fan:profiles!fan_id(full_name, avatar_initials, avatar_color, avatar_url)")
-      .eq("creator_id", params.id)
+      .eq("creator_id", creator.id)
       .order("created_at", { ascending: false })
       .limit(10)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -360,8 +375,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         }
       });
 
-    if (user?.role === "fan" && user.id !== params.id) {
-      fetch(`/api/reviews?creatorId=${encodeURIComponent(params.id)}`)
+    if (user?.role === "fan" && user.id !== creator.id) {
+      fetch(`/api/reviews?creatorId=${encodeURIComponent(creator.id)}`)
         .then((res) => res.json())
         .then((data) => {
           setCanReview(Boolean(data?.canReview));
@@ -374,10 +389,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     }
 
     const realtimeChannel = supabase
-      .channel(`fan_profile_${params.id}`)
+      .channel(`fan_profile_${creator.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${params.id}` },
+        { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${creator.id}` },
         (payload: any) => {
           if (payload.new?.is_live === false) {
             clearLiveExpiry();
@@ -401,7 +416,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "live_sessions", filter: `creator_id=eq.${params.id}` },
+        { event: "*", schema: "public", table: "live_sessions", filter: `creator_id=eq.${creator.id}` },
         (payload: any) => {
           const nextSession = payload.new ?? payload.old;
           const liveNow = payload.eventType !== "DELETE" && isSessionFresh(nextSession);
@@ -451,18 +466,18 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(realtimeChannel);
     };
-  }, [loadCreatorData, params.id, user?.id, user?.role]);
+  }, [creator?.id, loadCreatorData, user?.id, user?.role]);
 
   // ── Review submission ─────────────────────────────────────────────────────
   async function handleSubmitReview() {
-    if (!user || reviewRating === 0 || !reviewComment.trim()) return;
+    if (!user || !creator || reviewRating === 0 || !reviewComment.trim()) return;
     setSubmittingReview(true);
     setReviewError(null);
     const res = await fetch("/api/reviews", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        creatorId: params.id,
+        creatorId: creator.id,
         rating: reviewRating,
         comment: reviewComment.trim(),
       }),
@@ -495,7 +510,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   }
 
   const isFan = user?.role === "fan";
-  const isOwnProfile = user?.id === params.id;
+  const isOwnProfile = user?.id === creator?.id;
 
   if (loading) {
     return (
@@ -842,7 +857,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         )}
         {creator.isLive && hasLiveRate && (
           <div className={cn("fixed bottom-0 left-0 right-0 z-20 px-4 py-3 bg-white/95 backdrop-blur-sm border-t border-brand-border flex flex-col gap-2", hasPackages && "pb-20")}>
-            <Link href={`/waiting-room/${creator.id}`}>
+            <Link href={liveHref ?? "#"}>
               <Button variant="live" size="lg" className="w-full gap-2">
                 <Zap className="w-4 h-4" />
                 Join Live · {formatCurrency(creator.liveJoinFee!)} / min
@@ -1116,7 +1131,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 )}
 
                 {creator.isLive && hasLiveRate ? (
-                  <Link href={`/waiting-room/${creator.id}`}>
+                  <Link href={liveHref ?? "#"}>
                     <Button variant="live" size="lg" className="w-full gap-2">
                       <Zap className="w-4 h-4" />
                       Watch Live {creator.queueCount > 0 ? `• ${creator.queueCount} waiting` : ""}

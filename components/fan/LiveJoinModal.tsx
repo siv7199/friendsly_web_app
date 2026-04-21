@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { LIVE_PREAUTH_MINUTES, LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
 import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
+import { getLiveSessionPath } from "@/lib/routes";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 const LIVE_SESSION_STALE_MS = 45000;
@@ -100,6 +101,11 @@ export function LiveJoinModal({
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [saveNewCard, setSaveNewCard] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(creator.currentLiveSessionId);
+  const liveHref = getLiveSessionPath({
+    creatorId: creator.id,
+    creatorUsername: creator.username,
+    sessionId: currentSessionId ?? creator.currentLiveSessionId,
+  });
 
   const joinFee = creator.liveJoinFee ?? 0;
 
@@ -237,7 +243,7 @@ export function LiveJoinModal({
       setStep("success");
       window.setTimeout(() => {
         onClose();
-        router.push(`/waiting-room/${creator.id}`);
+        router.push(liveHref);
       }, 400);
       return;
     }
@@ -258,7 +264,7 @@ export function LiveJoinModal({
     setStep("success");
     window.setTimeout(() => {
       onClose();
-      router.push(`/waiting-room/${creator.id}`);
+      router.push(liveHref);
     }, 1200);
   }
 

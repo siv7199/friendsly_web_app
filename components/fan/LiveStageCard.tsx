@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Zap, Users } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { getLiveSessionPath } from "@/lib/routes";
 import type { Creator } from "@/types";
 
 interface LiveStageCardProps {
@@ -12,9 +13,14 @@ interface LiveStageCardProps {
 export function LiveStageCard({ creator }: LiveStageCardProps) {
   const hasLiveRate = Boolean(creator.liveJoinFee && creator.liveJoinFee > 0);
   const liveAudienceCount = creator.queueCount + 1;
+  const liveHref = getLiveSessionPath({
+    creatorId: creator.id,
+    creatorUsername: creator.username,
+    sessionId: creator.currentLiveSessionId,
+  });
 
   return (
-    <Link href={`/waiting-room/${creator.id}`} className="block shrink-0 group">
+    <Link href={liveHref} className="block shrink-0 group">
       <div className="relative w-[152px] h-[220px] rounded-2xl overflow-hidden bg-brand-dark shadow-md-light group-hover:shadow-lg-light group-hover:-translate-y-1 transition-all duration-200 ease-out-expo">
 
         {/* Background — deep purple gradient */}

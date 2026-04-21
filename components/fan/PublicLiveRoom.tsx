@@ -94,8 +94,10 @@ function LiveStage({
   isAdmitted,
   stageElapsedSeconds,
   onJoinQueue,
+  onLeaveQueue,
   onLeaveStage,
   joinDisabled,
+  isQueued,
   queueCount,
   queuePreview,
   onStageSessionReady,
@@ -119,8 +121,10 @@ function LiveStage({
   isAdmitted: boolean;
   stageElapsedSeconds: number;
   onJoinQueue: () => void;
+  onLeaveQueue?: () => void;
   onLeaveStage?: () => void;
   joinDisabled: boolean;
+  isQueued: boolean;
   queueCount: number;
   queuePreview?: QueuePreviewEntry[];
   onStageSessionReady?: (dailySessionId: string) => void;
@@ -283,6 +287,7 @@ function LiveStage({
   }, [activeFan?.fanName, activeFanVideoActive, creatorName, isAdmitted, queueCount, stageElapsedSeconds]);
 
   const showRemoteGuestStage = Boolean(!isAdmitted && activeFan);
+  const queuePreviewItems = queuePreview?.slice(0, 5) ?? [];
 
   async function handleSubmitReport() {
     if (!user?.full_name || !user.email || !reportDescription.trim()) return;
@@ -325,11 +330,11 @@ function LiveStage({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 xl:gap-2.5 xl:p-3.5">
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-[28px] border border-brand-border bg-brand-surface p-2.5 md:gap-3 md:p-4 xl:gap-2.5 xl:p-3.5">
       {audibleSessionIds.map((sessionId) => (
         <DailyAudioTrack key={sessionId} sessionId={sessionId} />
       ))}
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between xl:gap-3">
+      <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between xl:gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="live">
@@ -342,11 +347,11 @@ function LiveStage({
               {audienceCount} in live
             </span>
           </div>
-          <p className="mt-1 text-xs md:text-sm text-brand-ink-subtle">{stageLabel}</p>
+          <p className="mt-0.5 line-clamp-1 text-[11px] md:mt-1 md:text-sm text-brand-ink-subtle">{stageLabel}</p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2 self-start md:self-auto">
-          {isAdmitted ? null : (
+          {isAdmitted || isQueued ? null : (
             <Button variant="live" className="gap-2 shrink-0" onClick={onJoinQueue} disabled={joinDisabled}>
               <Zap className="w-4 h-4" />
               Join Live
@@ -356,14 +361,14 @@ function LiveStage({
       </div>
 
       <div className={cn(
-        "grid flex-1 min-h-0 gap-4 overflow-hidden xl:gap-3",
+        "grid flex-1 min-h-0 gap-2.5 overflow-hidden md:gap-4 xl:gap-3",
         isAdmitted || showRemoteGuestStage
-          ? "grid-rows-[minmax(220px,33vh)_minmax(220px,33vh)] md:grid-rows-1 md:auto-rows-fr md:grid-cols-2"
+          ? "grid-rows-[minmax(0,1fr)_minmax(0,0.72fr)] md:grid-rows-1 md:auto-rows-fr md:grid-cols-2"
           : "grid-cols-1 auto-rows-fr"
       )}>
         <div className={cn(
           "relative h-full rounded-[24px] overflow-hidden border border-brand-border bg-brand-elevated",
-          isAdmitted || showRemoteGuestStage ? "min-h-[220px] md:min-h-0 xl:min-h-[200px]" : "min-h-[280px] md:min-h-0 xl:min-h-[250px]"
+          isAdmitted || showRemoteGuestStage ? "min-h-[0] md:min-h-0 xl:min-h-[200px]" : "min-h-[0] md:min-h-0 xl:min-h-[250px]"
         )}>
           {!isAdmitted ? (
             <div className="absolute right-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-col items-end gap-2">
@@ -453,14 +458,61 @@ function LiveStage({
           )}
           <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
           <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
-          <div className="absolute left-4 bottom-4 rounded-xl bg-black/45 px-3 py-2 text-white max-w-[calc(100%-2rem)]">
+          <div className="absolute left-3 bottom-3 rounded-xl bg-black/45 px-3 py-2 text-white max-w-[calc(100%-1.5rem)] md:left-4 md:bottom-4 md:max-w-[calc(100%-2rem)]">
             <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">Host</p>
             <p className="text-sm font-semibold">{creatorName}</p>
+          </div>
+          <div className="absolute inset-x-3 bottom-3 z-10 md:hidden">
+            <div className="rounded-[22px] border border-[rgba(184,146,255,0.34)] bg-[linear-gradient(135deg,rgba(96,43,141,0.48),rgba(58,17,90,0.24))] p-2.5 shadow-[0_18px_40px_rgba(32,10,55,0.28)] backdrop-blur-sm">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/78">
+                  <span className="h-2 w-2 rounded-full bg-brand-live" />
+                  {showRemoteGuestStage ? "Current Fan" : "Queue"}
+                </div>
+                {queuePreviewItems.length > 0 ? (
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="flex items-center -space-x-2">
+                      {queuePreviewItems.map((entry) => (
+                        <div key={entry.id} className="rounded-full border border-[rgba(255,255,255,0.2)] bg-[rgba(26,12,42,0.86)] p-0.5">
+                          <Avatar initials={entry.avatarInitials ?? "F"} color={entry.avatarColor ?? "bg-brand-primary"} imageUrl={entry.avatarUrl} size="sm" />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="truncate text-xs font-medium text-white/86">
+                      {queuePreviewItems.map((entry) => entry.fanName).join(" / ")}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="min-w-0 flex-1 truncate text-xs text-white/72">
+                    {queueCount > 0 ? `${queueCount} waiting to join` : "No one is waiting right now"}
+                  </p>
+                )}
+                {isQueued && onLeaveQueue ? (
+                  <button
+                    type="button"
+                    onClick={onLeaveQueue}
+                    className="inline-flex shrink-0 items-center justify-center rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(22,8,34,0.56)] px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-[rgba(22,8,34,0.8)]"
+                  >
+                    Leave Queue
+                  </button>
+                ) : null}
+                {!isQueued && !isAdmitted ? (
+                  <button
+                    type="button"
+                    onClick={onJoinQueue}
+                    disabled={joinDisabled}
+                    className="inline-flex shrink-0 items-center justify-center rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(22,8,34,0.56)] px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-[rgba(22,8,34,0.8)] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Join
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
         </div>
 
         {isAdmitted ? (
-          <div className="relative h-full min-h-[220px] overflow-hidden rounded-[24px] border border-brand-border bg-brand-elevated md:min-h-0 xl:min-h-[200px]">
+          <div className="relative h-full min-h-[0] overflow-hidden rounded-[24px] border border-brand-border bg-brand-elevated md:min-h-0 xl:min-h-[200px]">
             {localSessionId && camOn && localVideoActive ? (
               <div className="relative h-full w-full overflow-hidden bg-black/30">
                 <div className="daily-stage-video h-full w-full overflow-hidden">
@@ -478,16 +530,55 @@ function LiveStage({
             )}
             <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
             <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
-            <div className="absolute left-4 top-4 rounded-xl border border-brand-live/30 bg-black/25 px-3 py-2 text-white">
+            <div className="absolute left-3 top-3 rounded-xl border border-brand-live/30 bg-black/25 px-3 py-2 text-white md:left-4 md:top-4">
               <p className="text-[10px] uppercase tracking-[0.2em] text-brand-live">On Stage</p>
               <p className="text-lg font-black tabular-nums text-brand-live">{formatStageElapsed(stageElapsedSeconds)}</p>
               <p className="text-[10px] text-white/75">of {LIVE_STAGE_MAX_MINUTES}:00 max</p>
             </div>
-            <div className="absolute left-4 bottom-4 rounded-xl bg-black/45 px-3 py-2 text-white">
+            <div className="absolute left-3 bottom-3 rounded-xl bg-black/45 px-3 py-2 text-white md:left-4 md:bottom-4">
               <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300">You</p>
               <p className="text-sm font-semibold">On Stage</p>
             </div>
-            <div className="absolute right-4 bottom-4 flex items-center gap-2">
+            <div className="absolute inset-x-3 bottom-3 z-10 md:hidden">
+              <div className="flex items-center justify-end gap-2 rounded-[22px] border border-[rgba(184,146,255,0.34)] bg-[linear-gradient(135deg,rgba(96,43,141,0.48),rgba(58,17,90,0.24))] p-2.5 shadow-[0_18px_40px_rgba(32,10,55,0.28)] backdrop-blur-sm">
+                <button
+                  onClick={async () => {
+                    const next = !micOn;
+                    setMicOn(next);
+                    await enableStageMedia({ audio: next, video: camOn });
+                  }}
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-full border transition-colors",
+                    micOn ? "border-white/20 bg-[rgba(22,8,34,0.56)] text-white" : "border-red-500/35 bg-red-500/20 text-red-300"
+                  )}
+                >
+                  {micOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={async () => {
+                    const next = !camOn;
+                    setCamOn(next);
+                    await enableStageMedia({ audio: micOn, video: next });
+                  }}
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-full border transition-colors",
+                    camOn ? "border-white/20 bg-[rgba(22,8,34,0.56)] text-white" : "border-red-500/35 bg-red-500/20 text-red-300"
+                  )}
+                >
+                  {camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                </button>
+                {onLeaveStage ? (
+                  <button
+                    onClick={onLeaveStage}
+                    title="Return to spectator"
+                    className="inline-flex items-center justify-center rounded-full border border-white/20 bg-[rgba(22,8,34,0.56)] px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-[rgba(22,8,34,0.8)]"
+                  >
+                    Leave
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <div className="absolute right-3 top-3 hidden items-center gap-2 md:flex md:right-4 md:top-4">
               <button
                 onClick={async () => {
                   const next = !micOn;
@@ -526,7 +617,7 @@ function LiveStage({
             </div>
           </div>
         ) : showRemoteGuestStage ? (
-          <div className="h-full min-h-[220px] overflow-hidden rounded-[24px] border border-brand-border bg-brand-elevated md:min-h-0 xl:min-h-[200px]">
+          <div className="h-full min-h-[0] overflow-hidden rounded-[24px] border border-brand-border bg-brand-elevated md:min-h-0 xl:min-h-[200px]">
             <div className="relative h-full w-full overflow-hidden">
               {activeFanSessionId && activeFanVideoActive ? (
                 <div className="daily-stage-video h-full w-full overflow-hidden">
@@ -550,7 +641,7 @@ function LiveStage({
               )}
               <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
               <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/45 to-transparent pointer-events-none" />
-              <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] text-white/80">
+              <div className="absolute left-3 top-3 rounded-full border border-[rgba(184,146,255,0.34)] bg-[rgba(60,24,92,0.45)] px-3 py-1 text-[11px] text-white/85">
                 Current Fan
               </div>
               <div className="absolute left-3 bottom-3 rounded-lg bg-black/45 px-2 py-1 text-xs font-semibold text-white">
@@ -580,8 +671,10 @@ export function PublicLiveRoom({
   isAdmitted,
   stageElapsedSeconds,
   onJoinQueue,
+  onLeaveQueue,
   onLeaveStage,
   joinDisabled,
+  isQueued,
   queueCount,
   queuePreview,
   onStageSessionReady,
@@ -607,8 +700,10 @@ export function PublicLiveRoom({
   isAdmitted: boolean;
   stageElapsedSeconds: number;
   onJoinQueue: () => void;
+  onLeaveQueue?: () => void;
   onLeaveStage?: () => void;
   joinDisabled: boolean;
+  isQueued: boolean;
   queueCount: number;
   queuePreview?: QueuePreviewEntry[];
   onStageSessionReady?: (dailySessionId: string) => void;
@@ -628,8 +723,10 @@ export function PublicLiveRoom({
         isAdmitted={isAdmitted}
         stageElapsedSeconds={stageElapsedSeconds}
         onJoinQueue={onJoinQueue}
+        onLeaveQueue={onLeaveQueue}
         onLeaveStage={onLeaveStage}
         joinDisabled={joinDisabled}
+        isQueued={isQueued}
         queueCount={queueCount}
         queuePreview={queuePreview}
         onStageSessionReady={onStageSessionReady}
