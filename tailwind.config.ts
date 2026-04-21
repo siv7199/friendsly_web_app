@@ -16,7 +16,7 @@ const config: Config = {
           bg:       "#F7F5FB",   // soft violet-tinted white canvas
           surface:  "#FFFFFF",   // pure white card surface
           elevated: "#EEE9FF",   // light periwinkle — hovers, active states
-          border:   "#E0D9F5",   // delicate lavender border
+          border:   "#CEC6E5",   // slightly stronger lavender-gray border
 
           // ── Stage / media areas — the purple that fills card tops ────────
           stage:    "#C5BAF5",   // medium periwinkle — card media bg (matches reference)
@@ -51,7 +51,7 @@ const config: Config = {
           // ── Panel system ─────────────────────────────────────────────────
           panel:          "#F3F0FB",
           "panel-dim":    "#EAE5F8",
-          "panel-border": "#D6CEF0",
+          "panel-border": "#C7BEDF",
         },
       },
       fontFamily: {

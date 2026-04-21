@@ -44,7 +44,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
   /* Fan sidebar — light purple-white rail */
   .fan-rail {
     background: #FFFFFF;
-    border-right: 1px solid #E0D9F5;
+    border-right: 1px solid #CEC6E5;
   }
 
   /* Creator rail — deep dark */
@@ -56,7 +56,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
   /* Light card surface */
   .panel-card {
     background: #FFFFFF;
-    border: 1px solid #E0D9F5;
+    border: 1px solid #CEC6E5;
   }
 
   /* Legacy dark surface */
@@ -118,7 +118,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
 
   /* Purple-tinted section divider */
   .section-divider {
-    border-color: #E0D9F5;
+    border-color: #CEC6E5;
   }
 
   .app-safe-screen {
@@ -238,7 +238,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
 .lp-creator-card {
   width: 190px;
   background: #fff;
-  border: 1.5px solid #e5e2f0;
+  border: 1.5px solid #cec6e5;
   border-radius: 20px;
   padding: 18px 15px;
   flex-shrink: 0;
@@ -253,7 +253,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
 
 .lp-step-card {
   background: #fff;
-  border: 1.5px solid #e5e2f0;
+  border: 1.5px solid #cec6e5;
   border-radius: 24px;
   padding: 36px 28px;
   transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;

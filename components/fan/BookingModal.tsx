@@ -44,6 +44,7 @@ interface ExistingBookingWindow {
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
+const MIN_BOOKING_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
 
 function getAvailableDates(weekOffset: number) {
   const dates = [];
@@ -84,6 +85,27 @@ function rangesOverlap(
   const rightStart = new Date(rightStartIso).getTime();
   const rightEnd = rightStart + (rightDurationMinutes * 60 * 1000);
   return leftStart < rightEnd && rightStart < leftEnd;
+}
+
+function parseViewerSlotToDate(date: Date, slot: string) {
+  const timeParts = slot.match(/(\d+):(\d+)\s+(AM|PM)/);
+  let hours = 12;
+  let mins = 0;
+
+  if (timeParts) {
+    hours = parseInt(timeParts[1], 10);
+    mins = parseInt(timeParts[2], 10);
+    if (timeParts[3] === "PM" && hours !== 12) hours += 12;
+    if (timeParts[3] === "AM" && hours === 12) hours = 0;
+  }
+
+  const scheduledDate = new Date(date);
+  scheduledDate.setHours(hours, mins, 0, 0);
+  return scheduledDate;
+}
+
+function meetsBookingLeadTime(date: Date, slot: string) {
+  return parseViewerSlotToDate(date, slot).getTime() - Date.now() >= MIN_BOOKING_LEAD_TIME_MS;
 }
 
 // ── Inner payment form (needs to live inside <Elements>) ───────────────
@@ -216,19 +238,8 @@ export function BookingModal({
         });
 
         return rawSlots.some((slot) => {
-          const timeParts = slot.match(/(\d+):(\d+)\s+(AM|PM)/);
-          let hours = 12;
-          let mins = 0;
-          if (timeParts) {
-            hours = parseInt(timeParts[1]);
-            mins = parseInt(timeParts[2]);
-            if (timeParts[3] === "PM" && hours !== 12) hours += 12;
-            if (timeParts[3] === "AM" && hours === 12) hours = 0;
-          }
-
-          const scheduledDate = new Date(date);
-          scheduledDate.setHours(hours, mins, 0, 0);
-          const candidateIso = scheduledDate.toISOString();
+          if (!meetsBookingLeadTime(date, slot)) return false;
+          const candidateIso = parseViewerSlotToDate(date, slot).toISOString();
 
           return !existingBookingWindows.some((booking) =>
             rangesOverlap(candidateIso, sessionDuration, booking.scheduledAt, booking.duration)
@@ -246,19 +257,8 @@ export function BookingModal({
         incrementMinutes: bookingIntervalMinutes,
       })
         .filter((slot) => {
-          const timeParts = slot.match(/(\d+):(\d+)\s+(AM|PM)/);
-          let hours = 12;
-          let mins = 0;
-          if (timeParts) {
-            hours = parseInt(timeParts[1]);
-            mins = parseInt(timeParts[2]);
-            if (timeParts[3] === "PM" && hours !== 12) hours += 12;
-            if (timeParts[3] === "AM" && hours === 12) hours = 0;
-          }
-
-          const scheduledDate = new Date(selectedDate);
-          scheduledDate.setHours(hours, mins, 0, 0);
-          const candidateIso = scheduledDate.toISOString();
+          if (!meetsBookingLeadTime(selectedDate, slot)) return false;
+          const candidateIso = parseViewerSlotToDate(selectedDate, slot).toISOString();
 
           return !existingBookingWindows.some((booking) =>
             rangesOverlap(candidateIso, sessionDuration, booking.scheduledAt, booking.duration)

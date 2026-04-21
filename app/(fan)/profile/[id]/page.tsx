@@ -20,6 +20,7 @@ import { notFound } from "next/navigation";
 import {
   formatTimeZoneLabel,
   getAvailabilityWindowsForViewer,
+  getAvailableStartTimesForViewerDate,
   getBrowserTimeZone,
   getTimeZoneAbbreviation,
   localDateKey,
@@ -32,6 +33,7 @@ import { getLiveSessionPath, isUuidLike } from "@/lib/routes";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LIVE_SESSION_STALE_MS = 45000;
+const MIN_BOOKING_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
 
 function isSessionFresh(session: {
   is_active?: boolean | null;
@@ -91,6 +93,54 @@ function formatLiveStatusLabel(creator: Creator, scheduledLiveLabel: string | nu
   if (creator.isLive) return "Live now";
   if (scheduledLiveLabel) return `Going live ${scheduledLiveLabel}`;
   return "Next live coming soon";
+}
+
+function getPackageAccentClasses(index: number) {
+  const accents = [
+    {
+      pill: "border-brand-primary bg-brand-primary/15 text-brand-primary-light",
+      pillInactive: "border-brand-primary/20 bg-brand-primary/8 text-brand-primary-light/80",
+      card: "border-brand-primary/25 bg-brand-primary/5 hover:border-brand-primary/50 hover:bg-brand-primary/10",
+      price: "text-brand-primary-light",
+    },
+    {
+      pill: "border-brand-gold/30 bg-brand-gold/10 text-brand-gold",
+      pillInactive: "border-brand-gold/20 bg-brand-gold/5 text-brand-gold/80",
+      card: "border-brand-gold/30 bg-brand-gold/5 hover:border-brand-gold/50 hover:bg-brand-gold/10",
+      price: "text-brand-gold",
+    },
+    {
+      pill: "border-brand-info/30 bg-brand-info/10 text-brand-info",
+      pillInactive: "border-brand-info/20 bg-brand-info/5 text-brand-info/80",
+      card: "border-brand-info/30 bg-brand-info/5 hover:border-brand-info hover:bg-brand-info/10",
+      price: "text-brand-info",
+    },
+    {
+      pill: "border-brand-live/25 bg-brand-live/10 text-brand-live",
+      pillInactive: "border-brand-live/20 bg-brand-live/5 text-brand-live/80",
+      card: "border-brand-live/25 bg-brand-live/5 hover:border-brand-live/50 hover:bg-brand-live/10",
+      price: "text-brand-live",
+    },
+  ];
+
+  return accents[index % accents.length];
+}
+
+function parseViewerSlotToDate(date: Date, slot: string) {
+  const timeParts = slot.match(/(\d+):(\d+)\s+(AM|PM)/);
+  let hours = 12;
+  let mins = 0;
+
+  if (timeParts) {
+    hours = parseInt(timeParts[1], 10);
+    mins = parseInt(timeParts[2], 10);
+    if (timeParts[3] === "PM" && hours !== 12) hours += 12;
+    if (timeParts[3] === "AM" && hours === 12) hours = 0;
+  }
+
+  const scheduledDate = new Date(date);
+  scheduledDate.setHours(hours, mins, 0, 0);
+  return scheduledDate;
 }
 
 interface AvailabilitySlot {
@@ -587,7 +637,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       const ampm = h >= 12 ? "PM" : "AM";
       return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
     };
-    availMap[day_of_week].push(`${fmt(start_time)} â€“ ${fmt(end_time)}`);
+    availMap[day_of_week].push(`${fmt(start_time)} - ${fmt(end_time)}`);
   });
 
   Object.assign(availMap, getAvailabilityWindowsForViewer({
@@ -596,6 +646,19 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     creatorTimeZone: creator.timeZone ?? "America/New_York",
     packageId: availabilityPackageId === "all" ? undefined : availabilityPackageId,
   }));
+
+  const hasBookableLeadTimeSlot = (date: Date) => {
+    const slots = getAvailableStartTimesForViewerDate({
+      date,
+      availability: filteredAvailability,
+      creatorTimeZone: creator.timeZone ?? "America/New_York",
+      durationMinutes: creator.callDuration,
+      incrementMinutes: creator.bookingIntervalMinutes ?? 30,
+      packageId: availabilityPackageId === "all" ? undefined : availabilityPackageId,
+    });
+
+    return slots.some((slot) => parseViewerSlotToDate(date, slot).getTime() - Date.now() >= MIN_BOOKING_LEAD_TIME_MS);
+  };
 
   const socialLinks = [
     {
@@ -782,24 +845,32 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   All offerings
                 </button>
                 {activePackages.map((pkg) => (
+                  (() => {
+                    const accent = getPackageAccentClasses(activePackages.findIndex((candidate) => candidate.id === pkg.id));
+                    return (
                   <button
                     key={pkg.id}
                     onClick={() => setAvailabilityPackageId(pkg.id)}
                     className={cn(
                       "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
                       availabilityPackageId === pkg.id
-                        ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light"
-                        : "border-brand-border bg-brand-elevated text-brand-ink-subtle"
+                        ? accent.pill
+                        : accent.pillInactive
                     )}
                   >
                     {pkg.name}
                   </button>
+                    );
+                  })()
                 ))}
               </div>
             )}
 
             <p className="text-xs text-brand-ink-subtle mb-3">
               Times shown in your local {getTimeZoneAbbreviation(new Date(), viewerTimeZone)}
+            </p>
+            <p className="text-xs text-brand-ink-muted mb-3 -mt-2">
+              Creator schedules in {formatTimeZoneLabel(creator.timeZone ?? "America/New_York")}
             </p>
 
             {filteredAvailability.length === 0 ? (
@@ -811,7 +882,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   const slots = availMap[localDateKey(date)] ?? [];
                   const isToday = isSameDay(date, today);
                   const isPast = date < today && !isToday;
-                  const hasSlots = slots.length > 0 && !isPast;
+                  const hasSlots = slots.length > 0 && !isPast && hasBookableLeadTimeSlot(date);
                   return (
                     <button
                       type="button"
@@ -1134,11 +1205,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
                   <div className="mt-4 space-y-2">
                     {activePackages.map((pkg) => (
+                      (() => {
+                        const accent = getPackageAccentClasses(activePackages.findIndex((candidate) => candidate.id === pkg.id));
+                        return (
                       <button
                         key={pkg.id}
                         type="button"
                         onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
-                        className="flex w-full items-start justify-between gap-4 rounded-2xl border border-brand-primary/25 bg-brand-primary/5 p-4 text-left transition-colors hover:border-brand-primary/50 hover:bg-brand-primary/10"
+                        className={cn("flex w-full items-start justify-between gap-4 rounded-2xl border p-4 text-left transition-colors", accent.card)}
                       >
                         <div className="min-w-0">
                           <p className="font-bold text-brand-ink">{pkg.name}</p>
@@ -1151,10 +1225,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                           </span>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-lg font-display font-bold text-brand-gold">{formatCurrency(pkg.price)}</p>
+                          <p className={cn("text-lg font-display font-bold", accent.price)}>{formatCurrency(pkg.price)}</p>
                           <p className="mt-0.5 text-[11px] text-brand-ink-subtle">per session</p>
                         </div>
                       </button>
+                        );
+                      })()
                     ))}
                   </div>
 
@@ -1173,7 +1249,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </div>
                 <h2 className="text-xl font-serif font-normal text-brand-ink">Live</h2>
                 <p className="mt-1 text-sm text-brand-ink-muted">
-                  Free to watch â€” pay by the minute only when you're on stage with {creator.name}.
+                  Free to watch - pay by the minute only when you're on stage with {creator.name}.
                 </p>
                 <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
                   <div className="rounded-2xl border border-brand-live/15 bg-white/70 px-4 py-3">
@@ -1217,7 +1293,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     Availability
                   </h2>
                   <p className="mt-1 text-xs text-brand-ink-subtle">
-                    Times shown in your local {getTimeZoneAbbreviation(new Date(), viewerTimeZone)} Â· Creator schedules in {formatTimeZoneLabel(creator.timeZone ?? "America/New_York")}
+                    Times shown in your local {getTimeZoneAbbreviation(new Date(), viewerTimeZone)}
+                  </p>
+                  <p className="mt-1 text-xs text-brand-ink-muted">
+                    Creator schedules in {formatTimeZoneLabel(creator.timeZone ?? "America/New_York")}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -1250,13 +1329,18 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     All offerings
                   </button>
                   {activePackages.map((pkg) => (
+                    (() => {
+                      const accent = getPackageAccentClasses(activePackages.findIndex((candidate) => candidate.id === pkg.id));
+                      return (
                     <button
                       key={pkg.id}
                       onClick={() => setAvailabilityPackageId(pkg.id)}
-                      className={cn("rounded-full border px-3 py-1.5 text-xs font-medium transition-colors", availabilityPackageId === pkg.id ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light" : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink")}
+                      className={cn("rounded-full border px-3 py-1.5 text-xs font-medium transition-colors", availabilityPackageId === pkg.id ? accent.pill : accent.pillInactive)}
                     >
                       {pkg.name}
                     </button>
+                      );
+                    })()
                   ))}
                 </div>
               )}
@@ -1270,7 +1354,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     const slots = availMap[localDateKey(date)] ?? [];
                     const isToday = isSameDay(date, today);
                     const isPast = date < today && !isToday;
-                    const hasSlots = slots.length > 0 && !isPast;
+                    const hasSlots = slots.length > 0 && !isPast && hasBookableLeadTimeSlot(date);
                     return (
                       <button
                         type="button"

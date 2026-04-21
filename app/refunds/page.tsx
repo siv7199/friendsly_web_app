@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const PURPLE = "#6d28d9";
 const PURPLE_LIGHT = "#ede9fe";
-const BORDER = "#e5e2f0";
+const BORDER = "#cec6e5";
 const MUTED = "#6b7280";
 const TEXT = "#0f0a1e";
 const BG2 = "#f8f7ff";
