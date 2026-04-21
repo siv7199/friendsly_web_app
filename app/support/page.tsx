@@ -79,7 +79,7 @@ export default function SupportPage() {
           </div>
           <h1 className="mt-4 text-3xl font-serif font-normal text-brand-ink">How can we help?</h1>
           <p className="mt-2 text-sm text-brand-ink-subtle">
-            Send us a support request and we&apos;ll follow up at <span className="font-semibold text-brand-ink">matvey@friendsly.app</span>.
+            Send us a support request and we&apos;ll follow up at <span className="font-semibold text-brand-ink">support@friendsly.app</span>.
           </p>
         </div>
 

@@ -44,7 +44,7 @@ Deno.serve(async (request) => {
       Deno.env.get("CREATOR_REQUEST_FROM_EMAIL");
     const notifyEmail =
       Deno.env.get("SUPPORT_REQUEST_NOTIFICATION_EMAIL") ||
-      "matvey@friendsly.app";
+      "support@friendsly.app";
 
     if (!resendApiKey || !fromEmail || !notifyEmail) {
       return jsonResponse({ ok: false, configured: false, delivered: false });
