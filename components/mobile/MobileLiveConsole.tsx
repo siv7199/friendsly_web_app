@@ -718,12 +718,10 @@ export function MobileLiveConsole() {
       void fetchQueue(sessionId);
     }
 
-    const hb = window.setInterval(refreshIfVisible, 15000);
     window.addEventListener("focus", refreshIfVisible);
     document.addEventListener("visibilitychange", refreshIfVisible);
     return () => {
       supabase.removeChannel(channel);
-      window.clearInterval(hb);
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
     };

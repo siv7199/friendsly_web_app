@@ -89,18 +89,6 @@ function formatShortDate(date: Date) {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
-function formatLiveStatusLabel(creator: Creator, scheduledLiveLabel: string | null) {
-  if (creator.isLive) return "Live now";
-  if (scheduledLiveLabel) return `Going live ${scheduledLiveLabel}`;
-  return "Next live coming soon";
-}
-
-function formatCountdownHeading(creator: Creator, scheduledLiveLabel: string | null) {
-  if (creator.isLive) return `Go live with ${creator.name}!`;
-  if (scheduledLiveLabel) return `Countdown to ${scheduledLiveLabel}`;
-  return "Next live time will be posted here";
-}
-
 function getPackageAccentClasses(index: number) {
   const accents = [
     {
@@ -389,10 +377,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
     function scheduleRefreshes() {
       refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      refreshTimeoutsRef.current = [
-        window.setTimeout(() => loadCreatorData(supabase), 500),
-        window.setTimeout(() => loadCreatorData(supabase), 1800),
-      ];
+      refreshTimeoutsRef.current = [window.setTimeout(() => loadCreatorData(supabase), 400)];
     }
 
     function clearLiveExpiry() {
@@ -622,8 +607,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       minute: "2-digit",
     })}${abbreviation ? ` ${abbreviation}` : ""}`;
   })();
-  const liveStatusLabel = formatLiveStatusLabel(creator, scheduledLiveLabel);
-  const countdownHeading = formatCountdownHeading(creator, scheduledLiveLabel);
+  const countdownPrimaryText = creator.isLive
+    ? "Live now"
+    : scheduledLiveCountdown ?? "Next live time will be posted here";
+  const countdownSecondaryText = creator.isLive
+    ? creator.queueCount > 0
+      ? `${creator.queueCount} fan${creator.queueCount === 1 ? "" : "s"} waiting to go on stage`
+      : "Watch now for free, then join the queue when you're ready."
+    : scheduledLiveLabel;
   const showLiveCard = creator.isLive || Boolean(hasLiveRate || scheduledLiveLabel || scheduledLiveCountdown);
 
   // Map availability slots: { [dayOfWeek]: string[] of formatted time ranges }
@@ -912,33 +903,26 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           )}
 
           {showLiveCard && (
-            <div className="mx-4 mb-6 rounded-3xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
+            <div className="mx-4 mb-6 rounded-3xl border border-brand-live/20 bg-brand-surface p-5 shadow-card">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
                     <Zap className="h-3 w-3" />
-                    Countdown
+                    Live
                   </div>
-                  <h2 className="mt-3 text-lg font-bold text-brand-ink">{liveStatusLabel}</h2>
                 </div>
-                {hasLiveRate && (
-                  <div className="shrink-0 rounded-2xl border border-brand-live/20 bg-brand-live/10 px-3 py-2 text-right">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-brand-live">Queue price</p>
-                    <p className="mt-1 text-base font-bold text-brand-live">{formatCurrency(creator.liveJoinFee!)} / min</p>
-                  </div>
-                )}
               </div>
 
-              <div className="rounded-2xl border border-brand-live/15 bg-brand-live/5 px-4 py-3">
+              <p className="text-sm text-brand-ink-muted">
+                Free to watch - pay by the minute only when you're on stage with {creator.name}.
+              </p>
+
+              <div className="mt-4 rounded-3xl border border-brand-live/15 bg-brand-live/5 px-4 py-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Countdown</p>
-                <p className="mt-2 text-sm font-semibold text-brand-ink">{countdownHeading}</p>
-                <p className="mt-1 text-sm text-brand-ink-muted">
-                  {creator.isLive
-                    ? creator.queueCount > 0
-                      ? `${creator.queueCount} fan${creator.queueCount === 1 ? "" : "s"} waiting to go on stage`
-                      : "Watch now for free, then join the queue when you're ready."
-                    : scheduledLiveCountdown ?? scheduledLiveLabel ?? "Next live time will be posted here"}
-                </p>
+                <p className="mt-3 text-base font-semibold text-brand-ink">{countdownPrimaryText}</p>
+                {countdownSecondaryText ? (
+                  <p className="mt-2 text-sm text-brand-ink-muted">{countdownSecondaryText}</p>
+                ) : null}
               </div>
 
               {creator.isLive && hasLiveRate && (
@@ -1257,7 +1241,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     ))}
                   </div>
 
-                  <Button variant="primary" size="lg" className="mt-4 w-full" onClick={() => setShowBooking(true)}>
+                  <Button variant="primary" size="lg" className="mt-6 w-full" onClick={() => setShowBooking(true)}>
                     See times
                   </Button>
                 </>
@@ -1268,33 +1252,19 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               <div className="rounded-3xl border border-brand-live/25 bg-brand-live/5 p-6 shadow-card">
                 <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-live px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
                   <Zap className="h-3 w-3" />
-                    Countdown
+                  Live
                 </div>
-                <h2 className="text-xl font-serif font-normal text-brand-ink">Countdown</h2>
                 <p className="mt-1 text-sm text-brand-ink-muted">
                   Free to watch - pay by the minute only when you're on stage with {creator.name}.
                 </p>
-                <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="rounded-2xl border border-brand-live/15 bg-white/70 px-4 py-3">
+                <div className="mt-5">
+                  <div className="rounded-3xl border border-brand-live/15 bg-white/70 px-5 py-5">
                     <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Countdown</p>
-                    <p className="mt-2 text-base font-semibold text-brand-ink">{countdownHeading}</p>
-                    <p className="mt-1 text-sm text-brand-ink-muted">
-                      {creator.isLive
-                        ? creator.queueCount > 0
-                          ? `${creator.queueCount} fan${creator.queueCount === 1 ? "" : "s"} waiting to go on stage`
-                          : "Watch now for free, then join the queue when you're ready."
-                        : scheduledLiveCountdown ?? scheduledLiveLabel ?? "Next live time will be posted here"}
-                    </p>
+                    <p className="mt-3 text-lg font-semibold text-brand-ink">{countdownPrimaryText}</p>
+                    {countdownSecondaryText ? (
+                      <p className="mt-2 text-sm text-brand-ink-muted">{countdownSecondaryText}</p>
+                    ) : null}
                   </div>
-                  {hasLiveRate && (
-                    <div className="rounded-2xl border border-brand-live/15 bg-white/70 px-4 py-3 text-right">
-                      <p className="text-xs uppercase tracking-[0.18em] text-brand-live">Queue price</p>
-                      <p className="mt-2 text-2xl font-display font-bold text-brand-live">
-                        {formatCurrency(creator.liveJoinFee!)}
-                        <span className="ml-1 text-sm font-medium text-brand-ink-subtle">/ min</span>
-                      </p>
-                    </div>
-                  )}
                 </div>
                 {creator.isLive && hasLiveRate && (
                   <Link href={liveHref ?? "#"}>

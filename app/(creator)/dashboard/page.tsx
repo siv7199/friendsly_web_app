@@ -232,7 +232,7 @@ export default function DashboardPage() {
 
       try {
         // 1. Fetch bookings, live queue joins, profile views, and raw reviews
-        const [bookingsRes, liveRes, reviewsRes, analyticsSnapshot, packagesRes, availabilityRes, profileRes] = await Promise.all([
+        const [bookingsRes, liveRes, analyticsSnapshot, packagesRes, availabilityRes, profileRes] = await Promise.all([
           supabase
             .from("bookings")
             .select(`
@@ -244,10 +244,6 @@ export default function DashboardPage() {
           supabase
             .from("live_sessions")
             .select("id, live_queue_entries(id, status, amount_charged, ended_at)")
-            .eq("creator_id", userId),
-          supabase
-            .from("reviews")
-            .select("rating")
             .eq("creator_id", userId),
           getCreatorAnalyticsSnapshot(userId, "month"),
           supabase
@@ -262,7 +258,7 @@ export default function DashboardPage() {
             .eq("is_active", true),
           supabase
             .from("profiles")
-            .select("id, email, full_name, username, avatar_initials, avatar_color, avatar_url, created_at, role, creator_profiles(bio, category, is_live, live_join_fee, instagram_url, tiktok_url, x_url)")
+            .select("id, email, full_name, username, avatar_initials, avatar_color, avatar_url, created_at, role, creator_profiles(bio, category, is_live, live_join_fee, instagram_url, tiktok_url, x_url, avg_rating, review_count)")
             .eq("id", userId)
             .single(),
         ]);
@@ -392,20 +388,17 @@ export default function DashboardPage() {
       }
       
       const creatorCut = (totalEarnedGross + liveQueueEarned) * 0.85;
-      
-      // Calculate Average Rating dynamically
-      const allReviews = reviewsRes.data || [];
-      let calculatedAvgRating = 0;
-      if (allReviews.length > 0) {
-        const sum = allReviews.reduce((acc: number, r: any) => acc + Number(r.rating), 0);
-        calculatedAvgRating = Math.round((sum / allReviews.length) * 10) / 10;
-      }
+      const profileCreator = Array.isArray(profileRes.data?.creator_profiles)
+        ? profileRes.data?.creator_profiles[0]
+        : profileRes.data?.creator_profiles;
+      const calculatedAvgRating = Number(profileCreator?.avg_rating ?? 0);
+      const reviewCount = Number(profileCreator?.review_count ?? 0);
 
       setStats({
         totalEarnings: creatorCut,
         callsThisMonth: callsMonth,
         avgRating: calculatedAvgRating,
-        reviewCount: allReviews.length,
+        reviewCount,
         upcomingBookings: upcomingCount,
         totalFans: uniqueFans.size,
         conversionRate: analyticsSnapshot.conversionRate
@@ -425,7 +418,7 @@ export default function DashboardPage() {
             totalEarnings: creatorCut,
             callsThisMonth: callsMonth,
             avgRating: calculatedAvgRating,
-            reviewCount: allReviews.length,
+            reviewCount,
             upcomingBookings: upcomingCount,
             totalFans: uniqueFans.size,
             conversionRate: analyticsSnapshot.conversionRate,

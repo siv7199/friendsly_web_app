@@ -31,7 +31,7 @@ async function notifySupportRequest(details: {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!functionsBaseUrl || !serviceRoleKey) {
-    return { attempted: false, delivered: false };
+    return { attempted: false, delivered: false, reason: "missing_function_config" };
   }
 
   const controller = new AbortController();
@@ -55,10 +55,20 @@ async function notifySupportRequest(details: {
     return {
       attempted: true,
       delivered: Boolean(response.ok && responseJson?.delivered),
+      reason:
+        response.ok && responseJson?.delivered
+          ? null
+          : typeof responseJson?.reason === "string"
+            ? responseJson.reason
+            : `function_status_${response.status}`,
     };
   } catch (error) {
     console.warn("support-request: Notification fetch error or timeout", error);
-    return { attempted: true, delivered: false };
+    return {
+      attempted: true,
+      delivered: false,
+      reason: error instanceof Error ? error.name || "fetch_failed" : "fetch_failed",
+    };
   }
 }
 
@@ -127,10 +137,18 @@ export async function POST(request: Request) {
       createdAt: inserted.created_at,
     });
 
+    if (!emailResult.delivered) {
+      console.warn("support-request: Email notification not delivered", {
+        configured: emailResult.attempted,
+        reason: emailResult.reason ?? "unknown",
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       emailNotificationSent: emailResult.delivered,
       emailNotificationConfigured: emailResult.attempted,
+      emailNotificationReason: emailResult.reason ?? null,
     });
   } catch (error) {
     console.error("support-request: Unexpected error", error);

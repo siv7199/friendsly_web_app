@@ -47,7 +47,12 @@ Deno.serve(async (request) => {
       "support@friendsly.app";
 
     if (!resendApiKey || !fromEmail || !notifyEmail) {
-      return jsonResponse({ ok: false, configured: false, delivered: false });
+      return jsonResponse({
+        ok: false,
+        configured: false,
+        delivered: false,
+        reason: "missing_resend_config",
+      });
     }
 
     const body = await request.json();
@@ -57,7 +62,12 @@ Deno.serve(async (request) => {
       .filter(Boolean);
 
     if (recipients.length === 0) {
-      return jsonResponse({ ok: false, configured: false, delivered: false });
+      return jsonResponse({
+        ok: false,
+        configured: false,
+        delivered: false,
+        reason: "missing_notification_recipient",
+      });
     }
 
     const subject = `Friendsly support: ${String(body.subject ?? "New request").trim()}`;
@@ -100,13 +110,15 @@ Deno.serve(async (request) => {
       signal: AbortSignal.timeout(8000),
     });
 
-    await resendResponse.text();
+    const resendText = await resendResponse.text();
 
     return jsonResponse({
       ok: resendResponse.ok,
       configured: true,
       delivered: resendResponse.ok,
       resendStatus: resendResponse.status,
+      reason: resendResponse.ok ? null : "resend_rejected",
+      providerMessage: resendResponse.ok ? null : resendText.slice(0, 500),
     });
   } catch (error) {
     return jsonResponse(
@@ -114,6 +126,7 @@ Deno.serve(async (request) => {
         ok: false,
         configured: true,
         delivered: false,
+        reason: error instanceof Error ? error.name || "function_error" : "function_error",
         error: error instanceof Error ? error.message : "Unknown function error",
       },
       500

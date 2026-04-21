@@ -85,7 +85,7 @@ async function fetchCreators(): Promise<Creator[]> {
       avatar_initials, avatar_color, avatar_url,
       creator_profiles(
         bio, category, tags, avg_rating, live_join_fee,
-        next_available, booking_interval_minutes,
+        next_available, booking_interval_minutes, review_count, total_calls,
         scheduled_live_at, scheduled_live_timezone, timezone,
         current_live_session_id, instagram_url, tiktok_url, x_url
       ),
@@ -104,35 +104,10 @@ async function fetchCreators(): Promise<Creator[]> {
     .eq("is_active", true)
     .order("price");
 
-  const [reviewsRes, completedBookingsRes, completedLiveQueueRes] = await Promise.all([
-    supabase.from("reviews").select("creator_id").in("creator_id", creatorIds),
-    supabase.from("bookings").select("creator_id").in("creator_id", creatorIds).eq("status", "completed"),
-    supabase
-      .from("live_queue_entries")
-      .select("id, live_sessions!inner(creator_id)")
-      .in("status", ["completed", "skipped"])
-      .not("amount_charged", "is", null)
-      .in("live_sessions.creator_id", creatorIds),
-  ]);
-
   const packagesByCreator: Record<string, any[]> = {};
   (allPackages ?? []).forEach((pkg: { creator_id: string; price: number; duration: number }) => {
     if (!packagesByCreator[pkg.creator_id]) packagesByCreator[pkg.creator_id] = [];
     packagesByCreator[pkg.creator_id]!.push(pkg);
-  });
-
-  const reviewCountByCreator: Record<string, number> = {};
-  (reviewsRes.data ?? []).forEach((review: { creator_id: string }) => {
-    reviewCountByCreator[review.creator_id] = (reviewCountByCreator[review.creator_id] ?? 0) + 1;
-  });
-
-  const totalCallsByCreator: Record<string, number> = {};
-  (completedBookingsRes.data ?? []).forEach((booking: { creator_id: string }) => {
-    totalCallsByCreator[booking.creator_id] = (totalCallsByCreator[booking.creator_id] ?? 0) + 1;
-  });
-  (completedLiveQueueRes.data ?? []).forEach((entry: any) => {
-    const creatorId = Array.isArray(entry.live_sessions) ? entry.live_sessions[0]?.creator_id : entry.live_sessions?.creator_id;
-    if (creatorId) totalCallsByCreator[creatorId] = (totalCallsByCreator[creatorId] ?? 0) + 1;
   });
 
   const activeSessionIds: string[] = [];
@@ -193,7 +168,7 @@ async function fetchCreators(): Promise<Creator[]> {
       tags: creatorProfile?.tags ?? [],
       followers: "",
       rating: Number(creatorProfile?.avg_rating ?? 0),
-      reviewCount: reviewCountByCreator[profile.id] ?? 0,
+      reviewCount: Number(creatorProfile?.review_count ?? 0),
       avatarInitials: profile.avatar_initials,
       avatarColor: profile.avatar_color,
       avatarUrl: profile.avatar_url ? `/api/public/avatar/${profile.id}` : undefined,
@@ -203,7 +178,7 @@ async function fetchCreators(): Promise<Creator[]> {
       callPrice: minPrice,
       callDuration: minDuration,
       nextAvailable: minPrice > 0 ? creatorProfile?.next_available ?? "Available this week" : "No packages yet",
-      totalCalls: totalCallsByCreator[profile.id] ?? 0,
+      totalCalls: Number(creatorProfile?.total_calls ?? 0),
       responseTime: "",
       liveJoinFee,
       scheduledLiveAt: creatorProfile?.scheduled_live_at ?? undefined,
@@ -239,7 +214,7 @@ export default function DiscoverPage() {
 
     function scheduleRefreshes() {
       refreshTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
-      refreshTimeoutsRef.current = [window.setTimeout(load, 500), window.setTimeout(load, 1800)];
+      refreshTimeoutsRef.current = [window.setTimeout(load, 400)];
     }
 
     function clearLiveExpiry(creatorId: string) {

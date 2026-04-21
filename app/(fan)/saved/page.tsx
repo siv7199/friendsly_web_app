@@ -62,52 +62,16 @@ export default function SavedPage() {
 
     const { data: allPackages } = await supabase
       .from("call_packages")
-      .select("*")
+      .select("creator_id, price, duration")
       .in("creator_id", creatorIds)
       .eq("is_active", true)
       .order("price");
-
-    const [reviewsRes, completedBookingsRes, completedLiveQueueRes] = await Promise.all([
-      supabase
-        .from("reviews")
-        .select("creator_id")
-        .in("creator_id", creatorIds),
-      supabase
-        .from("bookings")
-        .select("creator_id")
-        .in("creator_id", creatorIds)
-        .eq("status", "completed"),
-      supabase
-        .from("live_queue_entries")
-        .select("id, live_sessions!inner(creator_id)")
-        .in("status", ["completed", "skipped"])
-        .not("amount_charged", "is", null)
-        .in("live_sessions.creator_id", creatorIds),
-    ]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const packagesByCreator: Record<string, any[]> = {};
     (allPackages ?? []).forEach((pkg: { creator_id: string; price: number; duration: number }) => {
       if (!packagesByCreator[pkg.creator_id]) packagesByCreator[pkg.creator_id] = [];
       packagesByCreator[pkg.creator_id]!.push(pkg);
-    });
-
-    const reviewCountByCreator: Record<string, number> = {};
-    (reviewsRes.data ?? []).forEach((review: { creator_id: string }) => {
-      reviewCountByCreator[review.creator_id] = (reviewCountByCreator[review.creator_id] ?? 0) + 1;
-    });
-
-    const totalCallsByCreator: Record<string, number> = {};
-    (completedBookingsRes.data ?? []).forEach((booking: { creator_id: string }) => {
-      totalCallsByCreator[booking.creator_id] = (totalCallsByCreator[booking.creator_id] ?? 0) + 1;
-    });
-    (completedLiveQueueRes.data ?? []).forEach((entry: any) => {
-      const creatorId = Array.isArray(entry.live_sessions)
-        ? entry.live_sessions[0]?.creator_id
-        : entry.live_sessions?.creator_id;
-      if (creatorId) {
-        totalCallsByCreator[creatorId] = (totalCallsByCreator[creatorId] ?? 0) + 1;
-      }
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -175,7 +139,7 @@ export default function SavedPage() {
         tags: cp?.tags ?? [],
         followers: "",
         rating: Number(cp?.avg_rating ?? 0),
-        reviewCount: reviewCountByCreator[p.id] ?? 0,
+        reviewCount: Number(cp?.review_count ?? 0),
         avatarInitials: p.avatar_initials,
         avatarColor: p.avatar_color,
         avatarUrl: p.avatar_url ?? undefined,
@@ -184,7 +148,7 @@ export default function SavedPage() {
         callPrice: minPrice,
         callDuration: packages[0]?.duration ?? 15,
         nextAvailable: minPrice > 0 ? (cp?.next_available ?? "Available this week") : "No packages yet",
-        totalCalls: totalCallsByCreator[p.id] ?? 0,
+        totalCalls: Number(cp?.total_calls ?? 0),
         responseTime: "",
         liveJoinFee: cp?.live_join_fee ? Number(cp.live_join_fee) : undefined,
         scheduledLiveAt: cp?.scheduled_live_at ?? undefined,

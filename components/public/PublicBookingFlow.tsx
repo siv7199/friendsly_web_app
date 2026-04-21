@@ -42,6 +42,7 @@ type CreatorPayload = {
   timeZone: string;
   bookingIntervalMinutes: number;
   isLive: boolean;
+  liveJoinFee?: number | null;
   currentLiveSessionId?: string | null;
 };
 
@@ -275,7 +276,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
     async function refreshLiveStatus() {
       try {
-        const creatorRes = await fetch(`/api/public/creators/${encodeURIComponent(creatorSlug)}`, {
+        const creatorRes = await fetch(`/api/public/creators/${encodeURIComponent(creatorSlug)}/live-status`, {
           cache: "no-store",
         });
         const creatorData = await readJsonResponse<{ creator?: CreatorPayload }>(creatorRes);
@@ -294,7 +295,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
       }
     }
 
-    const interval = window.setInterval(refreshIfVisible, 15000);
+    const interval = window.setInterval(refreshIfVisible, 30000);
     window.addEventListener("focus", refreshIfVisible);
     document.addEventListener("visibilitychange", refreshIfVisible);
 
