@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Settings } from "lucide-react";
+import { LifeBuoy, LogOut, Settings } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuthContext } from "@/lib/context/AuthContext";
 
@@ -38,6 +38,13 @@ export function MobileAccountBar() {
           aria-label="Settings"
         >
           <Settings className="h-4 w-4" />
+        </Link>
+        <Link
+          href="/support"
+          className="rounded-xl border border-brand-border bg-brand-surface p-2 text-brand-ink-subtle transition-colors hover:text-brand-ink"
+          aria-label="Support"
+        >
+          <LifeBuoy className="h-4 w-4" />
         </Link>
         <button
           type="button"

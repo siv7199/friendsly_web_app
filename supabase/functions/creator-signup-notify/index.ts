@@ -3,6 +3,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+export {};
+
 declare const Deno: {
   env: {
     get(name: string): string | undefined;

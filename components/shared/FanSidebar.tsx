@@ -11,6 +11,7 @@ import {
   Settings,
   LogOut,
   Radio,
+  LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
@@ -201,6 +202,12 @@ export function FanSidebar() {
             </p>
           </div>
           <div className="flex items-center gap-0.5">
+            <Link
+              href="/support"
+              className="text-brand-ink-subtle hover:text-brand-ink-muted transition-colors p-1.5 rounded-lg hover:bg-brand-elevated"
+            >
+              <LifeBuoy className="w-3.5 h-3.5" />
+            </Link>
             <Link
               href="/settings"
               className="text-brand-ink-subtle hover:text-brand-ink-muted transition-colors p-1.5 rounded-lg hover:bg-brand-elevated"
