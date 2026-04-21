@@ -423,16 +423,19 @@ export function useAuth() {
   const logout = useCallback(async (): Promise<void> => {
     const supabase = createClient();
     const currentUser = state.user;
-    // Clear state immediately so components see unauthenticated on next render
     setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
+
+    const signOutPromise = supabase.auth.signOut();
+
     if (currentUser?.role === "creator") {
-      await supabase
+      void supabase
         .from("live_sessions")
         .update({ is_active: false, ended_at: new Date().toISOString() })
         .eq("creator_id", currentUser.id)
         .eq("is_active", true);
     }
-    await supabase.auth.signOut();
+
+    await signOutPromise;
   }, [state.user]);
 
   // ── deleteAccount ─────────────────────────────────────────────────────────

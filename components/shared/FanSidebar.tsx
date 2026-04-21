@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Compass,
   BookOpen,
@@ -68,7 +68,6 @@ const NAV_ITEMS = [
 
 export function FanSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, logout } = useAuthContext();
   const [liveCount, setLiveCount] = useState(0);
   const liveExpiryTimeoutRef = useRef<number | null>(null);
@@ -141,7 +140,7 @@ export function FanSidebar() {
 
   async function handleLogout() {
     await logout();
-    router.push("/");
+    window.location.replace("/");
   }
 
   return (

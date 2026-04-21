@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   BarChart3,
@@ -22,7 +22,6 @@ import { getCreatorLiveConsolePath } from "@/lib/routes";
 
 export function CreatorSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, logout } = useAuthContext();
 
   const isLive = user && isCreatorProfile(user) ? user.is_live : false;
@@ -42,7 +41,7 @@ export function CreatorSidebar() {
 
   async function handleLogout() {
     await logout();
-    router.push("/");
+    window.location.replace("/");
   }
 
   return (

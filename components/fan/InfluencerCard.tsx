@@ -180,29 +180,31 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
             </div>
           )}
 
-          {/* Queue count */}
-          {creator.isLive && liveAudienceCount > 0 && (
-            <div className="absolute top-2.5 right-10 z-10 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-sm">
-              <Users className="w-2.5 h-2.5 text-white/80" />
-              <span className="text-[10px] font-semibold text-white/90">{liveAudienceCount}</span>
-            </div>
-          )}
+          {(creator.isLive && liveAudienceCount > 0) || (user && showSaveButton) ? (
+            <div className="absolute right-2.5 top-2.5 z-10 flex items-center gap-1.5">
+              {creator.isLive && liveAudienceCount > 0 ? (
+                <div className="flex items-center gap-1 rounded-full bg-black/40 px-2 py-1 backdrop-blur-sm">
+                  <Users className="h-2.5 w-2.5 text-white/80" />
+                  <span className="text-[10px] font-semibold text-white/90">{liveAudienceCount}</span>
+                </div>
+              ) : null}
 
-          {/* Save button */}
-          {user && showSaveButton && (
-            <button
-              onClick={toggleSave}
-              disabled={isSaving}
-              className={cn(
-                "absolute top-2.5 right-2.5 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-150",
-                isSaved
-                  ? "bg-red-500 text-white shadow-sm"
-                  : "bg-white/80 text-brand-ink-subtle hover:bg-white hover:text-red-400 backdrop-blur-sm"
-              )}
-            >
-              <Heart className={cn("w-3 h-3", isSaved && "fill-current")} />
-            </button>
-          )}
+              {user && showSaveButton ? (
+                <button
+                  onClick={toggleSave}
+                  disabled={isSaving}
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150",
+                    isSaved
+                      ? "bg-red-500 text-white shadow-sm"
+                      : "bg-white/80 text-brand-ink-subtle hover:bg-white hover:text-red-400 backdrop-blur-sm"
+                  )}
+                >
+                  <Heart className={cn("h-3 w-3", isSaved && "fill-current")} />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* New badge */}
           {creator.isNew && !creator.isLive && (

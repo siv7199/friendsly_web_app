@@ -8,7 +8,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarClock, Loader2, Mic, MicOff, Send, SkipForward, StopCircle, Users, Video, VideoOff, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
 import { useAuthContext } from "@/lib/context/AuthContext";
@@ -42,7 +41,8 @@ const LIVE_SESSION_STALE_MS = 45000;
 const MOBILE_LIVE_VIEWPORT_STYLE = {
   height: "100dvh",
   maxHeight: "100dvh",
-  paddingTop: "env(safe-area-inset-top)",
+  paddingTop: "calc(env(safe-area-inset-top) + 6px)",
+  backgroundColor: "#8b5cf6",
 };
 
 function getDisplayInitial(value?: string | null) {
@@ -122,6 +122,7 @@ function CreatorMobileLiveStage({
   initialCam,
   onAdmitNext,
   onEndSession,
+  onExit,
   sessionId,
 }: {
   creatorId: string;
@@ -137,6 +138,7 @@ function CreatorMobileLiveStage({
   initialCam: boolean;
   onAdmitNext: () => void;
   onEndSession: () => void;
+  onExit: () => void;
   sessionId: string | null;
 }) {
   const daily = useDaily();
@@ -288,7 +290,7 @@ function CreatorMobileLiveStage({
       <div className="flex shrink-0 items-center justify-between px-4 pb-1.5">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => { window.history.back(); }}
+            onClick={onExit}
             className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center active:scale-95 transition-all"
             aria-label="Leave live"
           >
@@ -316,7 +318,7 @@ function CreatorMobileLiveStage({
       </div>
 
       {/* Video card */}
-      <div className="relative mx-3 shrink-0" style={{ height: "min(34dvh, 292px)" }}>
+      <div className="relative mx-3 shrink-0" style={{ height: "min(42dvh, 370px)" }}>
         <div
           className="absolute inset-0 rounded-2xl"
           style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
@@ -376,8 +378,8 @@ function CreatorMobileLiveStage({
       </div>
 
       {/* Queue avatar row */}
-      <div className="shrink-0 px-3 pt-2 pb-1.5">
-        <div className="scrollbar-hide flex items-center gap-2.5 overflow-x-auto rounded-2xl bg-white/8 px-3 py-2">
+      <div className="shrink-0 px-3 pt-2 pb-1">
+        <div className="scrollbar-hide flex items-center gap-2 overflow-x-auto rounded-2xl bg-white/8 px-3 py-1.5">
           {queue.length === 0 && (
             <p className="text-white/50 text-xs">No fans in line</p>
           )}
@@ -398,7 +400,10 @@ function CreatorMobileLiveStage({
       </div>
 
       {/* White panel */}
-      <div className="mt-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-3xl bg-white">
+      <div
+        className="mt-1 flex shrink-0 flex-col overflow-hidden rounded-t-3xl bg-white/98"
+        style={{ minHeight: "31dvh", maxHeight: "31dvh" }}
+      >
         {/* Admit / End controls */}
         <div className="flex shrink-0 gap-2 px-4 pt-3 pb-2">
           <button
@@ -489,7 +494,6 @@ function CreatorMobileLiveStage({
 type SessionState = "idle" | "live";
 
 export function MobileLiveConsole() {
-  const router = useRouter();
   const { user } = useAuthContext();
   const [sessionState, setSessionState] = useState<SessionState>("idle");
   const [roomUrl, setRoomUrl] = useState("");
@@ -860,6 +864,13 @@ export function MobileLiveConsole() {
     window.setTimeout(() => { endingSessionRef.current = false; }, 1000);
   }
 
+  async function handleExitLive() {
+    if (sessionState === "live" && sessionId) {
+      await endSession();
+    }
+    window.location.replace("/dashboard");
+  }
+
   async function handleCreatorJoined() {
     setCreatorJoined(true);
     const activeSessionId = sessionIdRef.current;
@@ -937,7 +948,7 @@ export function MobileLiveConsole() {
         <div className="flex shrink-0 items-center justify-between px-4 pb-2">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.back()}
+              onClick={() => window.location.replace("/dashboard")}
               className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center active:scale-95 transition-all"
               aria-label="Back"
             >
@@ -948,7 +959,7 @@ export function MobileLiveConsole() {
         </div>
 
         {/* Camera preview card */}
-        <div className="relative mx-3 shrink-0" style={{ height: "min(34dvh, 292px)" }}>
+        <div className="relative mx-3 shrink-0" style={{ height: "min(42dvh, 370px)" }}>
           <div
             className="absolute inset-0 rounded-2xl"
             style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
@@ -989,8 +1000,8 @@ export function MobileLiveConsole() {
 
         {/* White panel — schedule + start */}
         <div
-          className="mt-1 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden rounded-t-3xl bg-white px-4 pt-4"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
+          className="mt-1 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden rounded-t-3xl bg-white/98 px-4 pt-4"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)" }}
         >
           <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-3">
             <div className="flex items-center gap-2 text-slate-800 mb-3">
@@ -1072,6 +1083,7 @@ export function MobileLiveConsole() {
         initialCam={camOn}
         onAdmitNext={admitNext}
         onEndSession={endSession}
+        onExit={handleExitLive}
         sessionId={sessionId}
       />
     </CallContainer>

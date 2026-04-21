@@ -48,7 +48,8 @@ function isVideoPlayable(p: any) {
 const MOBILE_LIVE_VIEWPORT_STYLE = {
   height: "100dvh",
   maxHeight: "100dvh",
-  paddingTop: "env(safe-area-inset-top)",
+  paddingTop: "calc(env(safe-area-inset-top) + 6px)",
+  backgroundColor: "#8b5cf6",
 };
 
 function getDisplayInitial(value?: string | null) {
@@ -131,6 +132,7 @@ function MobileLiveInner({
   onJoinQueue,
   onLeaveQueue,
   onLeaveStage,
+  onExit,
   onStageSessionReady,
 }: {
   creatorId: string;
@@ -152,6 +154,7 @@ function MobileLiveInner({
   onJoinQueue: () => void;
   onLeaveQueue: () => void;
   onLeaveStage: () => void;
+  onExit: () => void;
   onStageSessionReady?: (id: string) => void;
 }) {
   const daily = useDaily();
@@ -344,7 +347,7 @@ function MobileLiveInner({
       <div className="flex shrink-0 items-center justify-between px-4 pb-1.5">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => { window.history.back(); }}
+            onClick={onExit}
             className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center active:scale-95 transition-all"
             aria-label="Leave live"
           >
@@ -429,12 +432,12 @@ function MobileLiveInner({
       {/* ── Pulsating status ── */}
       <div className="shrink-0 px-4 pb-1.5">
         <p className={cn("text-xs font-semibold text-white m-pulse", isAdmitted ? "text-violet-100" : "text-white")}>
-          {isAdmitted ? "You're on camera" : myQueuePosition > 0 ? `You're in line  ·  #${myQueuePosition}` : "Watching live"}
+          {isAdmitted ? "You're on camera" : myQueuePosition > 0 ? `You're in line · #${myQueuePosition}` : "Watching live"}
         </p>
       </div>
 
       {/* ── Video card ── */}
-      <div className="relative mx-3 shrink-0" style={{ height: "min(34dvh, 292px)" }}>
+      <div className="relative mx-3 shrink-0" style={{ height: "min(42dvh, 370px)" }}>
         <div
           className="absolute inset-0 rounded-2xl"
           style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
@@ -448,7 +451,7 @@ function MobileLiveInner({
             <div className="h-full w-full flex flex-col items-center justify-center gap-3">
               <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="xl" />
               <p className="text-white/50 text-xs">
-                {creatorParticipant ? `${creatorName}'s camera is off` : `Connecting…`}
+                {creatorParticipant ? `${creatorName}'s camera is off` : "Connecting..."}
               </p>
             </div>
           )}
@@ -499,8 +502,8 @@ function MobileLiveInner({
       </div>
 
       {/* ── Queue avatar row ── */}
-      <div className="shrink-0 px-3 pt-2 pb-1.5">
-        <div className="scrollbar-hide flex items-center gap-2.5 overflow-x-auto rounded-2xl bg-white/8 px-3 py-2">
+      <div className="shrink-0 px-3 pt-2 pb-1">
+        <div className="scrollbar-hide flex items-center gap-2 overflow-x-auto rounded-2xl bg-white/8 px-3 py-1.5">
           {queueEntries.length === 0 && (
             <p className="text-white/50 text-xs">No one else in line</p>
           )}
@@ -524,7 +527,10 @@ function MobileLiveInner({
       </div>
 
       {/* ── White panel ── */}
-      <div className="mt-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-3xl bg-white">
+      <div
+        className="mt-1 flex shrink-0 flex-col overflow-hidden rounded-t-3xl bg-white/98"
+        style={{ minHeight: "31dvh", maxHeight: "31dvh" }}
+      >
 
         {/* Join / Leave button at top of chat panel */}
         <div className="shrink-0 px-4 pt-3 pb-2">
@@ -591,7 +597,7 @@ function MobileLiveInner({
         {/* Chat input */}
         <div
           className="flex shrink-0 items-center gap-2 px-4 pt-1.5"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)" }}
         >
           <input
             type="text"
@@ -639,6 +645,7 @@ export function MobilePublicLiveRoom({
   onJoinQueue,
   onLeaveQueue,
   onLeaveStage,
+  onExit,
   onStageSessionReady,
 }: {
   roomUrl: string;
@@ -662,6 +669,7 @@ export function MobilePublicLiveRoom({
   onJoinQueue: () => void;
   onLeaveQueue: () => void;
   onLeaveStage: () => void;
+  onExit: () => void;
   onStageSessionReady?: (dailySessionId: string) => void;
 }) {
   return (
@@ -686,6 +694,7 @@ export function MobilePublicLiveRoom({
         onJoinQueue={onJoinQueue}
         onLeaveQueue={onLeaveQueue}
         onLeaveStage={onLeaveStage}
+        onExit={onExit}
         onStageSessionReady={onStageSessionReady}
       />
     </CallContainer>

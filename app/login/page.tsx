@@ -134,7 +134,13 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0f0f18] px-4 py-10">
+    <main
+      className="relative flex min-h-[100dvh] flex-col items-center justify-start overflow-hidden bg-[#0f0f18] px-4"
+      style={{
+        paddingTop: "calc(env(safe-area-inset-top) + 2.25rem)",
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)",
+      }}
+    >
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
         <img
           src="/fan_dashboard.png"
@@ -145,7 +151,7 @@ export default function AuthPage() {
         <div className="absolute inset-0 bg-[#0c0c18]/65" />
       </div>
 
-      <div className="relative z-10 w-full max-w-sm animate-slide-up">
+      <div className="relative z-10 w-full max-w-sm animate-slide-up sm:my-auto">
         <div className="overflow-hidden rounded-[28px] border border-white/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,246,255,0.96))] px-4 py-4 shadow-[0_28px_90px_rgba(12,12,24,0.22)] backdrop-blur-sm md:px-5 md:py-5">
           <div className="mx-auto w-full">
             <div className="mb-4 text-center animate-fade-in">

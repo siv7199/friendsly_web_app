@@ -25,7 +25,7 @@ const LIVE_SESSION_STALE_MS = 45000;
 
 function getCategoryLabel(category: string) {
   const labels: Record<string, string> = {
-    All: "Trending",
+    All: "Featured",
     "Content Creation": "Influencers",
     "Fitness & Wellness": "Gym",
     "Gaming & Esports": "Gaming",
@@ -516,7 +516,7 @@ export default function DiscoverPage() {
           <div className="flex items-end justify-between gap-3">
             <div>
               <h2 className="text-[1.9rem] font-serif font-normal leading-tight text-brand-ink md:text-[2.35rem]">
-                {liveCreators.length > 0 ? "Live Now" : "Trending Creators"}
+                {liveCreators.length > 0 ? "Live Now" : "Featured Creators"}
               </h2>
               <p className="mt-1 text-sm text-brand-ink-muted">
                 {liveCreators.length > 0
@@ -556,7 +556,7 @@ export default function DiscoverPage() {
           <div className="flex items-end justify-between gap-4">
             <div>
               <h2 className="text-[1.6rem] font-serif font-normal leading-tight text-brand-ink">
-                {liveCreators.length > 0 ? "Live Now" : "Trending Creators"}
+                {liveCreators.length > 0 ? "Live Now" : "Featured Creators"}
               </h2>
               <p className="mt-1 text-sm text-brand-ink-muted">
                 {liveCreators.length > 0

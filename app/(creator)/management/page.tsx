@@ -364,7 +364,7 @@ function PackageCard({ pkg, onEdit, onToggle, onDelete }: {
   pkg: CallPackage; onEdit: () => void; onToggle: () => void; onDelete: () => void;
 }) {
   const formattedPackagePrice = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(pkg.price);
 

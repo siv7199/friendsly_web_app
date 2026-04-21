@@ -1,18 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { LifeBuoy, LogOut, Settings } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuthContext } from "@/lib/context/AuthContext";
 
 export function MobileAccountBar() {
-  const router = useRouter();
   const { user, logout } = useAuthContext();
 
   async function handleLogout() {
     await logout();
-    router.push("/");
+    window.location.replace("/");
   }
 
   return (

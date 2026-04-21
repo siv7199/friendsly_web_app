@@ -361,6 +361,16 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
           if (!myActiveEntry?.id) return;
           await leaveActiveStage(myActiveEntry.id);
         }}
+        onExit={async () => {
+          if (myWaitingEntry?.id) {
+            await leaveWaitingQueue(myWaitingEntry.id);
+          } else if (myActiveEntry?.id) {
+            await leaveActiveStage(myActiveEntry.id);
+          }
+          window.location.assign(
+            getCreatorProfilePath({ id: creatorState.id, username: creatorState.username })
+          );
+        }}
         onStageSessionReady={reportActiveJoin}
       />
 
