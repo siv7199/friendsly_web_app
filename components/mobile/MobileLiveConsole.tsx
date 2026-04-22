@@ -1018,7 +1018,9 @@ export function MobileLiveConsole() {
           </div>
 
           {!hasConfiguredLiveRate(liveRate) ? (
-            <p className="px-1 pt-3 text-sm text-amber-700">Set an amount per minute in Management before going live.</p>
+            <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium leading-5 text-amber-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
+              Set an amount per minute in Management before going live.
+            </div>
           ) : null}
 
           <button

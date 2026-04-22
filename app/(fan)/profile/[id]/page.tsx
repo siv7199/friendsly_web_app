@@ -15,7 +15,6 @@ import { useAuthContext } from "@/lib/context/AuthContext";
 import type { Creator, CallPackage } from "@/types";
 import { readJsonResponse } from "@/lib/http";
 import { formatCurrency, cn } from "@/lib/utils";
-import { notFound } from "next/navigation";
 import {
   getAvailableStartTimesForViewerDate,
   getTimeZoneAbbreviation,
@@ -625,7 +624,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     if (!creator || submittingLiveRequest) return;
 
     if (!user || user.role !== "fan") {
-      window.location.href = `/login?redirect=${encodeURIComponent(`/profile/${params.id}`)}`;
+      window.location.href = `/login?next=${encodeURIComponent(`/profile/${params.id}`)}`;
       return;
     }
 
@@ -670,7 +669,21 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     );
   }
 
-  if (!creator) return notFound();
+  if (!creator) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="w-full max-w-sm rounded-3xl border border-brand-border bg-brand-surface p-6 text-center shadow-card">
+          <p className="text-lg font-semibold text-brand-ink">Creator not found</p>
+          <p className="mt-2 text-sm text-brand-ink-muted">
+            This profile may have moved or is no longer available.
+          </p>
+          <Link href="/discover" className="mt-4 inline-flex items-center justify-center rounded-full bg-brand-ink px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-ink/90">
+            Back to Discover
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const hasPackages   = activePackages.length > 0;
   const hasLiveRate   = Boolean(creator.liveJoinFee && creator.liveJoinFee > 0);

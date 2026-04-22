@@ -30,6 +30,10 @@ function isAuthRoute(pathname: string): boolean {
   return AUTH_ROUTES.some((r) => pathname === r);
 }
 
+function matchesProtectedRoute(pathname: string, routes: string[]): boolean {
+  return routes.some((r) => pathname === r || pathname.startsWith(r + "/"));
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -98,7 +102,20 @@ export async function middleware(request: NextRequest) {
   }
 
   // 2. Fully authenticated → allow everywhere
-  if (isFullAuth) return response;
+  if (isFullAuth) {
+    const onCreatorRoute = matchesProtectedRoute(pathname, PROTECTED_CREATOR);
+    const onFanRoute = matchesProtectedRoute(pathname, PROTECTED_FAN);
+
+    if (role === "fan" && onCreatorRoute) {
+      return NextResponse.redirect(new URL("/discover", request.url));
+    }
+
+    if (role === "creator" && onFanRoute) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    return response;
+  }
 
   // 3. Pending (signed up, no role yet) → allow onboarding + auth
   if (isPending) {

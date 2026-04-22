@@ -15,6 +15,19 @@ import { cn } from "@/lib/utils";
 
 type Tab = "signin" | "signup";
 
+function sanitizeNextPath(nextPath: string | null, role?: string | null) {
+  if (!nextPath || !nextPath.startsWith("/")) return null;
+
+  const creatorOnlyPrefixes = ["/dashboard", "/management", "/calendar", "/live", "/earnings", "/m/live"];
+  const fanOnlyPrefixes = ["/discover", "/profile", "/bookings", "/payments", "/saved", "/m/waiting-room"];
+  const matchesPrefix = (prefixes: string[]) => prefixes.some((prefix) => nextPath === prefix || nextPath.startsWith(`${prefix}/`));
+
+  if (role === "fan" && matchesPrefix(creatorOnlyPrefixes)) return null;
+  if (role === "creator" && matchesPrefix(fanOnlyPrefixes)) return null;
+
+  return nextPath;
+}
+
 export default function AuthPage() {
   const router = useRouter();
   const { login, signup, isAuthenticated, user, isLoading, error } = useAuthContext();
@@ -43,7 +56,8 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user?.role) {
-      router.replace(user.role === "creator" ? "/dashboard" : (next || "/discover"));
+      const safeNext = sanitizeNextPath(next, user.role);
+      router.replace(user.role === "creator" ? "/dashboard" : (safeNext || "/discover"));
     }
   }, [isAuthenticated, user, isLoading, next, router]);
 
@@ -98,11 +112,13 @@ export default function AuthPage() {
     const result = await login(email, password);
     if (!result.success || !result.user) return;
 
+    const safeNext = sanitizeNextPath(next, result.user.role);
+
     const destination = result.user.role === "creator"
       ? "/dashboard"
       : result.user.role === "fan"
-        ? (next || "/discover")
-        : (next ? `/onboarding/role?next=${encodeURIComponent(next)}` : "/onboarding/role");
+        ? (safeNext || "/discover")
+        : (safeNext ? `/onboarding/role?next=${encodeURIComponent(safeNext)}` : "/onboarding/role");
 
     window.location.replace(destination);
   }

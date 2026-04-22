@@ -87,9 +87,9 @@ export function ScheduledLiveCard({
       </div>
 
       {!liveRateConfigured ? (
-        <p className="mt-3 text-xs text-amber-700">
+        <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium leading-5 text-amber-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
           Set an amount per minute in Management before going live.
-        </p>
+        </div>
       ) : null}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">

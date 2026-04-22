@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState, useEffect, useRef } from "react";
 import {
   Users, SkipForward, StopCircle, CalendarClock,
@@ -939,36 +941,21 @@ export function LiveConsole() {
           {/* Right — schedule + start */}
           <div className="rounded-[28px] border border-brand-border bg-brand-surface p-5 flex flex-col gap-5 overflow-y-auto xl:h-full xl:min-h-0">
             <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4 text-left">
-              <div className="flex items-center gap-2 text-brand-ink mb-3">
+              <div className="flex items-center gap-2 text-brand-ink">
                 <CalendarClock className="w-4 h-4 text-brand-primary" />
-                <p className="text-sm font-semibold">Announce when you’re going live</p>
+                <p className="text-sm font-semibold">Scheduling moved</p>
               </div>
-              <input
-                type="datetime-local"
-                value={scheduledLiveAt}
-                onChange={(e) => setScheduledLiveAt(e.target.value)}
-                className="block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-surface px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
-              />
-              <select
-                value={scheduledLiveTimeZone}
-                onChange={(e) => setScheduledLiveTimeZone(e.target.value)}
-                className="mt-3 block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-surface px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
-              >
-                {COMMON_TIME_ZONES.map((timeZone) => (
-                  <option key={timeZone} value={timeZone}>
-                    {formatTimeZoneLabel(timeZone)}
-                  </option>
-                ))}
-              </select>
-              <div className="mt-3 flex flex-col gap-2 min-[420px]:flex-row">
-                <Button variant="outline" className="flex-1" onClick={() => saveScheduledLive("")}>Clear</Button>
-                <Button variant="primary" className="flex-1" onClick={() => saveScheduledLive(scheduledLiveAt)} disabled={savingScheduledLive}>
-                  {savingScheduledLive ? "Saving..." : "Save"}
-                </Button>
-              </div>
+              <p className="mt-3 text-sm text-brand-ink-muted">
+                Set your next live time from the dashboard, then come back here when you're ready to go live.
+              </p>
+              <Link href="/dashboard" className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-primary-light hover:underline">
+                Open dashboard
+              </Link>
             </div>
             {!hasConfiguredLiveRate(liveRate) ? (
-              <p className="text-sm text-amber-700">Set an amount per minute in Management before going live.</p>
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium leading-5 text-amber-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
+                Set an amount per minute in Management before going live.
+              </div>
             ) : null}
             <Button variant="live" size="xl" onClick={startSession} className="shadow-glow-live w-full">Start Live Session</Button>
             {startError && <p className="text-red-400 text-sm">{startError}</p>}
