@@ -868,7 +868,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           </div>
 
           {/* Creator info */}
-          <div className="px-4 pt-3">
+          <div className="px-4 pt-3 pb-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-bold text-brand-ink leading-tight">{creator.name}</h1>
@@ -931,14 +931,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             )}
 
             {creator.bio && (
-              <div className="mt-4 border-t border-brand-border pt-4">
+              <div className="mt-4 border-t border-brand-border pb-1 pt-4">
                 <h2 className="mb-2 text-base font-bold text-brand-ink">About</h2>
                 <p className="text-sm leading-relaxed text-brand-ink-muted">{creator.bio}</p>
               </div>
             )}
           </div>
 
-          <div className="mt-5 bg-[linear-gradient(180deg,#fbf9ff_0%,#f3ecff_38%,#ede4ff_100%)] pb-6 pt-5">
+          <div className="bg-[linear-gradient(180deg,#fbf9ff_0%,#f3ecff_38%,#ede4ff_100%)] pb-6 pt-5">
             <div className="mx-4 mb-5 border-t border-[rgba(165,148,214,0.5)]" />
 
             {/* Book a Session */}
