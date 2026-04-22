@@ -206,7 +206,6 @@ export function WaitingRoom({
           <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="sm" isLive />
           <div className="min-w-0">
             <p className="text-sm font-bold text-white truncate leading-tight">{creatorName} is Live</p>
-            <p className="text-[11px] text-white/45 truncate">Live chat · amount per minute</p>
           </div>
         </div>
         <Badge variant="live" className="shrink-0 text-[11px] border-orange-500/30 bg-orange-500/15 text-orange-400">

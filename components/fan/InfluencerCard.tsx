@@ -276,38 +276,27 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
         {/* ── CTA footer ── */}
         <div className="mt-auto px-3.5 pb-3.5">
           {creator.isLive ? (
-            <div className="flex min-h-[58px] flex-col justify-end space-y-1.5">
-              {hasLiveRate ? (
-                <Link href={liveHref} className="block">
-                  <Button
-                    variant="live"
-                    size="sm"
-                    className="w-full rounded-full font-display font-semibold tracking-wide"
-                  >
-                    <Zap className="w-3.5 h-3.5" />
-                    Join Live
-                  </Button>
-                </Link>
-              ) : (
+            hasLiveRate ? (
+              <Link href={liveHref} className="block">
                 <Button
-                  variant="outline"
+                  variant="live"
                   size="sm"
-                  className="w-full rounded-full opacity-50 cursor-not-allowed"
-                  disabled
+                  className="min-h-[34px] w-full rounded-full font-display font-semibold tracking-wide"
                 >
-                  Live · No rate set
+                  <Zap className="w-3.5 h-3.5" />
+                  Join Live
                 </Button>
-              )}
-              {hasPackages && (
-                <button
-                  onClick={() => void handleOpenBooking()}
-                  disabled={isLoadingBookingData}
-                  className="w-full text-center text-[11px] font-display font-semibold text-brand-ink-subtle hover:text-brand-primary transition-colors py-0.5 disabled:opacity-50"
-                >
-                  {isLoadingBookingData ? "Loading…" : `Book from ${formatCurrency(creator.callPrice)} →`}
-                </button>
-              )}
-            </div>
+              </Link>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-[34px] w-full rounded-full opacity-50 cursor-not-allowed"
+                disabled
+              >
+                Live · No rate set
+              </Button>
+            )
           ) : hasPackages ? (
             <Button
               variant="outline"

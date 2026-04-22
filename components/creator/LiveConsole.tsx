@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Users, SkipForward, StopCircle, CalendarClock,
-  Mic, MicOff, Video, VideoOff, Loader2
+  Mic, MicOff, Video, VideoOff, Loader2, ChevronDown, ChevronUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -149,6 +149,7 @@ function LiveVideoStage({
   const [audienceCount, setAudienceCount] = useState(0);
   const [micOn, setMicOn] = useState(initialMic);
   const [camOn, setCamOn] = useState(initialCam);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
   const showActiveFanStage = Boolean(currentFan);
   const audibleSessionIds = Array.from(new Set([fanSessionId].filter((value): value is string => Boolean(value))));
   const dailyVideoFillStyles = {
@@ -260,6 +261,15 @@ function LiveVideoStage({
             <span className={cn("text-xs font-semibold", creatorJoined ? "text-emerald-400" : "text-amber-400")}>
               {creatorJoined ? "Creator connected" : "Joining room..."}
             </span>
+            <button
+              type="button"
+              onClick={() => setChatCollapsed((v) => !v)}
+              className="xl:hidden inline-flex h-7 items-center gap-1 rounded-full border border-brand-border bg-brand-elevated px-2.5 text-[11px] font-semibold text-brand-ink-muted transition-all active:scale-95"
+              aria-label={chatCollapsed ? "Show chat" : "Hide chat"}
+            >
+              {chatCollapsed ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {chatCollapsed ? "Show chat" : "Hide chat"}
+            </button>
           </div>
           {currentFan?.admittedAt ? (
               <div className="rounded-xl border border-brand-live/30 bg-brand-live/10 px-3 py-1.5 text-left self-start md:self-auto md:text-right">
@@ -406,7 +416,10 @@ function LiveVideoStage({
 
       </div>
 
-      <div className="min-h-[420px] rounded-[28px] border border-brand-border bg-brand-surface p-3 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0 xl:min-h-0">
+      <div className={cn(
+        "min-h-[420px] rounded-[28px] border border-brand-border bg-brand-surface p-3 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0 xl:min-h-0",
+        chatCollapsed && "hidden xl:flex"
+      )}>
         {/* Queue strip at top of chat column — desktop only (mobile shows it as an overlay on the video) */}
         <div className="hidden md:block rounded-[20px] border border-brand-border bg-brand-elevated p-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2 mb-2">

@@ -39,8 +39,7 @@ type BookingDetails = {
 const MOBILE_BOOKING_VIEWPORT_STYLE = {
   height: "100dvh",
   maxHeight: "100dvh",
-  paddingTop: "calc(env(safe-area-inset-top) + 6px)",
-  backgroundColor: "#8b5cf6",
+  backgroundColor: "#0b0b1f",
 };
 
 const VIDEO_FILL = {
@@ -162,208 +161,131 @@ function MobileBookingStage({
     ? `On call with ${remoteName} · ${formatCallTimer(elapsedSeconds)}`
     : `Waiting for ${remoteName} · ${formatCallTimer(elapsedSeconds)}`;
 
+  const hasRemote = Boolean(remoteParticipantId);
+
   return (
     <div
-      className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden overscroll-none bg-violet-500"
+      className="relative h-[100dvh] max-h-[100dvh] w-full overflow-hidden overscroll-none bg-[#0b0b1f]"
       style={MOBILE_BOOKING_VIEWPORT_STYLE}
     >
       {remoteParticipantId ? <DailyAudioTrack sessionId={remoteParticipantId} /> : null}
       <style dangerouslySetInnerHTML={VIDEO_FILL} />
 
-      <div className="flex shrink-0 items-center justify-between px-4 pb-1.5">
-        <div className="flex items-center gap-3">
+      {/* Full-screen remote video (or waiting state) */}
+      <div className="absolute inset-0">
+        {hasRemote ? (
+          <div className="m-booking-video h-full w-full">
+            <DailyVideo sessionId={remoteParticipantId!} type="video" className="h-full w-full object-cover" />
+          </div>
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-[radial-gradient(circle_at_top,#2e1065,transparent_60%)] px-8 text-center">
+            <Avatar
+              initials={remoteInitials}
+              color={remoteColor}
+              imageUrl={remoteImageUrl}
+              size="xl"
+            />
+            <p className="text-sm text-white/75">Waiting for {remoteName} to join...</p>
+          </div>
+        )}
+      </div>
+
+      {/* Top gradient + overlay row */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/55 to-transparent" />
+      <div
+        className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 px-4 pb-2"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 10px)" }}
+      >
+        <div className="flex items-center gap-2">
           <button
             onClick={onExit}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 transition-all active:scale-95"
+            className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/45 backdrop-blur-sm transition-all active:scale-95"
             aria-label="Leave booking room"
           >
             <X className="h-4 w-4 text-white" />
           </button>
-          <span className="select-none text-xl tracking-tight text-white font-brand">friendsly</span>
-        </div>
-        <div className="rounded-full bg-[#1a1a3e] px-3.5 py-1.5 text-sm font-semibold text-white">
-          {isCreator ? "Host" : "Fan"}
-        </div>
-      </div>
-
-      <div className="shrink-0 px-4 pb-1.5">
-        <p className="text-xs font-semibold text-white/95">
-          {isCreator ? creatorStatusLine : `Session with ${remoteName}`}
-        </p>
-        <p className="mt-1 text-xs text-white/65">
-          {booking?.topic || "Locked room"}
-        </p>
-      </div>
-
-      <div className="relative mx-3 shrink-0" style={{ height: "min(36dvh, 320px)" }}>
-        <div
-          className="absolute inset-0 rounded-2xl"
-          style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
-        />
-        <div className="relative h-full w-full overflow-hidden rounded-2xl bg-[#1a1a3e]">
-          {isCreator ? (
-            localSessionId && camOn ? (
-              <div className="m-booking-video h-full w-full overflow-hidden">
-                <DailyVideo sessionId={localSessionId} type="video" mirror className="h-full w-full object-cover" />
-              </div>
-            ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_top,#7c3aed55,transparent_70%)] px-6 text-center">
-                <Avatar initials="You" size="xl" />
-                <p className="text-xs text-white/60">{camOn ? "Connecting camera..." : "Camera is off"}</p>
-              </div>
-            )
-          ) : remoteParticipantId ? (
-            <div className="m-booking-video h-full w-full overflow-hidden">
-              <DailyVideo sessionId={remoteParticipantId} type="video" className="h-full w-full object-cover" />
-            </div>
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-[radial-gradient(circle_at_top,#312e81,transparent_58%)] px-6 text-center">
-              <Avatar
-                initials={remoteInitials}
-                color={remoteColor}
-                imageUrl={remoteImageUrl}
-                size="xl"
-              />
-              <p className="text-sm text-white/75">Waiting for {remoteName} to join...</p>
-            </div>
-          )}
-
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/25 to-transparent" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/45 to-transparent" />
-
-          {isCreator ? (
-            <>
-              <div className="absolute bottom-2.5 right-2.5 aspect-video w-[28%] overflow-hidden rounded-xl bg-[#2d2d5e] shadow-md">
-                {remoteParticipantId ? (
-                  <div className="m-booking-video h-full w-full overflow-hidden">
-                    <DailyVideo sessionId={remoteParticipantId} type="video" className="h-full w-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Avatar
-                      initials={remoteInitials}
-                      color={remoteColor}
-                      imageUrl={remoteImageUrl}
-                      size="sm"
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="absolute bottom-2.5 left-2.5 flex gap-1.5">
-                <button
-                  onClick={toggleMic}
-                  disabled={!canUseMedia}
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-sm transition-all active:scale-95",
-                    !canUseMedia
-                      ? "cursor-not-allowed border-white/10 bg-white/10 text-white/35"
-                      : micOn
-                      ? "border-violet-400/50 bg-violet-500/20 text-white"
-                      : "border-red-400/50 bg-red-500/20 text-red-300"
-                  )}
-                >
-                  {micOn ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
-                </button>
-                <button
-                  onClick={toggleCam}
-                  disabled={!canUseMedia}
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-sm transition-all active:scale-95",
-                    !canUseMedia
-                      ? "cursor-not-allowed border-white/10 bg-white/10 text-white/35"
-                      : camOn
-                      ? "border-violet-400/50 bg-violet-500/20 text-white"
-                      : "border-red-400/50 bg-red-500/20 text-red-300"
-                  )}
-                >
-                  {camOn ? <Video className="h-3.5 w-3.5" /> : <VideoOff className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="absolute bottom-4 right-4 h-[142px] w-[104px] overflow-hidden rounded-[22px] border border-white/15 bg-[#27124b] shadow-[0_24px_60px_rgba(15,23,42,0.38)]">
-              {localSessionId && camOn ? (
-                <div className="m-booking-video h-full w-full overflow-hidden">
-                  <DailyVideo sessionId={localSessionId} type="video" mirror className="h-full w-full object-cover" />
-                </div>
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_top,#7c3aed55,transparent_70%)] px-3 text-center">
-                  <Avatar initials="You" size="lg" />
-                  <p className="text-[10px] leading-4 text-white/70">
-                    {!canUseMedia ? "Media unlocks at start" : "Camera off"}
-                  </p>
-                </div>
-              )}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-2 pb-2 pt-6">
-                <p className="truncate text-[11px] font-semibold text-white">{localName}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/30 px-3 py-1 text-[11px] text-white/85">
-            {isCreator ? "You" : remoteName}
-          </div>
-
-          <div className="absolute right-3 top-3 min-w-[114px] rounded-2xl bg-black/35 px-3 py-2 text-center text-white backdrop-blur-sm">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-white/65">Session Time</p>
-            <p className="text-lg font-black tabular-nums">{formatCallTimer(elapsedSeconds)}</p>
-            {bookingDurationSeconds > 0 ? (
-              <p className="text-[10px] text-white/65">{formatCallTimer(remainingSeconds)} remaining</p>
+          <div className="pointer-events-auto rounded-full bg-black/45 px-3 py-1.5 backdrop-blur-sm">
+            <p className="text-[11px] font-semibold text-white">
+              {hasRemote ? remoteName : `Waiting for ${remoteName}`}
+            </p>
+            {booking?.topic ? (
+              <p className="text-[10px] text-white/65">{booking.topic}</p>
             ) : null}
           </div>
         </div>
+        <div className="pointer-events-auto rounded-2xl bg-black/45 px-3 py-2 text-center text-white backdrop-blur-sm">
+          <p className="text-[9px] uppercase tracking-[0.2em] text-white/65">Session</p>
+          <p className="text-base font-black tabular-nums leading-tight">{formatCallTimer(elapsedSeconds)}</p>
+          {bookingDurationSeconds > 0 ? (
+            <p className="text-[9px] text-white/65">{formatCallTimer(remainingSeconds)} left</p>
+          ) : null}
+        </div>
       </div>
 
+      {/* Local self-view PiP (FaceTime-style) */}
       <div
-        className="mt-1 flex shrink-0 flex-col gap-3 rounded-t-[28px] bg-white/98 px-4 pt-4"
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
+        className="absolute right-3 h-[150px] w-[110px] overflow-hidden rounded-[18px] border border-white/15 bg-[#1a1a3e] shadow-[0_18px_40px_rgba(0,0,0,0.45)]"
+        style={{ top: "calc(env(safe-area-inset-top) + 72px)" }}
+      >
+        {localSessionId && camOn ? (
+          <div className="m-booking-video h-full w-full">
+            <DailyVideo sessionId={localSessionId} type="video" mirror className="h-full w-full object-cover" />
+          </div>
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_top,#4c1d95,transparent_70%)] px-2 text-center">
+            <Avatar initials="You" size="lg" />
+            <p className="text-[10px] leading-4 text-white/70">
+              {!canUseMedia ? "Unlocks at start" : camOn ? "Connecting…" : "Camera off"}
+            </p>
+          </div>
+        )}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-2 pb-1.5 pt-5">
+          <p className="truncate text-[10px] font-semibold text-white">{localName}</p>
+        </div>
+      </div>
+
+      {/* Bottom gradient + controls overlay */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/70 to-transparent" />
+      <div
+        className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 px-4"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 14px)" }}
       >
         {!canUseMedia ? (
-          <p className="px-1 text-center text-xs text-slate-500">
+          <p className="pointer-events-none rounded-full bg-black/45 px-3 py-1 text-[11px] text-white/80 backdrop-blur-sm">
             Camera and mic unlock at the scheduled start time.
           </p>
         ) : null}
-
-        <div className="flex items-center justify-center gap-3">
-          {!isCreator ? (
-            <>
-              <button
-                onClick={toggleMic}
-                disabled={!canUseMedia}
-                className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-full border transition-all active:scale-95",
-                  !canUseMedia
-                    ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-70"
-                    : micOn
-                    ? "border-violet-300 bg-violet-50 text-violet-700"
-                    : "border-red-300 bg-red-50 text-red-500"
-                )}
-              >
-                {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-              </button>
-              <button
-                onClick={toggleCam}
-                disabled={!canUseMedia}
-                className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-full border transition-all active:scale-95",
-                  !canUseMedia
-                    ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-70"
-                    : camOn
-                    ? "border-violet-300 bg-violet-50 text-violet-700"
-                    : "border-red-300 bg-red-50 text-red-500"
-                )}
-              >
-                {camOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-              </button>
-            </>
-          ) : (
-            <div className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Host Console</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">
-                {remoteParticipantId ? `${remoteName} is connected` : `Waiting for ${remoteName}`}
-              </p>
-            </div>
-          )}
+        <div className="pointer-events-auto flex items-center justify-center gap-3">
+          <button
+            onClick={toggleMic}
+            disabled={!canUseMedia}
+            className={cn(
+              "flex h-12 w-12 items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-95",
+              !canUseMedia
+                ? "cursor-not-allowed border-white/10 bg-white/10 text-white/35"
+                : micOn
+                ? "border-white/20 bg-white/15 text-white"
+                : "border-red-400/60 bg-red-500/25 text-red-200"
+            )}
+            aria-label={micOn ? "Mute" : "Unmute"}
+          >
+            {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+          </button>
+          <button
+            onClick={toggleCam}
+            disabled={!canUseMedia}
+            className={cn(
+              "flex h-12 w-12 items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-95",
+              !canUseMedia
+                ? "cursor-not-allowed border-white/10 bg-white/10 text-white/35"
+                : camOn
+                ? "border-white/20 bg-white/15 text-white"
+                : "border-red-400/60 bg-red-500/25 text-red-200"
+            )}
+            aria-label={camOn ? "Turn camera off" : "Turn camera on"}
+          >
+            {camOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+          </button>
           <button
             onClick={() => {
               void (async () => {
@@ -377,9 +299,10 @@ function MobileBookingStage({
                 onExit();
               })();
             }}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500 text-white shadow-[0_18px_40px_rgba(239,68,68,0.35)] transition-all active:scale-95"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500 text-white shadow-[0_18px_40px_rgba(239,68,68,0.45)] transition-all active:scale-95"
+            aria-label={isCreator ? "End call" : "Leave call"}
           >
-            <PhoneOff className="h-5 w-5" />
+            <PhoneOff className="h-6 w-6" />
           </button>
         </div>
       </div>

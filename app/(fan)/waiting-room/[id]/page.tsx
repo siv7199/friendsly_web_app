@@ -69,6 +69,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   const waitingEntryIdRef = useRef<string | null>(null);
   const activeEntryIdRef = useRef<string | null>(null);
   const previousActiveEntryIdRef = useRef<string | null>(null);
+  const hasSeenActiveSessionRef = useRef(false);
 
   const loadLiveState = useCallback(async () => {
     try {
@@ -134,7 +135,20 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       }
 
       if (!session) {
-        if (liveSessionId) setSessionEnded(true);
+        let endedDetected = hasSeenActiveSessionRef.current;
+
+        if (!endedDetected && routeTarget.sessionId) {
+          const { data: targetedSession } = await supabase
+            .from("live_sessions")
+            .select("id, is_active")
+            .eq("id", routeTarget.sessionId)
+            .maybeSingle();
+          if (targetedSession && targetedSession.is_active === false) {
+            endedDetected = true;
+          }
+        }
+
+        if (endedDetected) setSessionEnded(true);
         setLiveSessionId(null);
         setRoomUrl(null);
         setQueue([]);
@@ -144,6 +158,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
         return;
       }
 
+      hasSeenActiveSessionRef.current = true;
       setSessionEnded(false);
       setLiveSessionId(session.id);
       setRoomUrl(session.daily_room_url ?? null);
@@ -200,7 +215,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       setLoadError("We couldn't load this live room right now. Please try again.");
       setLoading(false);
     }
-  }, [liveSessionId, routeTarget.creatorRef, routeTarget.sessionId]);
+  }, [routeTarget.creatorRef, routeTarget.sessionId]);
 
   useEffect(() => {
     void loadLiveState();
@@ -263,7 +278,13 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
     let channel = supabase
       .channel(`public-live:${creatorState.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${creatorState.id}` }, () => { void loadLiveState(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions", filter: `creator_id=eq.${creatorState.id}` }, () => { void loadLiveState(); });
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions", filter: `creator_id=eq.${creatorState.id}` }, (payload: any) => {
+        const nextRow = payload?.new;
+        if (nextRow && nextRow.is_active === false) {
+          setSessionEnded(true);
+        }
+        void loadLiveState();
+      });
 
     if (liveSessionId) {
       channel = channel.on(

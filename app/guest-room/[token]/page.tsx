@@ -89,7 +89,7 @@ function GuestVideoStage({
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-2 gap-3 min-h-[420px]">
+      <div className="flex-1 min-h-0 grid grid-cols-2 gap-3">
         <div className="relative rounded-2xl bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center aspect-video">
           {localSessionId ? (
             <div className="w-full h-full relative overflow-hidden">
@@ -336,7 +336,7 @@ export default function GuestRoomPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-brand-bg p-4 md:p-6">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-brand-bg p-4 md:p-6">
       <div className="mb-4 flex items-center justify-between md:mb-6">
         <div className="flex items-center gap-3">
           <Avatar
@@ -356,31 +356,33 @@ export default function GuestRoomPage() {
         </div>
       </div>
 
-      <CallContainer
-        url={roomUrl}
-        token={token}
-        startAudio
-        startVideo
-        onJoin={() => {
-          void markPresence(true);
-        }}
-        onLeave={() => {
-          void markPresence(false);
-          router.push(`/booking-access/${rawToken}`);
-        }}
-      >
-        <GuestRoomStatusHandler
-          remoteEnded={remoteEnded}
-          onExit={() => {
+      <div className="flex flex-1 min-h-0 flex-col">
+        <CallContainer
+          url={roomUrl}
+          token={token}
+          startAudio
+          startVideo
+          onJoin={() => {
+            void markPresence(true);
+          }}
+          onLeave={() => {
             void markPresence(false);
             router.push(`/booking-access/${rawToken}`);
           }}
-        />
-        <GuestVideoStage
-          accessPayload={accessPayload}
-          onLeaveClick={() => router.push(`/booking-access/${rawToken}`)}
-        />
-      </CallContainer>
+        >
+          <GuestRoomStatusHandler
+            remoteEnded={remoteEnded}
+            onExit={() => {
+              void markPresence(false);
+              router.push(`/booking-access/${rawToken}`);
+            }}
+          />
+          <GuestVideoStage
+            accessPayload={accessPayload}
+            onLeaveClick={() => router.push(`/booking-access/${rawToken}`)}
+          />
+        </CallContainer>
+      </div>
     </div>
   );
 }

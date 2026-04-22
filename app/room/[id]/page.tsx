@@ -638,7 +638,7 @@ export default function RoomPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-brand-bg p-4 md:p-6">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-brand-bg p-4 md:p-6">
       <div className="mb-3 md:mb-4">
         <div>
           <h2 className="text-lg font-bold text-brand-ink flex items-center gap-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Flag, Loader2, Mic, MicOff, Send, Users, Video, VideoOff, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Flag, Loader2, Mic, MicOff, Send, Users, Video, VideoOff, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
 import { cn } from "@/lib/utils";
@@ -179,6 +179,7 @@ function MobileLiveInner({
 
   const [chatText, setChatText] = useState("");
   const [sending, setSending] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
   const [reportDescription, setReportDescription] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
@@ -460,7 +461,10 @@ function MobileLiveInner({
       </div>
 
       {/* ── Video card ── */}
-      <div className="relative mx-3 shrink-0" style={{ height: "min(36dvh, 320px)" }}>
+      <div
+        className={cn("relative mx-3", chatCollapsed ? "flex-1 min-h-0 mb-3" : "shrink-0")}
+        style={chatCollapsed ? undefined : { height: "min(36dvh, 320px)" }}
+      >
         <div
           className="absolute inset-0 rounded-2xl"
           style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
@@ -479,6 +483,16 @@ function MobileLiveInner({
             </div>
           )}
           <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-black/25 to-transparent pointer-events-none" />
+
+          {/* Chat collapse/expand toggle */}
+          <button
+            onClick={() => setChatCollapsed((v) => !v)}
+            className="absolute top-2.5 right-2.5 z-10 flex h-8 items-center gap-1 rounded-full bg-black/40 px-2.5 text-[11px] font-semibold text-white backdrop-blur-sm active:scale-95 transition-all"
+            aria-label={chatCollapsed ? "Show chat" : "Hide chat"}
+          >
+            {chatCollapsed ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            <span>{chatCollapsed ? "Chat" : "Hide"}</span>
+          </button>
 
           {/* PiP — bottom right */}
           <div className="absolute bottom-2.5 right-2.5 w-[28%] aspect-video rounded-xl overflow-hidden bg-[#2d2d5e] shadow-md">
@@ -532,7 +546,10 @@ function MobileLiveInner({
 
       {/* ── White panel ── */}
       <div
-        className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[32px] border-t border-white/70 bg-white shadow-[0_-18px_40px_rgba(15,23,42,0.18)]"
+        className={cn(
+          "mt-0 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[32px] border-t border-white/70 bg-white shadow-[0_-18px_40px_rgba(15,23,42,0.18)]",
+          chatCollapsed && "hidden"
+        )}
       >
         <div className="shrink-0 border-b border-slate-200/80 px-4 pb-3 pt-3">
           <div className="flex items-start justify-between gap-3">

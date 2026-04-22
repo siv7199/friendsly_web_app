@@ -795,7 +795,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       <div className="app-safe-screen md:hidden bg-white flex flex-col">
         {/* Scrollable body */}
         <div className={cn("flex-1", (hasPackages || shouldShowLiveButton) && "pb-32")}>
-          <div className="sticky top-0 z-20 border-b border-brand-border/70 bg-white/95 px-4 py-3 backdrop-blur-sm">
+          <div className="border-b border-brand-border/70 px-4 py-3">
             <Link href="/discover" className="inline-flex items-center gap-2 text-sm font-medium text-brand-ink-muted transition-colors hover:text-brand-ink">
               <ArrowLeft className="h-4 w-4" />
               Back
@@ -861,7 +861,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            {mobileLiveCard}
+            {creator.isLive && mobileLiveCard}
 
             {creator.bio && (
               <div className="mt-4 border-t border-brand-border pt-4">
@@ -1013,6 +1013,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               </div>
             )}
           </div>
+
+          {!creator.isLive && mobileLiveCard}
 
           {/* Reviews (mobile) */}
           {(reviews.length > 0 || (isFan && !isOwnProfile) || creator.reviewCount === 0) && (
