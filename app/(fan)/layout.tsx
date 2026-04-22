@@ -11,7 +11,7 @@ export default function FanLayout({ children }: { children: React.ReactNode }) {
   const isImmersiveLiveRoute = pathname.startsWith("/waiting-room/");
 
   return (
-    <div className="flex min-h-screen bg-brand-bg">
+    <div className="flex min-h-screen items-stretch bg-brand-bg">
       {!isImmersiveLiveRoute ? <FanSidebar /> : null}
       <main
         className={

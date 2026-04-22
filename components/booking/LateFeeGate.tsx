@@ -133,22 +133,22 @@ export function LateFeeGate({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-brand-bg px-4 py-8">
-      <div className="w-full max-w-lg rounded-3xl border border-amber-500/20 bg-brand-surface p-6 md:p-8">
+      <div className="w-full max-w-lg rounded-3xl border border-amber-500/20 bg-brand-surface p-5 md:p-6">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-500/10 text-amber-300">
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Late join fee</p>
-            <h1 className="mt-2 text-2xl font-black text-brand-ink">{title}</h1>
-            <p className="mt-2 text-sm leading-relaxed text-brand-ink-subtle">{description}</p>
-            <p className="mt-4 text-sm text-brand-ink-subtle">
+            <h1 className="mt-1.5 text-xl font-black text-brand-ink">{title}</h1>
+            <p className="mt-1.5 text-sm leading-relaxed text-brand-ink-subtle">{description}</p>
+            <p className="mt-3 text-sm text-brand-ink-subtle">
               Amount due: <span className="font-semibold text-brand-ink">{formatCurrency(amount)}</span>
             </p>
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-brand-border bg-brand-elevated p-4">
+        <div className="mt-4 rounded-2xl border border-brand-border bg-brand-elevated p-3">
           {error && (
             <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-700">
               {error}

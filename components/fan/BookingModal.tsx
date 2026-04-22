@@ -677,17 +677,21 @@ export function BookingModal({
 
         {/* ── STEP 3: Confirm + Stripe Payment ── */}
         {step === "confirm" && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Booking summary */}
-            <div className="rounded-xl border border-brand-border bg-brand-surface p-4 space-y-3">
+            <div className="rounded-xl border border-brand-border bg-brand-surface p-3">
               <div className="flex items-center gap-3">
                 <Avatar initials={creator.avatarInitials} color={creator.avatarColor} imageUrl={creator.avatarUrl} size="sm" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-brand-ink">{creator.name}</p>
                   <p className="text-xs text-brand-ink-muted">{creator.category}</p>
                 </div>
+                <div className="text-right">
+                  <p className="text-[10px] uppercase tracking-wider text-brand-ink-muted">Total</p>
+                  <p className="text-sm font-bold text-brand-gold">{formatCurrency(sessionGrossPrice)}</p>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-brand-border">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2 pt-3 border-t border-brand-border mt-3">
                 {[
                   ["Date", selectedDate ? formatShortDate(selectedDate) : ""],
                   ["Time", selectedTime ?? ""],
@@ -700,22 +704,16 @@ export function BookingModal({
                     <p className="text-sm text-brand-ink font-medium mt-0.5 truncate">{v}</p>
                   </div>
                 ))}
-              </div>
-            </div>
-
-            {/* Price */}
-            <div className="rounded-xl border border-brand-border bg-brand-elevated p-4">
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-brand-ink-subtle">Session fee</span>
-                <span className="text-brand-ink">{formatCurrency(sessionPrice)}</span>
-              </div>
-              <div className="flex justify-between text-sm mb-3">
-                <span className="text-brand-ink-subtle">Platform fee (2.5%)</span>
-                <span className="text-brand-ink">{formatCurrency(platformFeeAmount)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-base border-t border-brand-border pt-3">
-                <span className="text-brand-ink">Total</span>
-                <span className="text-brand-gold">{formatCurrency(sessionGrossPrice)}</span>
+                <div className="col-span-2 rounded-lg bg-brand-elevated px-3 py-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-brand-ink-subtle">Session fee</span>
+                    <span className="text-brand-ink">{formatCurrency(sessionPrice)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-xs">
+                    <span className="text-brand-ink-subtle">Platform fee</span>
+                    <span className="text-brand-ink">{formatCurrency(platformFeeAmount)}</span>
+                  </div>
+                </div>
               </div>
             </div>
 

@@ -407,15 +407,15 @@ export function LiveJoinModal({
         ) : null}
 
         {step === "payment" ? (
-          <div className="space-y-4">
-            <div className="rounded-xl border border-brand-border bg-brand-surface p-4 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-brand-ink-muted">Rate</span>
-                <span className="text-sm font-semibold text-brand-ink">{formatCurrency(joinFee)} / min</span>
-              </div>
-              <div className="pt-2 border-t border-brand-border/60">
-                <p className="text-xs text-brand-ink-subtle leading-relaxed">
-                  A temporary hold is placed on your card at the per-minute rate for up to {LIVE_PREAUTH_MINUTES} minutes. You are charged only for the time you actually spend on stage, and any unused hold is released automatically.
+          <div className="space-y-3">
+            <div className="rounded-xl border border-brand-border bg-brand-surface p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-brand-ink-muted">Temporary hold</p>
+                  <p className="mt-0.5 text-sm font-semibold text-brand-ink">{formatCurrency(joinFee)} / min</p>
+                </div>
+                <p className="max-w-[220px] text-right text-[11px] leading-5 text-brand-ink-subtle">
+                  Held for up to {LIVE_PREAUTH_MINUTES} minutes and only charged for actual stage time.
                 </p>
               </div>
             </div>

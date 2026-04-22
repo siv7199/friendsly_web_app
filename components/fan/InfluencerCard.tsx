@@ -280,7 +280,7 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
               {hasLiveRate ? (
                 <Link href={liveHref} className="block">
                   <Button
-                    variant="primary"
+                    variant="live"
                     size="sm"
                     className="w-full rounded-full font-display font-semibold tracking-wide"
                   >

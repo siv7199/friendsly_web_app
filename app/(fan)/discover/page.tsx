@@ -518,7 +518,7 @@ export default function DiscoverPage() {
                 <div
                   key={creator.id}
                   style={{ animationDelay: `${index * 35}ms` }}
-                  className="w-[min(82vw,182px)] shrink-0 snap-start animate-card-enter md:w-auto"
+                  className="w-[min(72vw,176px)] shrink-0 snap-start animate-card-enter md:w-auto"
                 >
                   <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
                 </div>
@@ -583,7 +583,7 @@ export default function DiscoverPage() {
                 <div
                   key={creator.id}
                   style={{ animationDelay: `${index * 25}ms` }}
-                  className="w-[min(82vw,182px)] shrink-0 snap-start animate-card-enter md:w-auto"
+                  className="w-[min(72vw,176px)] shrink-0 snap-start animate-card-enter md:w-auto"
                 >
                   <InfluencerCard creator={creator} initialIsSaved={savedCreatorIds.has(creator.id)} />
                 </div>

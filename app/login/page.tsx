@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -35,6 +36,8 @@ export default function AuthPage() {
   const [resetSending, setResetSending] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
+  const [showEmailConfirmationModal, setShowEmailConfirmationModal] = useState(false);
+  const [emailConfirmedMessage, setEmailConfirmedMessage] = useState(false);
   const signInEmailRef = useRef<HTMLInputElement | null>(null);
   const signInPasswordRef = useRef<HTMLInputElement | null>(null);
 
@@ -59,6 +62,7 @@ export default function AuthPage() {
     setNext(params.get("next"));
     const t = params.get("tab");
     setRequestedTab(t === "signup" ? "signup" : t === "signin" ? "signin" : null);
+    setEmailConfirmedMessage(params.get("emailConfirmed") === "1");
   }, []);
 
   useEffect(() => {
@@ -106,6 +110,13 @@ export default function AuthPage() {
   async function handleSignUp(e: FormEvent) {
     e.preventDefault();
     const result = await signup(suEmail, suPassword, suName, next);
+    if (result.requiresEmailConfirmation) {
+      setShowEmailConfirmationModal(true);
+      setTab("signin");
+      setSiEmail(suEmail.trim().toLowerCase());
+      setSuPassword("");
+      return;
+    }
     if (result.signedIn) {
       router.push(next ? `/onboarding/role?next=${encodeURIComponent(next)}` : "/onboarding/role");
     }
@@ -183,6 +194,11 @@ export default function AuthPage() {
 
               {tab === "signin" && (
                 <form onSubmit={handleSignIn} className="space-y-3 px-1 pb-1">
+                  {emailConfirmedMessage ? (
+                    <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                      Email verified. Sign in to continue.
+                    </p>
+                  ) : null}
                   <Input
                     label="Email"
                     type="email"
@@ -409,6 +425,36 @@ export default function AuthPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={showEmailConfirmationModal} onClose={() => setShowEmailConfirmationModal(false)}>
+        <DialogContent
+          title="Check your email"
+          description="We sent you a confirmation link. Open your inbox, press that link, and you’ll come right back to the Friendsly sign-in page."
+          onClose={() => setShowEmailConfirmationModal(false)}
+          className="max-w-md"
+        >
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-brand-border bg-brand-surface px-4 py-4">
+              <p className="text-sm font-semibold text-brand-ink">Next step</p>
+              <p className="mt-1 text-sm leading-6 text-brand-ink-muted">
+                Go to <span className="font-semibold text-brand-ink">{suEmail.trim().toLowerCase()}</span>, open the Friendsly email, and press the confirmation link.
+              </p>
+            </div>
+            <p className="text-sm leading-6 text-brand-ink-muted">
+              After you verify, we’ll send you back to the sign-in page here so you can log in normally.
+            </p>
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              className="w-full"
+              onClick={() => setShowEmailConfirmationModal(false)}
+            >
+              I&apos;ll check my email
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

@@ -1,23 +1,42 @@
 export const STRIPE_APPEARANCE = {
-  theme: "night" as const,
+  theme: "stripe" as const,
   variables: {
     colorPrimary: "#7C3AED",
-    colorBackground: "#1A1535",
-    colorText: "#f1f5f9",
-    colorTextSecondary: "#c4b5fd",
-    colorTextPlaceholder: "#7c6fa0",
+    colorBackground: "#ffffff",
+    colorText: "#111827",
+    colorTextSecondary: "#4b5563",
+    colorTextPlaceholder: "#6b7280",
     colorDanger: "#f87171",
     fontFamily: "inherit",
     borderRadius: "12px",
   },
   rules: {
     ".Label": {
-      color: "#c4b5fd",
-      fontWeight: "500",
+      color: "#111827",
+      fontWeight: "600",
+    },
+    ".Block": {
+      backgroundColor: "#ffffff",
+      boxShadow: "none",
+      borderColor: "rgba(124,92,231,0.18)",
+    },
+    ".Tab": {
+      backgroundColor: "#f8fafc",
+      color: "#111827",
+      borderColor: "rgba(124,92,231,0.14)",
+    },
+    ".Tab:hover": {
+      color: "#111827",
+    },
+    ".Tab--selected": {
+      backgroundColor: "#ede9fe",
+      color: "#5b21b6",
+      borderColor: "rgba(124,92,231,0.35)",
     },
     ".Input": {
-      borderColor: "rgba(124,92,231,0.35)",
-      color: "#f1f5f9",
+      backgroundColor: "#ffffff",
+      borderColor: "rgba(124,92,231,0.24)",
+      color: "#111827",
     },
     ".Input--focused": {
       borderColor: "#7C3AED",
@@ -25,10 +44,10 @@ export const STRIPE_APPEARANCE = {
     },
     ".Input--invalid": {
       borderColor: "#f87171",
-      color: "#fca5a5",
+      color: "#991b1b",
     },
     ".Error": {
-      color: "#fca5a5",
+      color: "#b91c1c",
     },
   },
 };

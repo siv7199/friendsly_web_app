@@ -1,8 +1,8 @@
 /**
  * app/auth/callback/route.ts
  *
- * Supabase redirects here after email confirmation (and OAuth if added later).
- * Exchanges the one-time code for a real session, then sends the user home.
+ * Supabase redirects here after email confirmation and OAuth.
+ * Exchanges the one-time code for a session, then routes the user onward.
  */
 
 import { createServerClient } from "@supabase/ssr";
@@ -13,6 +13,7 @@ import type { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
+  const postConfirm = searchParams.get("post_confirm");
   let next = searchParams.get("next") ?? "/";
 
   if (!next.startsWith("/")) {
@@ -26,11 +27,13 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll() { return cookieStore.getAll(); },
+          getAll() {
+            return cookieStore.getAll();
+          },
           setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
           },
         },
       }
@@ -38,10 +41,14 @@ export async function GET(request: NextRequest) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      if (postConfirm === "signin") {
+        await supabase.auth.signOut();
+        return NextResponse.redirect(`${origin}/login?tab=signin&emailConfirmed=1`);
+      }
+
       return NextResponse.redirect(`${origin}${next}`);
     }
   }
 
-  // Something went wrong — send to login
-  return NextResponse.redirect(`${origin}/`);
+  return NextResponse.redirect(`${origin}/login?tab=signin`);
 }

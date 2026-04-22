@@ -670,7 +670,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   })();
   const showLiveCard = creator.isLive || Boolean(hasLiveRate || scheduledLiveLabel || scheduledLiveCountdown);
   const liveButtonLabel = (() => {
-    if (creator.isLive) return "Watch now";
+    if (creator.isLive) return "Join Live";
     if (scheduledLiveCountdown) return scheduledLiveCountdown;
     if (submittingLiveRequest) return "Sending request...";
     if (liveRequestStatus?.hasRequestedToday) return "Come back tomorrow";
@@ -725,12 +725,53 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     },
   ].filter((link) => link.href);
 
+  const mobileLiveCard = showLiveCard ? (
+    <div className="mx-4 mb-6 rounded-2xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
+      <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
+        <Zap className="h-3 w-3" />
+        Join Friendsly Live
+      </div>
+      <h2 className="mt-3 text-base font-bold text-brand-ink">Free to watch</h2>
+      <p className="mt-1 text-sm text-brand-ink-muted">Quick chats, Q&amp;As, and meet and greets.</p>
+      {shouldShowLiveButton && (
+        creator.isLive && hasLiveRate ? (
+          <Link href={liveHref ?? "#"} className="mt-3 block">
+            <Button variant="live" size="lg" className="w-full gap-2">
+              <Zap className="h-4 w-4" />
+              {liveButtonLabel}
+            </Button>
+          </Link>
+        ) : (
+          <Button
+            variant={liveButtonDisabled ? "surface" : "live"}
+            size="lg"
+            className="mt-3 w-full gap-2"
+            disabled={liveButtonDisabled}
+            onClick={() => void handleLiveRequest()}
+          >
+            <Zap className="h-4 w-4" />
+            {liveButtonLabel}
+          </Button>
+        )
+      )}
+    </div>
+  ) : null;
+
   return (
     <>
       {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ MOBILE LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="app-safe-screen md:hidden bg-white flex flex-col">
         {/* Scrollable body */}
         <div className={cn("flex-1", (hasPackages || shouldShowLiveButton) && "pb-32")}>
+          <div className="sticky top-0 z-20 border-b border-brand-border/70 bg-white/95 px-4 py-3 backdrop-blur-sm">
+            <Link href="/discover" className="inline-flex items-center gap-2 text-sm font-medium text-brand-ink-muted transition-colors hover:text-brand-ink">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Link>
+          </div>
+
+          {creator.isLive ? mobileLiveCard : null}
+
           {/* Hero image */}
           <div className="relative mx-4 mt-4 aspect-square rounded-2xl overflow-hidden">
             {creator.avatarUrl ? (
@@ -742,7 +783,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             )}
             {creator.isLive && (
               <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-live text-white text-xs font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_0_4px_rgba(239,68,68,0.18)]" />
                 LIVE
               </div>
             )}
@@ -842,37 +883,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {showLiveCard && (
-            <div className="mx-4 mb-6 rounded-2xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
-                <Zap className="h-3 w-3" />
-                Join Friendsly Live
-              </div>
-              <h2 className="mt-3 text-base font-bold text-brand-ink">Free to watch.</h2>
-              <p className="mt-1 text-sm text-brand-ink-muted">Quick chats, Q&amp;As, and meet and greets.</p>
-              {shouldShowLiveButton && (
-                creator.isLive && hasLiveRate ? (
-                  <Link href={liveHref ?? "#"} className="mt-3 block">
-                    <Button variant="live" size="lg" className="w-full gap-2">
-                      <Zap className="h-4 w-4" />
-                      {liveButtonLabel}
-                    </Button>
-                  </Link>
-                ) : (
-                  <Button
-                    variant={liveButtonDisabled ? "surface" : "live"}
-                    size="lg"
-                    className="mt-3 w-full gap-2"
-                    disabled={liveButtonDisabled}
-                    onClick={() => void handleLiveRequest()}
-                  >
-                    <Zap className="h-4 w-4" />
-                    {liveButtonLabel}
-                  </Button>
-                )
-              )}
-            </div>
-          )}
+          {!creator.isLive ? mobileLiveCard : null}
 
           {/* Availability */}
           <div className="px-4 mb-6">
@@ -948,7 +959,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                             : `${formatShortDate(date)} has no availability`
                       }
                       className={cn(
-                        "rounded-xl border p-2 text-center transition-colors",
+                        "rounded-xl border px-1.5 py-2 text-center transition-colors",
                         isToday
                           ? "border-brand-primary/50 bg-brand-primary/10"
                           : canBookDate
@@ -962,7 +973,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       <p className={cn("text-sm font-bold mt-0.5", isToday ? "text-brand-primary-light" : canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
                         {date.getDate()}
                       </p>
-                      <p className={cn("mt-1 text-[9px] font-medium", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
+                      <p className={cn("mt-1 text-[8px] font-medium leading-none", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
                         {hasAnySlots ? "Available" : isPast ? "-" : "Off"}
                       </p>
                     </button>
@@ -1120,7 +1131,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               )}
               {creator.isLive && (
                 <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-brand-live px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-md">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.18)]" />
                   LIVE NOW
                 </div>
               )}
@@ -1288,7 +1299,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <Zap className="h-3 w-3" />
                   Join Friendsly Live
                 </div>
-                <h2 className="mt-3 text-xl font-serif font-normal text-brand-ink">Free to watch.</h2>
+                <h2 className="mt-3 text-xl font-serif font-normal text-brand-ink">Free to watch</h2>
                 <p className="mt-1 text-sm text-brand-ink-muted">Quick chats, Q&amp;As, and meet and greets.</p>
                 {shouldShowLiveButton && (
                   creator.isLive && hasLiveRate ? (
