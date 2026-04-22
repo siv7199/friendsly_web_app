@@ -52,9 +52,18 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
         setCountdownText("Going live soon");
       } else {
         const totalMinutes = Math.floor(diff / 60000);
-        const hours = Math.floor(totalMinutes / 60);
+        const totalHours = Math.floor(totalMinutes / 60);
+        const days = Math.floor(totalHours / 24);
         const minutes = totalMinutes % 60;
-        setCountdownText(hours > 0 ? `Live in ${hours}h ${minutes}m` : `Live in ${minutes}m`);
+
+        if (days >= 1) {
+          const remainingHours = totalHours % 24;
+          setCountdownText(remainingHours > 0 ? `Live in ${days}d ${remainingHours}h` : `Live in ${days}d`);
+        } else if (totalHours > 0) {
+          setCountdownText(`Live in ${totalHours}h ${minutes}m`);
+        } else {
+          setCountdownText(`Live in ${minutes}m`);
+        }
       }
     }
     updateCountdown();

@@ -387,7 +387,15 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const scrollToMobileSection = useCallback((target: "live" | "booking") => {
     const element = target === "live" ? mobileLiveSectionRef.current : mobileBookingSectionRef.current;
     if (!element) return;
-    element.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    const rect = element.getBoundingClientRect();
+    const absoluteTop = window.scrollY + rect.top;
+    const centeredTop = absoluteTop - Math.max(0, (window.innerHeight - rect.height) / 2);
+
+    window.scrollTo({
+      top: Math.max(0, centeredTop),
+      behavior: "smooth",
+    });
   }, []);
 
   const loadCreatorData = useCallback((supabase = createClient(), incrementProfileView = false) => {

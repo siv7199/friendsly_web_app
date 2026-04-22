@@ -1,11 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Mail, Phone, Sparkles, User, CheckCircle2, Link2, Lock, Instagram, Music2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { readJsonResponse } from "@/lib/http";
 import { createClient } from "@/lib/supabase/client";
@@ -129,31 +129,7 @@ export default function CreatorRequestPage() {
         </div>
 
         <div className="glass-card rounded-2xl p-6 md:p-7">
-          {submitted ? (
-            <div className="space-y-5 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-live/15 text-brand-live">
-                <CheckCircle2 className="h-7 w-7" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-brand-ink">Request received</h2>
-                <p className="mt-2 text-sm leading-6 text-brand-ink-subtle">
-                  We saved your creator application. You will not be able to sign in until the request is approved.
-                </p>
-                {emailConfigured === false && (
-                  <p className="mt-3 text-xs text-amber-300">
-                    Email notifications are not configured yet, so this request was stored without sending an email alert.
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-                <Link href="/">
-                  <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                    Back to sign in
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          ) : (
+          {!submitted ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 label="Full Name"
@@ -269,7 +245,7 @@ export default function CreatorRequestPage() {
               <div className="rounded-xl border border-brand-gold/20 bg-brand-gold/5 px-4 py-3 text-xs leading-5 text-brand-ink-subtle">
                 {user
                   ? "Manual review keeps creator accounts vetted before they can accept bookings or go live."
-                  : "You will set your password now, but sign-in stays locked until the review team approves your creator request."}
+                  : "Your account request will be reviewed before creator access is enabled."}
               </div>
 
               <Button
@@ -297,9 +273,47 @@ export default function CreatorRequestPage() {
                 Fan accounts still use the regular sign-up flow. Creator accounts are approved manually.
               </p>
             </form>
-          )}
+          ) : null}
         </div>
       </div>
+
+      <Dialog
+        open={submitted}
+        onClose={() => router.push("/login?tab=signin")}
+      >
+        <DialogContent
+          title="Request received"
+          description="Your Friendsly creator request is in for review."
+          onClose={() => router.push("/login?tab=signin")}
+          className="max-w-md"
+        >
+          <div className="space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-live/15 text-brand-live">
+              <CheckCircle2 className="h-7 w-7" />
+            </div>
+            <div className="rounded-2xl border border-brand-border bg-brand-surface px-4 py-4">
+              <p className="text-sm font-semibold text-brand-ink">Next step</p>
+              <p className="mt-1 text-sm leading-6 text-brand-ink-muted">
+                Your creator account has to be approved before you can sign in as a creator, accept bookings, or go live.
+              </p>
+            </div>
+            {emailConfigured === false ? (
+              <p className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-700">
+                Your request was saved, but email notifications are not configured yet, so the review team was not emailed automatically.
+              </p>
+            ) : null}
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              className="w-full"
+              onClick={() => router.push("/login?tab=signin")}
+            >
+              Back to sign in
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

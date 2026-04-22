@@ -20,6 +20,21 @@ interface AvailabilitySlot {
 const DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const BOOKING_INTERVAL_OPTIONS = [15, 30, 60];
 
+function getScheduledLiveDayOfWeek(scheduledLiveAt: string | null, timeZone: string) {
+  if (!scheduledLiveAt) return null;
+
+  const scheduledDate = new Date(scheduledLiveAt);
+  if (Number.isNaN(scheduledDate.getTime())) return null;
+
+  const weekdayLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "long",
+  }).format(scheduledDate);
+
+  const dayIndex = DAY_LABELS.indexOf(weekdayLabel);
+  return dayIndex >= 0 ? dayIndex : null;
+}
+
 function defaultSlot(dayOfWeek: number): AvailabilitySlot {
   return {
     id: crypto.randomUUID(),
@@ -68,6 +83,7 @@ export function WeeklyAvailabilityEditor({
   const [availabilitySaved, setAvailabilitySaved] = useState(false);
   const [creatorTimeZone, setCreatorTimeZone] = useState(getBrowserTimeZone());
   const [bookingIntervalMinutes, setBookingIntervalMinutes] = useState(30);
+  const [scheduledLiveAt, setScheduledLiveAt] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadAvailability() {
@@ -75,7 +91,7 @@ export function WeeklyAvailabilityEditor({
 
       const cpRes = await supabase
         .from("creator_profiles")
-        .select("timezone, booking_interval_minutes")
+        .select("timezone, booking_interval_minutes, scheduled_live_at")
         .eq("id", creatorId)
         .single();
 
@@ -85,6 +101,7 @@ export function WeeklyAvailabilityEditor({
       if (cpRes.data?.booking_interval_minutes) {
         setBookingIntervalMinutes(cpRes.data.booking_interval_minutes);
       }
+      setScheduledLiveAt(cpRes.data?.scheduled_live_at ?? null);
 
       const availabilityRes = await supabase
         .from("creator_availability")
@@ -205,6 +222,7 @@ export function WeeklyAvailabilityEditor({
   const hasInvalidAvailability = availabilitySlots.some(
     (slot) => !slot.start_time || !slot.end_time || slot.end_time <= slot.start_time
   );
+  const scheduledLiveDayOfWeek = getScheduledLiveDayOfWeek(scheduledLiveAt, creatorTimeZone);
 
   return (
     <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
@@ -279,11 +297,23 @@ export function WeeklyAvailabilityEditor({
           return (
             <div
               key={dayLabel}
-              className="rounded-2xl border border-brand-border bg-brand-elevated/40 p-4"
+              className={cn(
+                "rounded-2xl border p-4 transition-colors",
+                scheduledLiveDayOfWeek === dayIndex
+                  ? "border-emerald-400/45 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(74,222,128,0.08),0_0_30px_rgba(34,197,94,0.12)]"
+                  : "border-brand-border bg-brand-elevated/40"
+              )}
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-brand-ink">{dayLabel}</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold text-brand-ink">{dayLabel}</h3>
+                    {scheduledLiveDayOfWeek === dayIndex ? (
+                      <span className="rounded-full border border-emerald-400/35 bg-emerald-500/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
+                        Scheduled Live
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="text-xs text-brand-ink-subtle mt-0.5">
                     {daySlots.length === 0
                       ? "Unavailable"

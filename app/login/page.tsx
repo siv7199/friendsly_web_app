@@ -212,7 +212,7 @@ export default function AuthPage() {
                 <form onSubmit={handleSignIn} className="space-y-3 px-1 pb-1">
                   {emailConfirmedMessage ? (
                     <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                      Email verified. Sign in to continue.
+                      Your Friendsly email is confirmed. Sign in to continue.
                     </p>
                   ) : null}
                   <Input
@@ -427,7 +427,6 @@ export default function AuthPage() {
                       Privacy Policy
                     </Link>
                     .
-                    Creator accounts are reviewed manually before access is enabled.
                   </p>
                   <p className="text-center text-xs text-brand-ink-subtle">
                     Need help?{" "}
@@ -445,19 +444,22 @@ export default function AuthPage() {
       <Dialog open={showEmailConfirmationModal} onClose={() => setShowEmailConfirmationModal(false)}>
         <DialogContent
           title="Check your email"
-          description="We sent you a confirmation link. Open your inbox, press that link, and you’ll come right back to the Friendsly sign-in page."
+          description="We sent your Friendsly confirmation email. Press the link in that email to confirm your account, then come right back here to sign in."
           onClose={() => setShowEmailConfirmationModal(false)}
           className="max-w-md"
         >
           <div className="space-y-4">
+            <div className="flex justify-center">
+              <BrandLogo href="/" size="sm" theme="light" />
+            </div>
             <div className="rounded-2xl border border-brand-border bg-brand-surface px-4 py-4">
               <p className="text-sm font-semibold text-brand-ink">Next step</p>
               <p className="mt-1 text-sm leading-6 text-brand-ink-muted">
-                Go to <span className="font-semibold text-brand-ink">{suEmail.trim().toLowerCase()}</span>, open the Friendsly email, and press the confirmation link.
+                Go to <span className="font-semibold text-brand-ink">{suEmail.trim().toLowerCase()}</span>, open the Friendsly email, and press the link to confirm your email.
               </p>
             </div>
             <p className="text-sm leading-6 text-brand-ink-muted">
-              After you verify, we’ll send you back to the sign-in page here so you can log in normally.
+              After you confirm your account, Friendsly will send you back to the sign-in page so you can log in normally.
             </p>
             <Button
               type="button"
