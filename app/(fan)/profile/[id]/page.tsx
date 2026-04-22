@@ -508,15 +508,16 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         "postgres_changes",
         { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${creator.id}` },
         (payload: any) => {
-          if (payload.new?.is_live === false) {
+          if (payload.new?.is_live === false || !payload.new?.current_live_session_id) {
             clearLiveExpiry();
           }
           setCreator((prev) =>
                 prev
                   ? {
                         ...prev,
-                        isLive: payload.new?.is_live ?? prev.isLive,
+                        isLive: payload.new?.current_live_session_id ? prev.isLive : false,
                         currentLiveSessionId: payload.new?.current_live_session_id ?? undefined,
+                        queueCount: payload.new?.current_live_session_id ? prev.queueCount : 0,
                         scheduledLiveAt: payload.new?.scheduled_live_at ?? undefined,
                         scheduledLiveTimeZone: payload.new?.scheduled_live_timezone ?? prev.scheduledLiveTimeZone,
                         liveJoinFee: payload.new?.live_join_fee != null

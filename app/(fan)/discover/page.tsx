@@ -239,14 +239,15 @@ export default function DiscoverPage() {
       .channel("discover_realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles" }, (payload: any) => {
         if (payload.new?.id) {
-          if (payload.new.is_live === false) clearLiveExpiry(payload.new.id);
+          if (payload.new.is_live === false || !payload.new.current_live_session_id) clearLiveExpiry(payload.new.id);
           setCreators((prev) =>
             prev.map((creator) =>
               creator.id === payload.new.id
                 ? {
                     ...creator,
-                    isLive: payload.new.is_live ?? creator.isLive,
+                    isLive: payload.new.current_live_session_id ? creator.isLive : false,
                     currentLiveSessionId: payload.new.current_live_session_id ?? undefined,
+                    queueCount: payload.new.current_live_session_id ? creator.queueCount : 0,
                     scheduledLiveAt: payload.new.scheduled_live_at ?? undefined,
                     scheduledLiveTimeZone: payload.new.scheduled_live_timezone ?? creator.scheduledLiveTimeZone,
                     liveJoinFee: payload.new.live_join_fee != null ? Number(payload.new.live_join_fee) : creator.liveJoinFee,
