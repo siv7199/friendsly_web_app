@@ -529,7 +529,26 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-4 py-4 md:px-8">
-      {/* ── Status Banner ── */}
+      {/* ── Quick Join banner — top of page so creator sees it immediately ── */}
+      {nextJoinableBooking && (
+        <div className="rounded-2xl border border-brand-live/30 bg-brand-live/10 p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-live">Ready To Start</p>
+            <p className="mt-1 text-sm text-brand-ink">
+              {nextJoinableBooking.status === "live" ? "Your booking room is live now." : `You can join ${nextJoinableBooking.fanName}'s booking now.`}
+            </p>
+            <p className="mt-1 text-xs text-brand-ink-subtle">
+              {nextJoinableBooking.time} · {nextJoinableBooking.duration} min
+            </p>
+          </div>
+          <Link href={`/room/${nextJoinableBooking.id}`}>
+            <Button variant="live" className="gap-2 shadow-glow-live">
+              <Video className="w-4 h-4" />
+              Quick Join
+            </Button>
+          </Link>
+        </div>
+      )}
       {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -647,26 +666,6 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : null}
-            </div>
-          )}
-
-          {nextJoinableBooking && (
-            <div className="mb-4 rounded-2xl border border-brand-live/30 bg-brand-live/10 p-4 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-live">Ready To Start</p>
-                <p className="mt-1 text-sm text-brand-ink">
-                  {nextJoinableBooking.status === "live" ? "Your booking room is live now." : `You can join ${nextJoinableBooking.fanName}'s booking now.`}
-                </p>
-                <p className="mt-1 text-xs text-brand-ink-subtle">
-                  {nextJoinableBooking.time} · {nextJoinableBooking.duration} min
-                </p>
-              </div>
-              <Link href={`/room/${nextJoinableBooking.id}`}>
-                <Button variant="live" className="gap-2 shadow-glow-live">
-                  <Video className="w-4 h-4" />
-                  Quick Join
-                </Button>
-              </Link>
             </div>
           )}
 

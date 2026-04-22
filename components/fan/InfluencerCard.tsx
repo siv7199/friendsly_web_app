@@ -231,45 +231,45 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
           </Link>
 
           {/* Price + rating row */}
-          <div className="mt-auto flex min-h-[34px] items-center justify-between gap-1">
-            <div className="flex min-w-0 overflow-hidden items-center gap-2">
-              {creator.isLive ? (
-                <>
-                  {hasLiveRate && (
+          <div className={cn("mt-auto flex flex-col gap-0.5", creator.isLive && hasLiveRate && hasPackages ? "min-h-[48px]" : "min-h-[34px]")}>
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex min-w-0 items-center gap-2">
+                {creator.isLive ? (
+                  hasLiveRate && (
                     <span className="text-sm font-display font-bold text-brand-live shrink-0">
                       {formatCurrency(creator.liveJoinFee!)}
                       <span className="font-normal text-brand-ink-subtle text-[11px]"> /min</span>
                     </span>
-                  )}
-                  {hasPackages && (
-                    <span className="text-[11px] text-brand-ink-subtle truncate">
-                      · Book from {formatCurrency(creator.callPrice)}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <>
-                  {hasPackages && (
-                    <span className="text-sm font-display font-bold text-brand-ink shrink-0">
-                      {formatCurrency(creator.callPrice)}
-                      <span className="font-normal text-brand-ink-subtle text-[11px]"> /call</span>
-                    </span>
-                  )}
-                  {countdownText && (
-                    <span className="text-[10px] text-brand-primary font-semibold truncate">{countdownText}</span>
-                  )}
-                </>
-              )}
+                  )
+                ) : (
+                  <>
+                    {hasPackages && (
+                      <span className="text-sm font-display font-bold text-brand-ink shrink-0">
+                        {formatCurrency(creator.callPrice)}
+                        <span className="font-normal text-brand-ink-subtle text-[11px]"> /call</span>
+                      </span>
+                    )}
+                    {countdownText && (
+                      <span className="text-[10px] text-brand-primary font-semibold truncate">{countdownText}</span>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                <span className="text-xs font-bold text-amber-600">
+                  {creator.rating > 0 ? creator.rating : "New"}
+                </span>
+                {creator.rating > 0 && (
+                  <span className="text-[10px] text-brand-ink-subtle">({creator.reviewCount})</span>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-              <span className="text-xs font-bold text-amber-600">
-                {creator.rating > 0 ? creator.rating : "New"}
+            {creator.isLive && hasPackages && (
+              <span className="text-[11px] text-brand-ink-subtle">
+                Book from {formatCurrency(creator.callPrice)}
               </span>
-              {creator.rating > 0 && (
-                <span className="text-[10px] text-brand-ink-subtle">({creator.reviewCount})</span>
-              )}
-            </div>
+            )}
           </div>
         </div>
 

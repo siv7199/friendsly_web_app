@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { DailyAudioTrack, DailyVideo, useDaily, useLocalSessionId, useParticipantIds } from "@daily-co/daily-react";
+import { DailyAudioTrack, DailyVideo, useDaily, useLocalSessionId, useParticipantIds, useParticipantProperty } from "@daily-co/daily-react";
 import { Loader2, Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
 import { CallContainer } from "@/components/video/CallContainer";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,8 @@ function GuestVideoStage({
   const localSessionId = useLocalSessionId();
   const remoteParticipantIds = useParticipantIds({ filter: "remote" });
   const remoteParticipantId = remoteParticipantIds[0];
+  const remoteVideoState = useParticipantProperty(remoteParticipantId ?? "", "tracks.video.state");
+  const remoteVideoOn = remoteVideoState === "playable" || remoteVideoState === "loading";
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
 
@@ -105,7 +107,7 @@ function GuestVideoStage({
         </div>
 
         <div className="relative rounded-2xl bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center aspect-video">
-          {remoteParticipantId ? (
+          {remoteParticipantId && remoteVideoOn ? (
             <>
               <DailyVideo sessionId={remoteParticipantId} type="video" className="w-full h-full object-cover z-10" />
               <div className="absolute bottom-3 left-3 text-xs font-semibold text-white bg-black/50 rounded-lg px-2 py-1 z-20">
@@ -122,7 +124,9 @@ function GuestVideoStage({
                 className="opacity-60 mb-3"
               />
               <p className="text-sm font-medium text-brand-ink-subtle">
-                Waiting for {accessPayload?.booking.creator?.full_name ?? "Creator"}...
+                {remoteParticipantId
+                  ? `${accessPayload?.booking.creator?.full_name ?? "Creator"}'s camera is off`
+                  : `Waiting for ${accessPayload?.booking.creator?.full_name ?? "Creator"}...`}
               </p>
             </div>
           )}

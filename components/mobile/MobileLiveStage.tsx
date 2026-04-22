@@ -462,7 +462,7 @@ function MobileLiveInner({
 
       {/* ── Video card ── */}
       <div
-        className={cn("relative mx-3", chatCollapsed ? "flex-1 min-h-0 mb-3" : "shrink-0")}
+        className={cn("relative mx-3", chatCollapsed ? "flex-1 min-h-0 mb-5" : "shrink-0 mb-4")}
         style={chatCollapsed ? undefined : { height: "min(36dvh, 320px)" }}
       >
         <div
@@ -619,7 +619,7 @@ function MobileLiveInner({
           </div>
         </div>
         {/* Chat messages — last 5, oldest fades via gradient overlay */}
-        <div className="relative min-h-0 flex-1 overflow-hidden px-4 pt-3">
+        <div className="relative min-h-0 flex-1 overflow-hidden px-4 pt-4">
           {/* White gradient fade over top messages */}
           <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white to-transparent pointer-events-none z-10" />
           <div className="flex h-full flex-col justify-end gap-1.5 pb-1.5">

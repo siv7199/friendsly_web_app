@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2, Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
-import { DailyAudioTrack, DailyVideo, useDaily, useLocalSessionId, useParticipantIds } from "@daily-co/daily-react";
+import { DailyAudioTrack, DailyVideo, useDaily, useLocalSessionId, useParticipantIds, useParticipantProperty } from "@daily-co/daily-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +58,8 @@ function BookingVideoStage({
   const localSessionId = useLocalSessionId();
   const remoteParticipantIds = useParticipantIds({ filter: "remote" });
   const remoteParticipantId = remoteParticipantIds[0];
+  const remoteVideoState = useParticipantProperty(remoteParticipantId ?? "", "tracks.video.state");
+  const remoteVideoOn = remoteVideoState === "playable" || remoteVideoState === "loading";
   const [micOn, setMicOn] = useState(canUseMedia);
   const [camOn, setCamOn] = useState(canUseMedia);
 
@@ -230,7 +232,7 @@ function BookingVideoStage({
         </div>
 
         <div className="relative min-h-[240px] md:min-h-0 rounded-[24px] bg-brand-elevated border border-brand-border overflow-hidden flex items-center justify-center">
-          {remoteParticipantId ? (
+          {remoteParticipantId && remoteVideoOn ? (
             <>
               <div className="booking-stage-video w-full h-full relative overflow-hidden">
                 <DailyVideo sessionId={remoteParticipantId} type="video" className="w-full h-full object-cover z-10" />
@@ -251,7 +253,9 @@ function BookingVideoStage({
                 size="xl"
                 className="opacity-60 mb-3"
               />
-              <p className="text-sm font-medium text-brand-ink-subtle">Waiting for {remoteName} to join...</p>
+              <p className="text-sm font-medium text-brand-ink-subtle">
+                {remoteParticipantId ? `${remoteName}'s camera is off` : `Waiting for ${remoteName} to join...`}
+              </p>
             </div>
           )}
         </div>

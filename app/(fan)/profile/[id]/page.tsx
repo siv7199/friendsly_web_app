@@ -879,7 +879,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
               <div
                 className={cn(
-                  "grid gap-2",
+                  "grid gap-3",
                   activePackages.length === 1 && "grid-cols-1",
                   activePackages.length === 2 && "grid-cols-2",
                   activePackages.length >= 3 && "grid-cols-3",
@@ -893,7 +893,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     key={pkg.id}
                     type="button"
                     className={cn(
-                      "flex w-full min-w-0 flex-col items-start gap-1 rounded-2xl border p-3 text-left transition-colors active:opacity-80",
+                      "flex w-full min-w-0 flex-col items-start gap-1 rounded-2xl border px-3 pt-3 pb-3.5 text-left transition-colors active:opacity-80",
                       accent.card,
                     )}
                     onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
@@ -903,7 +903,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       <Clock className="h-3 w-3" />
                       {pkg.duration} min
                     </span>
-                    <p className={cn("mt-1 text-base font-display font-bold", accent.price)}>{formatCurrency(pkg.price)}</p>
+                    <p className={cn("relative z-10 mt-1 text-base font-display font-bold", accent.price)}>{formatCurrency(pkg.price)}</p>
                   </button>
                     );
                   })()

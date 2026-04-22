@@ -9,6 +9,7 @@ import {
   useDaily,
   useLocalSessionId,
   useParticipantIds,
+  useParticipantProperty,
 } from "@daily-co/daily-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,8 @@ function MobileBookingStage({
   const localSessionId = useLocalSessionId();
   const remoteParticipantIds = useParticipantIds({ filter: "remote" });
   const remoteParticipantId = remoteParticipantIds[0];
+  const remoteVideoState = useParticipantProperty(remoteParticipantId ?? "", "tracks.video.state");
+  const remoteVideoOn = remoteVideoState === "playable" || remoteVideoState === "loading";
   const [micOn, setMicOn] = useState(canUseMedia);
   const [camOn, setCamOn] = useState(canUseMedia);
 
@@ -171,9 +174,9 @@ function MobileBookingStage({
       {remoteParticipantId ? <DailyAudioTrack sessionId={remoteParticipantId} /> : null}
       <style dangerouslySetInnerHTML={VIDEO_FILL} />
 
-      {/* Full-screen remote video (or waiting state) */}
+      {/* Full-screen remote video (or waiting/camera-off state) */}
       <div className="absolute inset-0">
-        {hasRemote ? (
+        {hasRemote && remoteVideoOn ? (
           <div className="m-booking-video h-full w-full">
             <DailyVideo sessionId={remoteParticipantId!} type="video" className="h-full w-full object-cover" />
           </div>
@@ -185,7 +188,9 @@ function MobileBookingStage({
               imageUrl={remoteImageUrl}
               size="xl"
             />
-            <p className="text-sm text-white/75">Waiting for {remoteName} to join...</p>
+            <p className="text-sm text-white/75">
+              {hasRemote ? `${remoteName}'s camera is off` : `Waiting for ${remoteName} to join...`}
+            </p>
           </div>
         )}
       </div>
