@@ -33,12 +33,12 @@ Focus only on these flows:
 
 ### 1.1 Login Stress Testing
 
-- [ ] Fan login works repeatedly without stale-session issues
-- [ ] Creator login works repeatedly without stale-session issues
-- [ ] Logout then immediate login works
-- [ ] Multi-tab login/logout behavior is stable
-- [ ] Wrong-password and expired-session behavior is safe and recoverable
-- [ ] Auth rate limits or anti-abuse protections do not break normal usage
+- [x] Fan login works repeatedly without stale-session issues
+- [x] Creator login works repeatedly without stale-session issues
+- [x] Logout then immediate login works
+- [x] Multi-tab login/logout behavior is stable
+- [] Wrong-password and expired-session behavior is safe and recoverable
+- [x] Auth rate limits or anti-abuse protections do not break normal usage
 
 Definition of done:
 

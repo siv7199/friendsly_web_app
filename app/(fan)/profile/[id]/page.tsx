@@ -84,6 +84,21 @@ function formatShortDate(date: Date) {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+function getScrollContainer(element: HTMLElement | null) {
+  let current = element?.parentElement ?? null;
+
+  while (current) {
+    const styles = window.getComputedStyle(current);
+    const canScrollY = /(auto|scroll)/.test(styles.overflowY);
+    if (canScrollY && current.scrollHeight > current.clientHeight) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
 function getPackageAccentClasses(index: number) {
   const accents = [
     {
@@ -388,9 +403,30 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     const element = target === "live" ? mobileLiveSectionRef.current : mobileBookingSectionRef.current;
     if (!element) return;
 
+    const scrollContainer = getScrollContainer(element);
+    const mobileHeaderOffset = 112;
+
+    if (scrollContainer) {
+      const elementRect = element.getBoundingClientRect();
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const visibleHeight = scrollContainer.clientHeight - mobileHeaderOffset;
+      const targetTop =
+        scrollContainer.scrollTop +
+        (elementRect.top - containerRect.top) -
+        mobileHeaderOffset -
+        Math.max(0, (visibleHeight - elementRect.height) / 2);
+
+      scrollContainer.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: "smooth",
+      });
+      return;
+    }
+
     const rect = element.getBoundingClientRect();
+    const visibleHeight = window.innerHeight - mobileHeaderOffset;
     const absoluteTop = window.scrollY + rect.top;
-    const centeredTop = absoluteTop - Math.max(0, (window.innerHeight - rect.height) / 2);
+    const centeredTop = absoluteTop - mobileHeaderOffset - Math.max(0, (visibleHeight - rect.height) / 2);
 
     window.scrollTo({
       top: Math.max(0, centeredTop),
@@ -708,9 +744,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     const diff = new Date(creator.scheduledLiveAt).getTime() - Date.now();
     if (diff <= 0) return "Going live soon";
     const totalMinutes = Math.floor(diff / 60000);
-    const hours = Math.floor(totalMinutes / 60);
+    const totalHours = Math.floor(totalMinutes / 60);
+    const days = Math.floor(totalHours / 24);
     const minutes = totalMinutes % 60;
-    return hours > 0 ? `Going live in ${hours}h ${minutes}m` : `Going live in ${minutes}m`;
+    if (days >= 1) {
+      const remainingHours = totalHours % 24;
+      return remainingHours > 0 ? `Going live in ${days}d ${remainingHours}h` : `Going live in ${days}d`;
+    }
+    return totalHours > 0 ? `Going live in ${totalHours}h ${minutes}m` : `Going live in ${minutes}m`;
   })();
   const scheduledLiveLabel = (() => {
     if (!creator.scheduledLiveAt || creator.isLive) return null;
@@ -1519,7 +1560,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         <p className={cn("mt-0.5 text-base font-bold", isToday ? "text-brand-primary-light" : canBookDate ? "text-brand-ink" : "text-brand-ink-subtle")}>
                           {date.getDate()}
                         </p>
-                        <p className={cn("mt-1 text-[9px] font-medium", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
+                        <p className={cn("mt-1 w-full px-0.5 text-center text-[8px] font-medium leading-tight sm:text-[9px]", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
                           {hasAnySlots ? "Available" : isPast ? "-" : "Off"}
                         </p>
                       </button>

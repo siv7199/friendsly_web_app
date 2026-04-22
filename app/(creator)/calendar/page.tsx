@@ -11,6 +11,7 @@ import { formatCurrency } from "@/lib/utils";
 import { deriveBookingStatus, getBookingGrossAmount, getNextAutoCancelCheckDelay, getNextBookingRefreshDelay, hasBookingEnded } from "@/lib/bookings";
 import { localDateKey } from "@/lib/timezones";
 import type { Booking } from "@/types";
+import { getCreatorRevenueShare } from "@/lib/revenue";
 
 function groupByDate(bookings: Booking[]) {
   const groups: Record<string, Booking[]> = {};
@@ -159,7 +160,7 @@ export default function CalendarPage() {
           date: localDateKey(bookingDate),
           time: bookingDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
           duration: booking.duration,
-          price: grossBookingAmount * 0.85,
+          price: getCreatorRevenueShare(grossBookingAmount),
           status: normalizedStatus,
           topic: booking.topic || "",
         };

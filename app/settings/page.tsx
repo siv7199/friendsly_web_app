@@ -35,6 +35,7 @@ import { deriveBookingStatus, getBookingGrossAmount, hasBookingEnded, shouldAuto
 import { sanitizeSocialUrl } from "@/lib/social";
 import { removeAvatarFile, uploadAvatarFile } from "@/lib/avatar-upload";
 import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
+import { getCreatorRevenueShare } from "@/lib/revenue";
 
 const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : Promise.resolve(null);
@@ -221,7 +222,7 @@ export default function SettingsPage() {
           expiredIds.push(b.id);
         }
         if (normalizedStatus === "completed" || normalizedStatus === "upcoming" || normalizedStatus === "live") {
-          const cut = grossBookingAmount * 0.85; // 85% cut calculation
+          const cut = getCreatorRevenueShare(grossBookingAmount);
           totalEarned += cut;
           const bDate = new Date(b.scheduled_at);
           if (
@@ -243,7 +244,7 @@ export default function SettingsPage() {
       (liveRes.data || []).forEach((session: any) => {
         (session.live_queue_entries || []).forEach((entry: any) => {
           if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {
-            const cut = Number(entry.amount_charged) * 0.85;
+            const cut = getCreatorRevenueShare(Number(entry.amount_charged));
             totalEarned += cut;
 
             const endedAt = entry.ended_at ? new Date(entry.ended_at) : null;

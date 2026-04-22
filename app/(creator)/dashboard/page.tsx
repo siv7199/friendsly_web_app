@@ -30,6 +30,7 @@ import { getCreatorAnalyticsSnapshot } from "@/lib/analytics";
 import { getCreatorInsights, type CreatorInsight } from "@/lib/creator-insights";
 import { formatDateTimeLocalInTimeZone, getBrowserTimeZone, localDateKey, zonedTimeToUtc } from "@/lib/timezones";
 import { getCreatorLiveConsolePath } from "@/lib/routes";
+import { getCreatorRevenueShare } from "@/lib/revenue";
 
 interface LiveRequestRow {
   id: string;
@@ -371,7 +372,7 @@ export default function DashboardPage() {
           date: localDateKey(bDate),
           time: bDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
           duration: b.duration,
-          price: grossBookingAmount * 0.85, // Show their 85% cut!
+          price: getCreatorRevenueShare(grossBookingAmount),
           status: normalizedStatus,
           topic: b.topic || ""
         };
@@ -426,7 +427,7 @@ export default function DashboardPage() {
         });
       }
       
-      const creatorCut = (totalEarnedGross + liveQueueEarned) * 0.85;
+      const creatorCut = getCreatorRevenueShare(totalEarnedGross + liveQueueEarned);
       const profileCreator = Array.isArray(profileRes.data?.creator_profiles)
         ? profileRes.data?.creator_profiles[0]
         : profileRes.data?.creator_profiles;

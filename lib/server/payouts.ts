@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { deriveBookingStatus, getBookingGrossAmount } from "@/lib/bookings";
 import { stripe } from "@/lib/server/stripe";
 import { getRetainedBookingAmount } from "@/lib/server/bookings";
+import { getCreatorRevenueShare } from "@/lib/revenue";
 
 export type CreatorPayoutSummary = {
   available: number;
@@ -193,7 +194,7 @@ export async function getCreatorPayoutSummary(userId: string): Promise<CreatorPa
     );
 
     if (normalizedStatus === "upcoming" || normalizedStatus === "live") {
-      pendingEarnings += grossBookingAmount * 0.85;
+      pendingEarnings += getCreatorRevenueShare(grossBookingAmount);
       return;
     }
 
@@ -205,7 +206,7 @@ export async function getCreatorPayoutSummary(userId: string): Promise<CreatorPa
 
     if (grossRetained <= 0) return;
 
-    const creatorCut = grossRetained * 0.85;
+    const creatorCut = getCreatorRevenueShare(grossRetained);
     totalEarned += creatorCut;
 
     const scheduledDate = new Date(booking.scheduled_at);
@@ -220,7 +221,7 @@ export async function getCreatorPayoutSummary(userId: string): Promise<CreatorPa
   (liveRes.data || []).forEach((session: any) => {
     (session.live_queue_entries || []).forEach((entry: any) => {
       if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {
-        const creatorCut = Number(entry.amount_charged) * 0.85;
+        const creatorCut = getCreatorRevenueShare(Number(entry.amount_charged));
         totalEarned += creatorCut;
 
         const endedAt = entry.ended_at ? new Date(entry.ended_at) : null;
