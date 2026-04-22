@@ -67,23 +67,27 @@ export function ScheduledLiveCard({
       </div>
 
       <div className="mt-4 space-y-3 min-w-0 px-1">
-        <input
-          type="datetime-local"
-          value={scheduledLiveAt}
-          onChange={(event) => onChangeDateTime(event.target.value)}
-          className="block h-11 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-4 text-sm text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary"
-        />
-        <select
-          value={scheduledLiveTimeZone}
-          onChange={(event) => onChangeTimeZone(event.target.value)}
-          className="block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-elevated px-4 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
-        >
-          {COMMON_TIME_ZONES.map((timeZone) => (
-            <option key={timeZone} value={timeZone}>
-              {formatTimeZoneLabel(timeZone)}
-            </option>
-          ))}
-        </select>
+        <div className="min-w-0 px-1">
+          <input
+            type="datetime-local"
+            value={scheduledLiveAt}
+            onChange={(event) => onChangeDateTime(event.target.value)}
+            className="block h-11 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-brand-border bg-brand-elevated pl-4 pr-12 text-sm text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary"
+          />
+        </div>
+        <div className="min-w-0 px-1">
+          <select
+            value={scheduledLiveTimeZone}
+            onChange={(event) => onChangeTimeZone(event.target.value)}
+            className="block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-elevated pl-4 pr-10 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
+          >
+            {COMMON_TIME_ZONES.map((timeZone) => (
+              <option key={timeZone} value={timeZone}>
+                {formatTimeZoneLabel(timeZone)}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {!liveRateConfigured ? (

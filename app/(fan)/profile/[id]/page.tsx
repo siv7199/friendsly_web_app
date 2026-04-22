@@ -774,7 +774,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   ].filter((link) => link.href);
 
   const mobileLiveCard = showLiveCard ? (
-    <div ref={mobileLiveSectionRef} className="mx-4 mb-6 rounded-2xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
+    <div ref={mobileLiveSectionRef} className="rounded-2xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
       <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
         <Zap className="h-3 w-3" />
         Join Friendsly Live
@@ -924,7 +924,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            {creator.isLive && mobileLiveCard}
+            {creator.isLive && (
+              <div className="mt-4">
+                {mobileLiveCard}
+              </div>
+            )}
 
             {creator.bio && (
               <div className="mt-4 border-t border-brand-border pt-4">
@@ -934,11 +938,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             )}
           </div>
 
-          <div className="mx-4 my-5 border-t border-brand-border" />
+          <div className="mt-5 bg-[linear-gradient(180deg,#fbf9ff_0%,#f3ecff_38%,#ede4ff_100%)] pb-6 pt-5">
+            <div className="mx-4 mb-5 border-t border-[rgba(165,148,214,0.5)]" />
 
-          {/* Book a Session */}
-          {hasPackages && (
-            <div ref={mobileBookingSectionRef} className="px-4 mb-6">
+            {/* Book a Session */}
+            {hasPackages && (
+              <div ref={mobileBookingSectionRef} className="px-4 mb-6">
               <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
               <div
                 className={cn(
@@ -975,14 +980,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               <Button variant="primary" size="lg" className="w-full mt-3" onClick={() => setShowBooking(true)}>
                 See times
               </Button>
-            </div>
-          )}
+              </div>
+            )}
 
 
-          {/* Availability */}
-          <div className="px-4 mb-6">
-            <div className="rounded-2xl border border-brand-primary/15 bg-[linear-gradient(180deg,rgba(108,92,231,0.08),rgba(108,92,231,0.03))] p-4">
-            <h2 className="text-base font-bold text-brand-ink mb-3">Availability</h2>
+            {/* Availability */}
+            <div className="px-4 mb-6">
+              <div className="rounded-2xl border border-brand-primary/15 bg-[linear-gradient(180deg,rgba(108,92,231,0.08),rgba(108,92,231,0.03))] p-4">
+              <h2 className="text-base font-bold text-brand-ink mb-3">Availability</h2>
 
             {activePackages.length > 1 && (
               <div className="flex flex-wrap gap-2 mb-3">
@@ -1076,14 +1081,18 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 })}
               </div>
             )}
+              </div>
             </div>
-          </div>
 
-          {!creator.isLive && mobileLiveCard}
+            {!creator.isLive && (
+              <div className="px-4 mb-6">
+                {mobileLiveCard}
+              </div>
+            )}
 
-          {/* Reviews (mobile) */}
-          {(reviews.length > 0 || (isFan && !isOwnProfile) || creator.reviewCount === 0) && (
-            <div className="px-4 mb-6">
+            {/* Reviews (mobile) */}
+            {(reviews.length > 0 || (isFan && !isOwnProfile) || creator.reviewCount === 0) && (
+              <div className="px-4 mb-6">
               <h2 className="text-base font-bold text-brand-ink mb-3">
                 Reviews{creator.reviewCount > 0 ? ` (${creator.reviewCount})` : ""}
               </h2>
@@ -1154,8 +1163,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Sticky bottom CTA */}

@@ -31,11 +31,17 @@ export async function GET(request: Request) {
 
       const todayKey = isDateKey(requestDate ?? "") ? requestDate! : new Date().toISOString().slice(0, 10);
 
-      const [{ data: profile }, { data: existingRequest }] = await Promise.all([
+      const [{ data: profile }, { data: creatorProfile }, { data: existingRequest }] = await Promise.all([
         serviceSupabase
           .from("profiles")
           .select("id, role")
           .eq("id", user.id)
+          .maybeSingle(),
+        serviceSupabase
+          .from("profiles")
+          .select("id, role, creator_profiles(scheduled_live_at, current_live_session_id, is_live, live_join_fee)")
+          .eq("id", creatorId)
+          .eq("role", "creator")
           .maybeSingle(),
         serviceSupabase
           .from("live_requests")
@@ -49,9 +55,20 @@ export async function GET(request: Request) {
       ]);
 
       const isFan = profile?.role === "fan";
+      const creatorDetails = Array.isArray(creatorProfile?.creator_profiles)
+        ? creatorProfile?.creator_profiles[0]
+        : creatorProfile?.creator_profiles;
+      const creatorCanAcceptRequests = Boolean(
+        creatorProfile &&
+        !creatorDetails?.is_live &&
+        !creatorDetails?.current_live_session_id &&
+        !creatorDetails?.scheduled_live_at &&
+        creatorDetails?.live_join_fee &&
+        Number(creatorDetails.live_join_fee) > 0
+      );
 
       return NextResponse.json({
-        canRequest: isFan && user.id !== creatorId,
+        canRequest: isFan && user.id !== creatorId && creatorCanAcceptRequests,
         hasRequestedToday: Boolean(existingRequest),
         requestedAt: existingRequest?.requested_at ?? null,
       });
@@ -136,7 +153,7 @@ export async function POST(request: Request) {
         .maybeSingle(),
       serviceSupabase
         .from("profiles")
-        .select("id, role, creator_profiles(scheduled_live_at, current_live_session_id, is_live)")
+        .select("id, role, creator_profiles(scheduled_live_at, current_live_session_id, is_live, live_join_fee)")
         .eq("id", creatorId)
         .eq("role", "creator")
         .maybeSingle(),
@@ -160,6 +177,10 @@ export async function POST(request: Request) {
 
     if (creatorDetails?.scheduled_live_at) {
       return NextResponse.json({ error: "A live has already been scheduled." }, { status: 400 });
+    }
+
+    if (!creatorDetails?.live_join_fee || Number(creatorDetails.live_join_fee) <= 0) {
+      return NextResponse.json({ error: "This creator is not accepting live requests right now." }, { status: 400 });
     }
 
     const { data: existingRequest } = await serviceSupabase
