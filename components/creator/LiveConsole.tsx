@@ -943,7 +943,7 @@ export function LiveConsole() {
             <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4 text-left">
               <div className="flex items-center gap-2 text-brand-ink">
                 <CalendarClock className="w-4 h-4 text-brand-primary" />
-                <p className="text-sm font-semibold">Scheduling moved</p>
+                <p className="text-sm font-semibold">Schedule your next live</p>
               </div>
               <p className="mt-3 text-sm text-brand-ink-muted">
                 Set your next live time from the dashboard, then come back here when you're ready to go live.

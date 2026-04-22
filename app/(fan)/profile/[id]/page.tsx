@@ -384,6 +384,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         sessionId: creator.currentLiveSessionId,
       })
     : null;
+  const scrollToMobileSection = useCallback((target: "live" | "booking") => {
+    const element = target === "live" ? mobileLiveSectionRef.current : mobileBookingSectionRef.current;
+    if (!element) return;
+    element.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   const loadCreatorData = useCallback((supabase = createClient(), incrementProfileView = false) => {
     lastLoadAtRef.current = Date.now();
@@ -766,12 +771,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       icon: ExternalLink,
     },
   ].filter((link) => link.href);
-
-  const scrollToMobileSection = useCallback((target: "live" | "booking") => {
-    const element = target === "live" ? mobileLiveSectionRef.current : mobileBookingSectionRef.current;
-    if (!element) return;
-    element.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
 
   const mobileLiveCard = showLiveCard ? (
     <div ref={mobileLiveSectionRef} className="mx-4 mb-6 rounded-2xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">

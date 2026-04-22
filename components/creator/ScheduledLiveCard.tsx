@@ -50,14 +50,14 @@ export function ScheduledLiveCard({
   openStudioHref,
 }: ScheduledLiveCardProps) {
   return (
-    <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
+    <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface p-5">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-primary/10 text-brand-primary-light">
           <CalendarClock className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-primary-light">Scheduled Live</p>
-          <p className="mt-1 break-words pr-1 text-sm font-semibold leading-5 text-brand-ink">
+          <p className="mt-1 max-w-full break-words pr-1 text-sm font-semibold leading-5 text-brand-ink">
             {formatScheduledLiveLabel(scheduledLiveAtIso, scheduledLiveTimeZone)}
           </p>
           <p className="mt-1 text-xs text-brand-ink-subtle">
@@ -66,12 +66,12 @@ export function ScheduledLiveCard({
         </div>
       </div>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 space-y-3 min-w-0">
         <input
           type="datetime-local"
           value={scheduledLiveAt}
           onChange={(event) => onChangeDateTime(event.target.value)}
-          className="block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
+          className="block h-11 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary"
         />
         <select
           value={scheduledLiveTimeZone}
@@ -92,7 +92,7 @@ export function ScheduledLiveCard({
         </div>
       ) : null}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
         <Button variant="outline" className="w-full" onClick={onClear}>
           Clear
         </Button>
@@ -103,7 +103,7 @@ export function ScheduledLiveCard({
 
       <Link
         href={openStudioHref}
-        className="mt-4 inline-flex max-w-full items-center gap-1 text-sm font-medium text-brand-primary-light hover:underline"
+        className="mt-4 inline-flex max-w-full items-center gap-1 break-words text-sm font-medium text-brand-primary-light hover:underline"
       >
         <Radio className="h-4 w-4" />
         Open live studio

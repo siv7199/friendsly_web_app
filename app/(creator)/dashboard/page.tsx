@@ -741,7 +741,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick actions + profile card */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-primary-light">Shareable Booking Link</p>
             <p className="mt-2 text-sm text-brand-ink-muted">
