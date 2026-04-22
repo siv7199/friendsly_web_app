@@ -57,7 +57,7 @@ export function ScheduledLiveCard({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-primary-light">Scheduled Live</p>
-          <p className="mt-1 text-sm font-semibold text-brand-ink">
+          <p className="mt-1 break-words pr-1 text-sm font-semibold leading-5 text-brand-ink">
             {formatScheduledLiveLabel(scheduledLiveAtIso, scheduledLiveTimeZone)}
           </p>
           <p className="mt-1 text-xs text-brand-ink-subtle">
@@ -92,18 +92,18 @@ export function ScheduledLiveCard({
         </p>
       ) : null}
 
-      <div className="mt-4 flex gap-3">
-        <Button variant="outline" className="flex-1" onClick={onClear}>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <Button variant="outline" className="w-full" onClick={onClear}>
           Clear
         </Button>
-        <Button variant="primary" className="flex-1" onClick={onSave} disabled={saving}>
+        <Button variant="primary" className="w-full" onClick={onSave} disabled={saving}>
           {saving ? "Saving..." : "Save"}
         </Button>
       </div>
 
       <Link
         href={openStudioHref}
-        className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-brand-primary-light hover:underline"
+        className="mt-4 inline-flex max-w-full items-center gap-1 text-sm font-medium text-brand-primary-light hover:underline"
       >
         <Radio className="h-4 w-4" />
         Open live studio

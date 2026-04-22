@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 // MobileLiveConsole — iPhone-only creator Go-Live screen.
 // Mirrors the visual language of components/mobile/MobileLiveStage.tsx (the fan
 // mobile live page). The session lifecycle is duplicated from
@@ -321,7 +323,7 @@ function CreatorMobileLiveStage({
             ? `On stage with ${currentFan.fanName} · ${formatCountdown(activeFanElapsedSeconds)} / ${LIVE_STAGE_MAX_MINUTES}:00`
             : queueCount > 0
               ? `${queueCount} ${queueCount === 1 ? "fan" : "fans"} in line`
-              : "You're live · share your link"}
+              : "No one in line"}
         </p>
       </div>
 
@@ -999,7 +1001,7 @@ export function MobileLiveConsole() {
 
         {/* White panel — schedule + start */}
         <div
-          className="mt-1 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden rounded-t-3xl bg-white/98 px-4 pt-4"
+          className="mt-3 shrink-0 rounded-t-3xl bg-white/98 px-4 pt-4"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)" }}
         >
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -1007,15 +1009,21 @@ export function MobileLiveConsole() {
             <p className="mt-2 text-sm text-slate-700">
               Check your framing, then start your live. Scheduling now lives on the dashboard.
             </p>
+            <Link
+              href="/dashboard"
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-violet-700 hover:underline"
+            >
+              Go to dashboard
+            </Link>
           </div>
 
           {!hasConfiguredLiveRate(liveRate) ? (
-            <p className="text-sm text-amber-700 px-1">Set an amount per minute in Management before going live.</p>
+            <p className="px-1 pt-3 text-sm text-amber-700">Set an amount per minute in Management before going live.</p>
           ) : null}
 
           <button
             onClick={startSession}
-            className="mt-auto w-full rounded-full bg-red-500 py-3 text-base font-semibold text-white transition-all active:scale-[0.98] shadow-[0_18px_40px_rgba(239,68,68,0.35)]"
+            className="mt-3 w-full rounded-full bg-red-500 py-3 text-base font-semibold text-white transition-all active:scale-[0.98] shadow-[0_18px_40px_rgba(239,68,68,0.35)]"
           >
             Start Live Session
           </button>

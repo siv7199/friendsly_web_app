@@ -347,6 +347,8 @@ interface LiveRequestStatus {
 
 export default function ProfilePage({ params }: { params: { id: string } }) {
   const { user } = useAuthContext();
+  const mobileLiveSectionRef = useRef<HTMLDivElement | null>(null);
+  const mobileBookingSectionRef = useRef<HTMLDivElement | null>(null);
   const [creator, setCreator] = useState<Creator | null>(null);
   const [activePackages, setActivePackages] = useState<CallPackage[]>([]);
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
@@ -752,8 +754,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     },
   ].filter((link) => link.href);
 
+  const scrollToMobileSection = useCallback((target: "live" | "booking") => {
+    const element = target === "live" ? mobileLiveSectionRef.current : mobileBookingSectionRef.current;
+    if (!element) return;
+    element.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   const mobileLiveCard = showLiveCard ? (
-    <div className="mx-4 mb-6 rounded-2xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
+    <div ref={mobileLiveSectionRef} className="mx-4 mb-6 rounded-2xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
       <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
         <Zap className="h-3 w-3" />
         Join Friendsly Live
@@ -876,15 +884,30 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             {/* Price pills */}
             <div className="flex flex-wrap gap-2 mt-2.5">
               {hasLiveRate && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live">
-                  <Zap className="h-3 w-3" />
-                  {formatCurrency(creator.liveJoinFee!)} / min
-                </span>
+                showLiveCard ? (
+                  <button
+                    type="button"
+                    onClick={() => scrollToMobileSection("live")}
+                    className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live transition-colors active:bg-brand-live/10"
+                  >
+                    <Zap className="h-3 w-3" />
+                    {formatCurrency(creator.liveJoinFee!)} / min
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live">
+                    <Zap className="h-3 w-3" />
+                    {formatCurrency(creator.liveJoinFee!)} / min
+                  </span>
+                )
               )}
               {hasPackages && (
-                <span className="px-3 py-1.5 rounded-full border border-brand-border bg-brand-surface text-xs font-medium text-brand-ink">
+                <button
+                  type="button"
+                  onClick={() => scrollToMobileSection("booking")}
+                  className="rounded-full border border-brand-border bg-brand-surface px-3 py-1.5 text-xs font-medium text-brand-ink transition-colors active:bg-brand-elevated"
+                >
                   from {formatCurrency(creator.callPrice)} / session
-                </span>
+                </button>
               )}
             </div>
 
@@ -902,7 +925,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
           {/* Book a Session */}
           {hasPackages && (
-            <div className="px-4 mb-6">
+            <div ref={mobileBookingSectionRef} className="px-4 mb-6">
               <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
               <div
                 className={cn(
@@ -921,10 +944,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <button
                     key={pkg.id}
                     type="button"
-                    className={cn(
-                      "relative isolate flex w-full min-w-0 flex-col items-start gap-1 overflow-hidden rounded-2xl border px-3 pt-3 pb-3.5 text-left transition-colors active:opacity-80",
-                    )}
-                    style={mobileAccentStyle}
+                    className="relative isolate flex w-full min-w-0 flex-col items-start gap-1 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface px-3 pt-3 pb-3.5 text-left shadow-[0_1px_2px_rgba(26,22,40,0.04)] transition-colors active:opacity-80"
+                    style={{ ...mobileAccentStyle, backgroundColor: "#FFFFFF", borderColor: "#CEC6E5" }}
                     onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
                   >
                     <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
@@ -947,6 +968,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
           {/* Availability */}
           <div className="px-4 mb-6">
+            <div className="rounded-2xl border border-brand-primary/15 bg-[linear-gradient(180deg,rgba(108,92,231,0.08),rgba(108,92,231,0.03))] p-4">
             <h2 className="text-base font-bold text-brand-ink mb-3">Availability</h2>
 
             {activePackages.length > 1 && (
@@ -956,8 +978,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   className={cn(
                     "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
                     availabilityPackageId === "all"
-                      ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light"
-                      : "border-brand-border bg-brand-elevated text-brand-ink-subtle"
+                      ? "border-brand-primary bg-brand-primary text-white shadow-sm"
+                      : "border-brand-border bg-white text-brand-ink-subtle"
                   )}
                 >
                   All offerings
@@ -973,7 +995,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
                       availabilityPackageId === pkg.id
                         ? accent.pill
-                        : accent.pillInactive
+                        : "border-white/70 bg-white/80 text-brand-ink-subtle"
                     )}
                   >
                     {pkg.name}
@@ -1021,11 +1043,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       className={cn(
                         "rounded-xl border px-1.5 py-2 text-center transition-colors",
                         isToday
-                          ? "border-brand-primary/50 bg-brand-primary/10"
+                          ? "border-brand-primary bg-brand-primary/20 shadow-sm"
                           : canBookDate
-                          ? "border-brand-info/35 bg-brand-info/10 active:bg-brand-info/15"
+                          ? "border-brand-info/45 bg-white active:bg-brand-info/15"
                           : hasAnySlots
-                          ? "border-brand-border bg-brand-elevated"
+                          ? "border-brand-border bg-white/80"
                           : "border-brand-border bg-brand-elevated opacity-50"
                       )}
                     >
@@ -1041,6 +1063,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 })}
               </div>
             )}
+            </div>
           </div>
 
           {!creator.isLive && mobileLiveCard}
