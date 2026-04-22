@@ -1,5 +1,4 @@
-{
-  "permissions": {
+{  "permissions": {
     "allow": [
       "Bash(ls \"/c/Users/chint/Downloads/Friendsly_web_app/app/\\(fan\\)\")",
       "Bash(ls \"/c/Users/chint/Downloads/Friendsly_web_app/app/\\(creator\\)\")",
@@ -10,3 +9,4 @@
     ]
   }
 }
+
