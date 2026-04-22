@@ -22,6 +22,8 @@ interface DialogProps {
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  closeOnOverlayClick?: boolean;
+  closeOnEscape?: boolean;
 }
 
 interface DialogContentProps {
@@ -32,7 +34,13 @@ interface DialogContentProps {
   onClose?: () => void;
 }
 
-export function Dialog({ open, onClose, children }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  children,
+  closeOnOverlayClick = true,
+  closeOnEscape = true,
+}: DialogProps) {
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -43,11 +51,12 @@ export function Dialog({ open, onClose, children }: DialogProps) {
   React.useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
+      if (!closeOnEscape) return;
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+  }, [open, onClose, closeOnEscape]);
 
   // Prevent body scroll when modal is open
   React.useEffect(() => {
@@ -75,7 +84,7 @@ export function Dialog({ open, onClose, children }: DialogProps) {
       className="fixed inset-0 z-50 flex items-center justify-center overflow-x-hidden overflow-y-auto px-2 py-[max(0.75rem,env(safe-area-inset-top))] sm:p-4"
       aria-modal="true"
       role="dialog"
-      onClick={onClose}
+      onClick={closeOnOverlayClick ? onClose : undefined}
     >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/70" />

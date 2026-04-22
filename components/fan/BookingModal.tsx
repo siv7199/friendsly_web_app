@@ -446,7 +446,12 @@ export function BookingModal({
   }
 
   return (
-    <Dialog open={open} onClose={handleReset}>
+    <Dialog
+      open={open}
+      onClose={handleReset}
+      closeOnOverlayClick={step !== "confirm"}
+      closeOnEscape={step !== "confirm"}
+    >
       <DialogContent
         className="mx-auto w-[calc(100vw-1rem)] max-w-md"
         onClose={step !== "success" ? handleReset : undefined}

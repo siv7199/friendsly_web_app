@@ -7,10 +7,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { LiveJoinModal } from "@/components/fan/LiveJoinModal";
+import { PostLiveCallModal } from "@/components/fan/PostLiveCallModal";
 import { MobilePublicLiveRoom } from "@/components/mobile/MobileLiveStage";
 import { readJsonResponse } from "@/lib/http";
 import { LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds, getLiveStageRemainingSeconds } from "@/lib/live";
@@ -49,6 +51,7 @@ function mapQueueProfile(entry: any, fallbackName: string) {
 }
 
 export default function MobileWaitingRoomPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const { user } = useAuthContext();
   const routeTarget = useMemo(() => parseLiveRouteParam(params.id), [params.id]);
   const [creatorState, setCreatorState] = useState<CreatorState | null>(null);
@@ -62,11 +65,13 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
   const [activeFanAdmittedAt, setActiveFanAdmittedAt] = useState<string | null>(null);
   const [activeFan, setActiveFan] = useState<ActiveFanState | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showPostCallModal, setShowPostCallModal] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [reportedDailySessionId, setReportedDailySessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const waitingEntryIdRef = useRef<string | null>(null);
   const activeEntryIdRef = useRef<string | null>(null);
+  const previousActiveEntryIdRef = useRef<string | null>(null);
 
   const loadLiveState = useCallback(async () => {
     try {
@@ -218,6 +223,17 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
     waitingEntryIdRef.current = myWaitingEntry?.id ?? null;
     activeEntryIdRef.current = myActiveEntry?.id ?? null;
   }, [myActiveEntry?.id, myWaitingEntry?.id]);
+
+  useEffect(() => {
+    const previousActiveEntryId = previousActiveEntryIdRef.current;
+    const currentActiveEntryId = myActiveEntry?.id ?? null;
+
+    if (previousActiveEntryId && !currentActiveEntryId && !sessionEnded) {
+      setShowPostCallModal(true);
+    }
+
+    previousActiveEntryIdRef.current = currentActiveEntryId;
+  }, [myActiveEntry?.id, sessionEnded]);
 
   useEffect(() => {
     if (!liveSessionId || !roomUrl || !user) { setToken(null); return; }
@@ -470,6 +486,15 @@ export default function MobileWaitingRoomPage({ params }: { params: { id: string
           onClose={() => setShowJoinModal(false)}
         />
       ) : null}
+
+      <PostLiveCallModal
+        open={showPostCallModal}
+        onContinueWatching={() => setShowPostCallModal(false)}
+        onViewReceipts={() => {
+          setShowPostCallModal(false);
+          router.push("/payments");
+        }}
+      />
     </>
   );
 }

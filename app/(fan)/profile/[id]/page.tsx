@@ -757,6 +757,38 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     </div>
   ) : null;
 
+  const desktopLiveCard = showLiveCard ? (
+    <div className="rounded-2xl border border-brand-live/25 bg-brand-live/5 p-4 shadow-card">
+      <div className="inline-flex items-center gap-1.5 rounded-lg bg-brand-live px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
+        <Zap className="h-3 w-3" />
+        Join Friendsly Live
+      </div>
+      <h2 className="mt-3 text-xl font-serif font-normal text-brand-ink">Free to watch</h2>
+      <p className="mt-1 text-sm text-brand-ink-muted">Quick chats, Q&amp;As, and meet and greets.</p>
+      {shouldShowLiveButton && (
+        creator.isLive && hasLiveRate ? (
+          <Link href={liveHref ?? "#"}>
+            <Button variant="live" size="lg" className="mt-3 w-full gap-2">
+              <Zap className="h-4 w-4" />
+              {liveButtonLabel}
+            </Button>
+          </Link>
+        ) : (
+          <Button
+            variant={liveButtonDisabled ? "surface" : "live"}
+            size="lg"
+            className="mt-3 w-full gap-2"
+            disabled={liveButtonDisabled}
+            onClick={() => void handleLiveRequest()}
+          >
+            <Zap className="h-4 w-4" />
+            {liveButtonLabel}
+          </Button>
+        )
+      )}
+    </div>
+  ) : null;
+
   return (
     <>
       {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ MOBILE LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
@@ -1220,6 +1252,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
           {/* â”€â”€ RIGHT: Stacked offering cards â”€â”€ */}
           <div className="space-y-4">
+            {creator.isLive ? desktopLiveCard : null}
+
             {/* Book a Session card */}
             <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card">
               <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-ink px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
@@ -1293,37 +1327,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            {showLiveCard && (
-              <div className="rounded-2xl border border-brand-live/25 bg-brand-live/5 p-4 shadow-card">
-                <div className="inline-flex items-center gap-1.5 rounded-lg bg-brand-live px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
-                  <Zap className="h-3 w-3" />
-                  Join Friendsly Live
-                </div>
-                <h2 className="mt-3 text-xl font-serif font-normal text-brand-ink">Free to watch</h2>
-                <p className="mt-1 text-sm text-brand-ink-muted">Quick chats, Q&amp;As, and meet and greets.</p>
-                {shouldShowLiveButton && (
-                  creator.isLive && hasLiveRate ? (
-                    <Link href={liveHref ?? "#"}>
-                      <Button variant="live" size="lg" className="mt-3 w-full gap-2">
-                        <Zap className="h-4 w-4" />
-                        {liveButtonLabel}
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Button
-                      variant={liveButtonDisabled ? "surface" : "live"}
-                      size="lg"
-                      className="mt-3 w-full gap-2"
-                      disabled={liveButtonDisabled}
-                      onClick={() => void handleLiveRequest()}
-                    >
-                      <Zap className="h-4 w-4" />
-                      {liveButtonLabel}
-                    </Button>
-                  )
-                )}
-              </div>
-            )}
+            {!creator.isLive ? desktopLiveCard : null}
 
             {/* Availability card */}
             <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card">

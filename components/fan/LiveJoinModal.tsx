@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
-import { CheckCircle2, Clock, Info, Loader2, Zap } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, Zap } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -13,7 +13,7 @@ import { readJsonResponse } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { LIVE_PREAUTH_MINUTES, LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
+import { LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
 import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
 import { getLiveSessionPath } from "@/lib/routes";
 
@@ -67,11 +67,11 @@ function PaymentForm({
       <PaymentElement options={{ layout: "tabs" }} onReady={() => setIsReady(true)} />
       <Button variant="live" size="lg" className="w-full gap-2 whitespace-normal text-center leading-tight" onClick={handleSubmit} disabled={isSubmitting || !stripe || !isReady}>
         {isSubmitting ? (
-          <><Loader2 className="w-4 h-4 animate-spin" /> Placing hold...</>
+          <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
         ) : !isReady ? (
           <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</>
         ) : (
-          <><Zap className="w-4 h-4" /> Place Hold And Join Queue</>
+          <><Zap className="w-4 h-4" /> Join Queue</>
         )}
       </Button>
     </div>
@@ -109,6 +109,13 @@ export function LiveJoinModal({
   });
 
   const joinFee = creator.liveJoinFee ?? 0;
+
+  function handleModalClose() {
+    onClose();
+    if (step === "success") {
+      router.push(liveHref);
+    }
+  }
 
   async function findExistingQueueEntry(sessionId: string) {
     if (!user) return null;
@@ -242,10 +249,7 @@ export function LiveJoinModal({
     const existingEntry = await findExistingQueueEntry(currentSessionId);
     if (existingEntry) {
       setStep("success");
-      window.setTimeout(() => {
-        onClose();
-        router.push(liveHref);
-      }, 400);
+      setIsSubmitting(false);
       return;
     }
 
@@ -263,10 +267,7 @@ export function LiveJoinModal({
     }
 
     setStep("success");
-    window.setTimeout(() => {
-      onClose();
-      router.push(liveHref);
-    }, 1200);
+    setIsSubmitting(false);
   }
 
   async function handleSavedPaymentSubmit() {
@@ -314,17 +315,10 @@ export function LiveJoinModal({
   }
 
   return (
-    <Dialog open={open} onClose={onClose}>
+    <Dialog open={open} onClose={handleModalClose}>
       <DialogContent
         className="mx-auto w-[calc(100vw-1rem)] max-w-md"
         title={step === "success" ? "You're In The Queue" : `Join ${creator.name}'s Live`}
-        description={
-          step === "info"
-            ? "Watch for free, then place a temporary card hold at the per-minute rate if you want to join on stage."
-            : step === "payment"
-            ? "A temporary hold is placed at the per-minute rate. You are charged only for time actually used on stage."
-            : undefined
-        }
       >
         {step === "success" ? (
           <div className="flex flex-col items-center text-center gap-4 py-4">
@@ -336,8 +330,11 @@ export function LiveJoinModal({
                 You&apos;re in the queue for <strong className="text-brand-ink">{creator.name}</strong>.
                 The creator can admit you live for between 30 seconds and {LIVE_STAGE_MAX_MINUTES} minutes when it&apos;s your turn.
               </p>
-              <p className="text-brand-ink-subtle text-xs mt-2">Redirecting you back to the live...</p>
+              <p className="text-brand-ink-subtle text-xs mt-2">You can close this whenever you&apos;re ready.</p>
             </div>
+            <Button variant="live" className="w-full" onClick={handleModalClose}>
+              Close
+            </Button>
           </div>
         ) : null}
 
@@ -355,29 +352,20 @@ export function LiveJoinModal({
                   ) : null}
                 </div>
               </div>
-              <div className="ml-auto text-right">
-                <p className="text-lg font-serif font-semibold text-brand-live">{formatCurrency(joinFee)}</p>
-                <p className="text-[11px] text-brand-ink-subtle">per minute</p>
-              </div>
             </div>
 
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-brand-ink-subtle">How it works</p>
               {[
                 {
-                  icon: Zap,
-                  title: "Place a temporary hold",
-                  desc: "You can already watch and chat for free. Joining the queue only places a temporary hold on your card at the per-minute rate.",
-                },
-                {
                   icon: Clock,
                   title: "Wait in the live",
                   desc: "Your queue position updates live while the creator brings guests on one by one.",
                 },
                 {
-                  icon: Info,
+                  icon: Zap,
                   title: "Go live when admitted",
-                  desc: `If admitted, you go live with the creator for at least 30 seconds and up to ${LIVE_STAGE_MAX_MINUTES} minutes, and are billed only for the time you actually spend on stage.`,
+                  desc: `If admitted, you go live with the creator for between 30 seconds and ${LIVE_STAGE_MAX_MINUTES} minutes when it is your turn.`,
                 },
               ].map(({ icon: Icon, title, desc }) => (
                 <div key={title} className="flex gap-3 p-3 rounded-xl bg-brand-elevated border border-brand-border">
@@ -392,12 +380,8 @@ export function LiveJoinModal({
               ))}
             </div>
 
-            <div className="rounded-xl border border-brand-live/20 bg-brand-live/10 p-3 text-[11px] text-brand-ink-muted">
-              If the live ends before you&apos;re admitted, the hold is released automatically. If you go on stage, your final charge is based only on the time you actually use.
-            </div>
-
             <div className="flex gap-3 pt-1">
-              <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+              <Button variant="outline" className="flex-1" onClick={handleModalClose}>Cancel</Button>
               <Button variant="live" className="flex-1 gap-2" onClick={() => setStep("payment")} disabled={joinFee <= 0}>
                 <Zap className="w-4 h-4" />
                 Continue
@@ -408,18 +392,6 @@ export function LiveJoinModal({
 
         {step === "payment" ? (
           <div className="space-y-3">
-            <div className="rounded-xl border border-brand-border bg-brand-surface p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-brand-ink-muted">Temporary hold</p>
-                  <p className="mt-0.5 text-sm font-semibold text-brand-ink">{formatCurrency(joinFee)} / min</p>
-                </div>
-                <p className="max-w-[220px] text-right text-[11px] leading-5 text-brand-ink-subtle">
-                  Held for up to {LIVE_PREAUTH_MINUTES} minutes and only charged for actual stage time.
-                </p>
-              </div>
-            </div>
-
             {payError && !clientSecret ? (
               <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400">
                 {payError}
@@ -464,9 +436,9 @@ export function LiveJoinModal({
                 </button>
                 <Button variant="live" size="lg" className="w-full gap-2" onClick={handleSavedPaymentSubmit} disabled={isSubmitting || !selectedPaymentMethodId}>
                   {isSubmitting ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Placing hold...</>
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
                   ) : (
-                    <><Zap className="w-4 h-4" /> Place Hold And Join Queue</>
+                    <><Zap className="w-4 h-4" /> Join Queue</>
                   )}
                 </Button>
               </div>

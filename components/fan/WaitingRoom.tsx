@@ -26,6 +26,11 @@ interface WaitingRoomProps {
   totalQueueCount?: number;
 }
 
+function getPublicAvatarUrl(userId?: string | null, avatarUrl?: string | null) {
+  if (!userId || !avatarUrl) return undefined;
+  return `/api/public/avatar/${userId}`;
+}
+
 function formatWaitTime(waitSeconds: number) {
   if (waitSeconds <= 0) return "0 min";
   const minutes = Math.ceil(waitSeconds / 60);
@@ -84,7 +89,7 @@ export function WaitingRoom({
                 username: message.profiles?.username,
                 avatarInitials: message.profiles?.avatar_initials,
                 avatarColor: message.profiles?.avatar_color,
-                avatarUrl: message.profiles?.avatar_url ?? undefined,
+                avatarUrl: getPublicAvatarUrl(message.user_id, message.profiles?.avatar_url),
                 role: message.profiles?.role,
               };
             }
@@ -101,7 +106,7 @@ export function WaitingRoom({
             username: `@${m.profiles.username}`,
             avatarInitials: m.profiles.avatar_initials,
             avatarColor: m.profiles.avatar_color,
-            avatarUrl: m.profiles.avatar_url ?? undefined,
+            avatarUrl: getPublicAvatarUrl(m.user_id, m.profiles.avatar_url),
             message: m.message,
             timestamp: m.created_at,
             isCreator: m.profiles.role === "creator",
@@ -119,8 +124,14 @@ export function WaitingRoom({
           const result = await supabase.from("profiles")
             .select("username, avatar_initials, avatar_color, avatar_url, role")
             .eq("id", payload.new.user_id).single();
-          profile = result.data;
-          if (profile) {
+          if (result.data) {
+            profile = {
+              username: result.data.username,
+              avatarInitials: result.data.avatar_initials,
+              avatarColor: result.data.avatar_color,
+              avatarUrl: getPublicAvatarUrl(payload.new.user_id, result.data.avatar_url),
+              role: result.data.role,
+            };
             profileCacheRef.current[payload.new.user_id] = profile;
           }
         }
@@ -168,7 +179,7 @@ export function WaitingRoom({
       username: `@${user.username ?? "you"}`,
       avatarInitials: user.avatar_initials ?? "??",
       avatarColor: user.avatar_color ?? "bg-violet-600",
-      avatarUrl: user.avatar_url ?? undefined,
+      avatarUrl: getPublicAvatarUrl(user.id, user.avatar_url),
       message: messageText,
       timestamp: new Date().toISOString(),
       isCreator: user.role === "creator",

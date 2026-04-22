@@ -185,10 +185,8 @@ function MobileLiveInner({
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportSent, setReportSent] = useState(false);
   const [reportDeliveryState, setReportDeliveryState] = useState<"sent" | "stored_only" | "delivery_failed" | null>(null);
-  const queueStripText = useMemo(
-    () => formatQueueStrip(queueEntries, queueCount),
-    [queueCount, queueEntries]
-  );
+  const queuePreview = useMemo(() => queueEntries.slice(0, 4), [queueEntries]);
+  const remainingQueueCount = Math.max(queueCount - queuePreview.length, 0);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const profileNameCacheRef = useRef<Record<string, string>>({});
   const [messages, setMessages] = useState<
@@ -527,42 +525,82 @@ function MobileLiveInner({
       </div>
 
       {/* ── Queue strip ── */}
-      <div className="shrink-0 px-3 pt-2">
-        <div className="rounded-2xl bg-white/8 px-4 py-2 text-center">
-          <p className="truncate text-xs font-semibold text-white/90">{queueStripText}</p>
-        </div>
-      </div>
+      
 
       {/* ── Action buttons ── */}
-      <div className="shrink-0 px-3 pt-2">
-        {isAdmitted ? (
-          <button
-            onClick={onLeaveStage}
-            className="w-full rounded-full bg-red-500 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98]"
-          >
-            End Call
-          </button>
-        ) : inQueue ? (
-          <button
-            onClick={onLeaveQueue}
-            className="w-full rounded-full bg-slate-100 py-2.5 text-sm font-semibold text-slate-700 transition-all active:scale-[0.98]"
-          >
-            Leave Queue
-          </button>
-        ) : (
-          <button
-            onClick={onJoinQueue}
-            className="w-full rounded-full bg-emerald-500 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98]"
-          >
-            Join Queue
-          </button>
-        )}
-      </div>
+      
 
       {/* ── White panel ── */}
       <div
-        className="mt-2 flex min-h-[36dvh] flex-1 flex-col overflow-hidden rounded-t-[32px] border-t border-white/70 bg-white shadow-[0_-18px_40px_rgba(15,23,42,0.18)]"
+        className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[32px] border-t border-white/70 bg-white shadow-[0_-18px_40px_rgba(15,23,42,0.18)]"
       >
+        <div className="shrink-0 border-b border-slate-200/80 px-4 pb-3 pt-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Queue
+              </p>
+              {queueCount > 0 ? (
+                <div className="mt-2 flex items-center">
+                  <div className="flex items-center">
+                    {queuePreview.map((entry, index) => (
+                      <Avatar
+                        key={entry.id}
+                        initials={entry.avatarInitials || getDisplayInitial(entry.fanName)}
+                        color={entry.avatarColor}
+                        imageUrl={entry.avatarUrl}
+                        size="sm"
+                        className={cn(index > 0 ? "-ml-2 ring-2 ring-white" : "ring-2 ring-white")}
+                      />
+                    ))}
+                    {remainingQueueCount > 0 ? (
+                      <div className="-ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white ring-2 ring-white">
+                        +{remainingQueueCount}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="ml-3 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {queueCount} {queueCount === 1 ? "person" : "people"} waiting
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {myQueuePosition > 0
+                        ? `You're in line at #${myQueuePosition}.`
+                        : "Fans will appear here as they join the live queue."}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-slate-500">No one is waiting yet.</p>
+              )}
+            </div>
+
+            <div className="w-[140px] shrink-0">
+              {isAdmitted ? (
+                <button
+                  onClick={onLeaveStage}
+                  className="w-full rounded-full bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+                >
+                  End Call
+                </button>
+              ) : inQueue ? (
+                <button
+                  onClick={onLeaveQueue}
+                  className="w-full rounded-full bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-all active:scale-[0.98]"
+                >
+                  Leave Queue
+                </button>
+              ) : (
+                <button
+                  onClick={onJoinQueue}
+                  className="w-full rounded-full bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+                >
+                  Join Queue
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
         {/* Chat messages — last 5, oldest fades via gradient overlay */}
         <div className="relative min-h-0 flex-1 overflow-hidden px-4 pt-3">
           {/* White gradient fade over top messages */}

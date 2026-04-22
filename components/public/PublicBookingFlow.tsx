@@ -754,18 +754,6 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
               </div>
             )}
 
-            {selectedPackage && (
-              <div className="mt-6 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated p-4">
-                <div className="flex min-w-0 items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-brand-ink">{selectedPackage.name}</p>
-                    <p className="text-xs text-brand-ink-muted">{selectedPackage.duration} min</p>
-                  </div>
-                  <p className="shrink-0 text-base font-bold text-brand-ink">{formatCurrency(selectedPackage.price)}</p>
-                </div>
-              </div>
-            )}
-
             {needsPackageSelection && (
               <div className="mt-6 rounded-2xl border border-dashed border-brand-primary/35 bg-brand-primary/5 p-4">
                 <p className="text-sm font-semibold text-brand-ink">Choose a booking type first</p>
