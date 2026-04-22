@@ -30,6 +30,16 @@ import { getCreatorInsights, type CreatorInsight } from "@/lib/creator-insights"
 import { localDateKey } from "@/lib/timezones";
 import { getCreatorLiveConsolePath } from "@/lib/routes";
 
+interface LiveRequestRow {
+  id: string;
+  fanName: string;
+  fanUsername: string;
+  fanInitials: string;
+  fanAvatarColor: string;
+  fanAvatarUrl?: string;
+  requestedAt: string;
+}
+
 interface DashReview {
   id: string;
   fanName: string;
@@ -132,6 +142,9 @@ export default function DashboardPage() {
   const activePackageCountRef = useRef<number | null>(null);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
   const [clientOrigin, setClientOrigin] = useState("");
+  const [liveRequests, setLiveRequests] = useState<LiveRequestRow[]>([]);
+  const [loadingLiveRequests, setLoadingLiveRequests] = useState(true);
+  const [showLiveRequests, setShowLiveRequests] = useState(false);
 
   async function handleCancelBooking(booking: any) {
     const bookingId = booking.id;
@@ -174,6 +187,21 @@ export default function DashboardPage() {
     const supabase = createClient();
     let refreshTimer: number | null = null;
     let autoCancelTimer: number | null = null;
+
+    async function loadLiveRequests() {
+      try {
+        const response = await fetch(`/api/live-requests?date=${encodeURIComponent(localDateKey(new Date()))}`, { cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Could not load live requests.");
+        setLiveRequests(Array.isArray(data.requests) ? data.requests : []);
+      } catch (error) {
+        console.error("Failed to load live requests", error);
+        setLiveRequests([]);
+      } finally {
+        setLoadingLiveRequests(false);
+      }
+    }
+
     supabase
       .from("reviews")
       .select("id, rating, comment, created_at, fan:profiles!fan_id(full_name, avatar_initials, avatar_color, avatar_url)")
@@ -445,10 +473,12 @@ export default function DashboardPage() {
       }
     }
     loadDashboard();
+    void loadLiveRequests();
 
     function refreshIfVisible() {
       if (document.visibilityState !== "visible") return;
       void loadDashboard();
+      void loadLiveRequests();
     }
 
     const channel = supabase
@@ -460,6 +490,14 @@ export default function DashboardPage() {
         filter: `creator_id=eq.${userId}`,
       }, () => {
         loadDashboard();
+      })
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "live_requests",
+        filter: `creator_id=eq.${userId}`,
+      }, () => {
+        void loadLiveRequests();
       })
       .subscribe();
 
@@ -481,6 +519,8 @@ export default function DashboardPage() {
   const avatarInitials = user?.avatar_initials ?? "??";
   const avatarColor = user?.avatar_color ?? "bg-violet-600";
   const avatarUrl = user?.avatar_url ?? undefined;
+  const liveRequestCount = liveRequests.length;
+  const hasLiveRequests = liveRequestCount > 0;
 
   const profileStrength = calculateProfileStrength(
     user,
@@ -536,6 +576,25 @@ export default function DashboardPage() {
           accent="info"
         />
         <StatsCard
+          title="Live Requests"
+          value={loadingLiveRequests ? "..." : String(liveRequestCount)}
+          subtext={hasLiveRequests ? "Tap to view today's fans" : "No requests today"}
+          icon={
+            <div className={cn("relative", hasLiveRequests && "animate-pulse")}>
+              <Radio className="w-5 h-5" />
+              {hasLiveRequests ? <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" /> : null}
+            </div>
+          }
+          accent={hasLiveRequests ? "live" : "primary"}
+          className={cn(
+            "sm:col-span-2 xl:col-span-1",
+            hasLiveRequests
+              ? "border-red-300 bg-red-50/80 shadow-[0_0_0_1px_rgba(239,68,68,0.08)] hover:border-red-400"
+              : ""
+          )}
+          onClick={() => setShowLiveRequests((current) => !current)}
+        />
+        <StatsCard
           title="Conversion"
           value={`${stats.conversionRate}%`}
           subtext="View → book rate"
@@ -549,6 +608,50 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Upcoming bookings */}
         <div className="lg:col-span-2">
+          {showLiveRequests && (
+            <div className="mb-4 rounded-2xl border border-brand-border bg-brand-surface p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-live">Live Requests</p>
+                  <h2 className="mt-1 text-lg font-bold text-brand-ink">Fans who requested a live today</h2>
+                  <p className="mt-1 text-sm text-brand-ink-muted">
+                    {hasLiveRequests ? `${liveRequestCount} request${liveRequestCount === 1 ? "" : "s"} today` : "No requests today."}
+                  </p>
+                </div>
+                <Button variant="surface" size="sm" onClick={() => setShowLiveRequests(false)}>
+                  Close
+                </Button>
+              </div>
+
+              {hasLiveRequests ? (
+                <div className="mt-4 space-y-3">
+                  {liveRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-brand-border bg-brand-elevated/70 px-4 py-3"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar
+                          initials={request.fanInitials}
+                          color={request.fanAvatarColor}
+                          imageUrl={request.fanAvatarUrl}
+                          size="sm"
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-brand-ink">{request.fanUsername}</p>
+                          <p className="truncate text-xs text-brand-ink-subtle">{request.fanName}</p>
+                        </div>
+                      </div>
+                      <p className="shrink-0 text-xs font-medium text-brand-ink-muted">
+                        {new Date(request.requestedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
+
           {nextJoinableBooking && (
             <div className="mb-4 rounded-2xl border border-brand-live/30 bg-brand-live/10 p-4 flex items-center justify-between gap-4">
               <div>

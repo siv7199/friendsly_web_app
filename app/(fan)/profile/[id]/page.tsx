@@ -313,6 +313,12 @@ interface Review {
   date: string;
 }
 
+interface LiveRequestStatus {
+  canRequest: boolean;
+  hasRequestedToday: boolean;
+  requestedAt?: string | null;
+}
+
 // â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function ProfilePage({ params }: { params: { id: string } }) {
@@ -341,6 +347,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [canReview, setCanReview] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [liveRequestStatus, setLiveRequestStatus] = useState<LiveRequestStatus | null>(null);
+  const [submittingLiveRequest, setSubmittingLiveRequest] = useState(false);
   const refreshTimeoutsRef = useRef<number[]>([]);
   const liveExpiryTimeoutRef = useRef<number | null>(null);
   const lastLoadAtRef = useRef(0);
@@ -442,6 +450,26 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         });
     } else {
       setCanReview(false);
+    }
+
+    if (user?.role === "fan" && user.id !== creator.id) {
+      const todayKey = localDateKey(new Date());
+      fetch(`/api/live-requests?creatorId=${encodeURIComponent(creator.id)}&date=${encodeURIComponent(todayKey)}`, {
+        cache: "no-store",
+      })
+        .then((res) => readJsonResponse<LiveRequestStatus>(res))
+        .then((data) => {
+          setLiveRequestStatus({
+            canRequest: Boolean(data?.canRequest),
+            hasRequestedToday: Boolean(data?.hasRequestedToday),
+            requestedAt: data?.requestedAt ?? null,
+          });
+        })
+        .catch(() => {
+          setLiveRequestStatus({ canRequest: true, hasRequestedToday: false, requestedAt: null });
+        });
+    } else {
+      setLiveRequestStatus(null);
     }
 
     const realtimeChannel = supabase
@@ -567,6 +595,44 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     setSubmittingReview(false);
   }
 
+  async function handleLiveRequest() {
+    if (!creator || submittingLiveRequest) return;
+
+    if (!user || user.role !== "fan") {
+      window.location.href = `/login?redirect=${encodeURIComponent(`/profile/${params.id}`)}`;
+      return;
+    }
+
+    setSubmittingLiveRequest(true);
+    setReviewError(null);
+
+    try {
+      const response = await fetch("/api/live-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creatorId: creator.id,
+          requestDate: localDateKey(new Date()),
+        }),
+      });
+
+      const data = await readJsonResponse<{ requestedAt?: string; error?: string }>(response);
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Could not send live request.");
+      }
+
+      setLiveRequestStatus({
+        canRequest: true,
+        hasRequestedToday: true,
+        requestedAt: data?.requestedAt ?? new Date().toISOString(),
+      });
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : "Could not send live request.");
+    } finally {
+      setSubmittingLiveRequest(false);
+    }
+  }
+
   const isFan = user?.role === "fan";
   const isOwnProfile = user?.id === creator?.id;
 
@@ -606,15 +672,23 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       minute: "2-digit",
     })}${abbreviation ? ` ${abbreviation}` : ""}`;
   })();
-  const countdownPrimaryText = creator.isLive
-    ? "Live now"
-    : scheduledLiveCountdown ?? "Next live time will be posted here";
-  const countdownSecondaryText = creator.isLive
-    ? creator.queueCount > 0
-      ? `${creator.queueCount} fan${creator.queueCount === 1 ? "" : "s"} waiting to go on stage`
-      : "Watch now for free, then join the queue when you're ready."
-    : scheduledLiveLabel;
   const showLiveCard = creator.isLive || Boolean(hasLiveRate || scheduledLiveLabel || scheduledLiveCountdown);
+  const liveButtonLabel = (() => {
+    if (creator.isLive) return "Watch now";
+    if (scheduledLiveCountdown) return scheduledLiveCountdown;
+    if (submittingLiveRequest) return "Sending request...";
+    if (liveRequestStatus?.hasRequestedToday) return "Come back tomorrow";
+    return "Request a live";
+  })();
+  const liveButtonDisabled = Boolean(
+    !creator.isLive && (
+      Boolean(scheduledLiveCountdown) ||
+      submittingLiveRequest ||
+      liveRequestStatus?.hasRequestedToday ||
+      (liveRequestStatus !== null && !liveRequestStatus.canRequest)
+    )
+  );
+  const shouldShowLiveButton = showLiveCard && !isOwnProfile;
 
   // Map availability slots: { [dayOfWeek]: string[] of formatted time ranges }
   const filteredAvailability = availability.filter((slot) =>
@@ -680,7 +754,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ MOBILE LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="app-safe-screen md:hidden bg-white flex flex-col">
         {/* Scrollable body */}
-        <div className={cn("flex-1", (hasPackages || (creator.isLive && hasLiveRate)) && "pb-32")}>
+        <div className={cn("flex-1", (hasPackages || shouldShowLiveButton) && "pb-32")}>
           {/* Hero image */}
           <div className="relative mx-4 mt-4 aspect-square rounded-2xl overflow-hidden">
             {creator.avatarUrl ? (
@@ -749,6 +823,79 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           </div>
 
           <div className="mx-4 my-5 border-t border-brand-border" />
+
+          {/* Book a Session */}
+          {hasPackages && (
+            <div className="px-4 mb-6">
+              <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
+              <div
+                className={cn(
+                  "grid gap-2",
+                  activePackages.length === 1 && "grid-cols-1",
+                  activePackages.length === 2 && "grid-cols-2",
+                  activePackages.length >= 3 && "grid-cols-3",
+                )}
+              >
+                {activePackages.map((pkg) => (
+                  (() => {
+                    const accent = getPackageAccentClasses(activePackages.findIndex((candidate) => candidate.id === pkg.id));
+                    return (
+                  <button
+                    key={pkg.id}
+                    type="button"
+                    className={cn(
+                      "flex w-full min-w-0 flex-col items-start gap-1 rounded-2xl border p-3 text-left transition-colors active:opacity-80",
+                      accent.card,
+                    )}
+                    onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
+                  >
+                    <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
+                    <span className="inline-flex items-center gap-1 text-[11px] text-brand-ink-subtle">
+                      <Clock className="h-3 w-3" />
+                      {pkg.duration} min
+                    </span>
+                    <p className={cn("mt-1 text-base font-display font-bold", accent.price)}>{formatCurrency(pkg.price)}</p>
+                  </button>
+                    );
+                  })()
+                ))}
+              </div>
+              <Button variant="primary" size="lg" className="w-full mt-3" onClick={() => setShowBooking(true)}>
+                See times
+              </Button>
+            </div>
+          )}
+
+          {showLiveCard && (
+            <div className="mx-4 mb-6 rounded-2xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
+                <Zap className="h-3 w-3" />
+                Join Friendsly Live
+              </div>
+              <p className="mt-2 text-sm text-brand-ink-muted">Free to watch.</p>
+              {shouldShowLiveButton && (
+                creator.isLive && hasLiveRate ? (
+                  <Link href={liveHref ?? "#"} className="mt-3 block">
+                    <Button variant="live" size="lg" className="w-full gap-2">
+                      <Zap className="h-4 w-4" />
+                      {liveButtonLabel}
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    variant={liveButtonDisabled ? "surface" : "live"}
+                    size="lg"
+                    className="mt-3 w-full gap-2"
+                    disabled={liveButtonDisabled}
+                    onClick={() => void handleLiveRequest()}
+                  >
+                    <Zap className="h-4 w-4" />
+                    {liveButtonLabel}
+                  </Button>
+                )
+              )}
+            </div>
+          )}
 
           {/* Availability */}
           <div className="px-4 mb-6">
@@ -855,62 +1002,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             )}
           </div>
 
-          {/* Book a Session */}
-          {hasPackages && (
-            <div className="px-4 mb-6">
-              <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
-              <div className="space-y-3">
-                {activePackages.map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    className="flex items-center justify-between p-4 rounded-2xl border border-brand-primary/20 bg-[rgba(133,117,201,0.06)] cursor-pointer active:bg-brand-primary/10 transition-colors"
-                    onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
-                  >
-                    <p className="font-bold text-brand-ink">{pkg.name}</p>
-                    <p className="font-bold text-brand-gold">{formatCurrency(pkg.price)}</p>
-                  </div>
-                ))}
-              </div>
-              <Button variant="primary" size="lg" className="mt-4 w-full" onClick={() => setShowBooking(true)}>
-                See times
-              </Button>
-            </div>
-          )}
-
-          {showLiveCard && (
-            <div className="mx-4 mb-6 rounded-3xl border border-brand-live/20 bg-brand-surface p-5 shadow-card">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
-                    <Zap className="h-3 w-3" />
-                    Live
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-sm text-brand-ink-muted">
-                Free to watch - pay by the minute only when you're on stage with {creator.name}.
-              </p>
-
-              <div className="mt-4 rounded-3xl border border-brand-live/15 bg-brand-live/5 px-4 py-5">
-                <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-live">Countdown</p>
-                <p className="mt-3 text-base font-semibold text-brand-ink">{countdownPrimaryText}</p>
-                {countdownSecondaryText ? (
-                  <p className="mt-2 text-sm text-brand-ink-muted">{countdownSecondaryText}</p>
-                ) : null}
-              </div>
-
-              {creator.isLive && hasLiveRate && (
-                <Link href={liveHref ?? "#"} className="mt-4 block">
-                  <Button variant="live" size="lg" className="w-full gap-2">
-                    <Zap className="h-4 w-4" />
-                    Watch NOW for free
-                  </Button>
-                </Link>
-              )}
-            </div>
-          )}
-
           {/* Reviews (mobile) */}
           {(reviews.length > 0 || (isFan && !isOwnProfile) || creator.reviewCount === 0) && (
             <div className="px-4 mb-6">
@@ -989,24 +1080,37 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         </div>
 
         {/* Sticky bottom CTA */}
-        {(hasPackages || (creator.isLive && hasLiveRate)) && (
+        {(hasPackages || shouldShowLiveButton) && (
           <div
             className="fixed bottom-0 left-0 right-0 z-20 border-t border-brand-border bg-white/95 px-4 pb-3 pt-3 backdrop-blur-sm"
             style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
           >
-            <div className={cn("grid gap-2", hasPackages && creator.isLive && hasLiveRate ? "grid-cols-2" : "grid-cols-1")}>
+            <div className={cn("grid gap-2", hasPackages && shouldShowLiveButton ? "grid-cols-2" : "grid-cols-1")}>
               {hasPackages && (
                 <Button variant="primary" size="lg" className="w-full" onClick={() => setShowBooking(true)}>
                   See Times
                 </Button>
               )}
-              {creator.isLive && hasLiveRate && (
-                <Link href={liveHref ?? "#"}>
-                  <Button variant="live" size="lg" className="w-full gap-2">
+              {shouldShowLiveButton && (
+                creator.isLive && hasLiveRate ? (
+                  <Link href={liveHref ?? "#"}>
+                    <Button variant="live" size="lg" className="w-full gap-2">
+                      <Zap className="w-4 h-4" />
+                      {liveButtonLabel}
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    variant={liveButtonDisabled ? "surface" : "live"}
+                    size="lg"
+                    className="w-full gap-2"
+                    disabled={liveButtonDisabled}
+                    onClick={() => void handleLiveRequest()}
+                  >
                     <Zap className="w-4 h-4" />
-                    Watch NOW for free
+                    {liveButtonLabel}
                   </Button>
-                </Link>
+                )
               )}
             </div>
           </div>
@@ -1078,15 +1182,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            {/* Pricing + scheduled pills */}
-            {(hasPackages || hasLiveRate || scheduledLiveCountdown) && (
+            {/* Pricing pills */}
+            {(hasPackages || hasLiveRate) && (
               <div className="flex flex-wrap gap-2">
-                {scheduledLiveCountdown && (
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-brand-info/30 bg-brand-info/10 px-3 py-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-brand-info" />
-                    <span className="text-xs font-bold text-brand-info">{scheduledLiveCountdown}</span>
-                  </div>
-                )}
                 {hasLiveRate && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live">
                     <Zap className="h-3 w-3" />
@@ -1177,7 +1275,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     )}
                   </div>
 
-                  <div className="mt-4 space-y-2">
+                  <div
+                    className={cn(
+                      "mt-4 grid gap-2",
+                      activePackages.length === 1 && "grid-cols-1",
+                      activePackages.length === 2 && "grid-cols-2",
+                      activePackages.length >= 3 && "grid-cols-3",
+                    )}
+                  >
                     {activePackages.map((pkg) => (
                       (() => {
                         const accent = getPackageAccentClasses(activePackages.findIndex((candidate) => candidate.id === pkg.id));
@@ -1186,29 +1291,21 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         key={pkg.id}
                         type="button"
                         onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
-                        className={cn("flex w-full items-start justify-between gap-4 rounded-2xl border p-4 text-left transition-colors", accent.card)}
+                        className={cn("flex w-full min-w-0 flex-col items-start gap-1 rounded-2xl border p-3 text-left transition-colors", accent.card)}
                       >
-                        <div className="min-w-0">
-                          <p className="font-bold text-brand-ink">{pkg.name}</p>
-                          {pkg.description && (
-                            <p className="mt-1 text-sm text-brand-ink-subtle line-clamp-2">{pkg.description}</p>
-                          )}
-                          <span className="mt-2 inline-flex items-center gap-1 text-xs text-brand-ink-subtle">
-                            <Clock className="h-3 w-3" />
-                            {pkg.duration} min
-                          </span>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className={cn("text-lg font-display font-bold", accent.price)}>{formatCurrency(pkg.price)}</p>
-                          <p className="mt-0.5 text-[11px] text-brand-ink-subtle">per session</p>
-                        </div>
+                        <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
+                        <span className="inline-flex items-center gap-1 text-xs text-brand-ink-subtle">
+                          <Clock className="h-3 w-3" />
+                          {pkg.duration} min
+                        </span>
+                        <p className={cn("mt-1 text-lg font-display font-bold", accent.price)}>{formatCurrency(pkg.price)}</p>
                       </button>
                         );
                       })()
                     ))}
                   </div>
 
-                  <Button variant="primary" size="lg" className="mt-6 w-full" onClick={() => setShowBooking(true)}>
+                  <Button variant="primary" size="lg" className="mt-4 w-full" onClick={() => setShowBooking(true)}>
                     See times
                   </Button>
                 </>
@@ -1216,30 +1313,32 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             </div>
 
             {showLiveCard && (
-              <div className="rounded-3xl border border-brand-live/25 bg-brand-live/5 p-6 shadow-card">
-                <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-live px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
+              <div className="rounded-2xl border border-brand-live/25 bg-brand-live/5 p-4 shadow-card">
+                <div className="inline-flex items-center gap-1.5 rounded-lg bg-brand-live px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
                   <Zap className="h-3 w-3" />
-                  Live
+                  Join Friendsly Live
                 </div>
-                <p className="mt-1 text-sm text-brand-ink-muted">
-                  Free to watch - pay by the minute only when you're on stage with {creator.name}.
-                </p>
-                <div className="mt-5">
-                  <div className="rounded-3xl border border-brand-live/15 bg-white/70 px-5 py-5">
-                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-brand-live">Countdown</p>
-                    <p className="mt-3 text-lg font-semibold text-brand-ink">{countdownPrimaryText}</p>
-                    {countdownSecondaryText ? (
-                      <p className="mt-2 text-sm text-brand-ink-muted">{countdownSecondaryText}</p>
-                    ) : null}
-                  </div>
-                </div>
-                {creator.isLive && hasLiveRate && (
-                  <Link href={liveHref ?? "#"}>
-                    <Button variant="live" size="lg" className="mt-4 w-full gap-2">
+                <p className="mt-2 text-sm text-brand-ink-muted">Free to watch.</p>
+                {shouldShowLiveButton && (
+                  creator.isLive && hasLiveRate ? (
+                    <Link href={liveHref ?? "#"}>
+                      <Button variant="live" size="lg" className="mt-3 w-full gap-2">
+                        <Zap className="h-4 w-4" />
+                        {liveButtonLabel}
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      variant={liveButtonDisabled ? "surface" : "live"}
+                      size="lg"
+                      className="mt-3 w-full gap-2"
+                      disabled={liveButtonDisabled}
+                      onClick={() => void handleLiveRequest()}
+                    >
                       <Zap className="h-4 w-4" />
-                      Watch NOW for free
+                      {liveButtonLabel}
                     </Button>
-                  </Link>
+                  )
                 )}
               </div>
             )}
