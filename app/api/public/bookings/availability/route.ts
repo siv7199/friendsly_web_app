@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 
-const AVAILABILITY_CACHE_CONTROL = "public, max-age=15, s-maxage=15, stale-while-revalidate=30";
+const AVAILABILITY_CACHE_CONTROL = "public, max-age=30, s-maxage=60, stale-while-revalidate=300";
 
 export async function GET(request: Request) {
   try {

@@ -293,13 +293,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
       }
     }
 
-    const interval = window.setInterval(refreshIfVisible, 30000);
     window.addEventListener("focus", refreshIfVisible);
     document.addEventListener("visibilitychange", refreshIfVisible);
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
     };
