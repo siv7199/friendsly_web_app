@@ -323,7 +323,7 @@ export default function BookingAccessPage() {
                         variant="gold"
                         className="w-full"
                         disabled={authLoading}
-                        onClick={() => router.push(`/?tab=signin&next=${encodeURIComponent(nextPath)}`)}
+                        onClick={() => router.push(`/login?tab=signin&next=${encodeURIComponent(nextPath)}`)}
                       >
                         <Lock className="w-4 h-4" />
                         Sign in to join

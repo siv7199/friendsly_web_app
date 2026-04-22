@@ -1,346 +1,213 @@
-# Friendsly Pre-Launch Checklist
+# Friendsly Final Testing And Security Checklist
 
-This is the working plan for launch.
+This checklist replaces the earlier security-first plan.
 
-Order:
+Current goal:
 
-1. Basic functionality
-2. Security hardening
-3. Stress testing
-4. Final deployment
+- Finish final stress testing in the next few hours
+- Run the remaining security review stack immediately after
+- Complete the egress check
+- Swap in the new Stripe keys and the new Supabase project values
+- End today with a clean launch-readiness pass
 
-Current status:
+Order for today:
 
-- Basic functionality: mostly done
-- Security hardening: in progress
-- Stress testing: after security
-- Final deployment: tomorrow
-- New Supabase project: required before final launch
+1. Stress testing
+2. Security review with three Claude skills
+3. Egress check
+4. Stripe key replacement
+5. Supabase project/key replacement
+6. Final smoke test
 
-## Phase 1: Basic Functionality
-
-Status: completed enough to move forward, with a few UI fixes already handled.
-
-### Verified
-
-- [x] App deploy loads
-- [x] Main flows load
-- [x] Fan and creator sides load
-- [x] Mobile UI issues found and patched
-- [x] Public booking flow basically works
-
-### Keep Watching
-
-- [ ] Do one final smoke test after security fixes
-- [ ] Recheck mobile layouts after final deployment
-
-## Phase 2: Security Hardening
+## Phase 1: Stress Testing
 
 Status: start here now.
 
-## 2.1 Immediate Secret Response
+Focus only on these flows:
 
-- [x] Treat the current exposed `SUPABASE_SERVICE_ROLE_KEY` as compromised
-- [ ] Stop using the old Supabase project for final production
-- [x] Remove any leaked service-role key values from files still in the repo/workspace
-- [x] Make sure no server secret is in any `NEXT_PUBLIC_*` variable
-- [x] Check for other leaked secrets in repo files and git history references
+- Login
+- Lives
+- Individual bookings
+- Payments and payouts
+- Booking links
 
-Definition of done:
+### 1.1 Login Stress Testing
 
-- Old leaked key is no longer trusted
-- New project will provide fresh keys
-- No active production plan depends on the old leaked secret
-
-## 2.2 New Supabase Project Cutover
-
-- [ ] Create the new Supabase project
-- [ ] Apply all migrations to the new project
-- [ ] Recreate any required storage buckets
-- [ ] Recreate any required auth/email/provider settings
-- [ ] Recreate any required database extensions/settings
-- [ ] Update local env vars to the new project
-- [ ] Update hosting env vars to the new project
-- [ ] Verify app connects to the new project successfully
+- [ ] Fan login works repeatedly without stale-session issues
+- [ ] Creator login works repeatedly without stale-session issues
+- [ ] Logout then immediate login works
+- [ ] Multi-tab login/logout behavior is stable
+- [ ] Wrong-password and expired-session behavior is safe and recoverable
+- [ ] Auth rate limits or anti-abuse protections do not break normal usage
 
 Definition of done:
 
-- Local app works against the new Supabase project
-- Hosted app preview works against the new Supabase project
-- No final deployment points at the old project
+- Login stays stable across repeated attempts and normal edge cases
 
-## 2.3 Environment Variables
+### 1.2 Live Stress Testing
 
-Required runtime values:
-
-- [x] `NEXT_PUBLIC_SUPABASE_URL`
-- [x] `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- [x] `SUPABASE_SERVICE_ROLE_KEY`
-- [x] `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- [x] `STRIPE_SECRET_KEY`
-- [x] `DAILY_API_KEY`
-- [x] `APP_BASE_URL`
-- [ ] `NEXT_PUBLIC_HCAPTCHA_SITE_KEY` if Supabase CAPTCHA is enabled
-
-Environment hygiene:
-
-- [x] `.env.local` stays out of git
-- [ ] Production env values are not reused in local unnecessarily
-- [ ] Preview and production are separated where possible
-- [x] No secrets are hardcoded in source files
-- [x] No secrets live in seed/test helper files
-
-## 2.4 Supabase and Database Security
-
-### Core checks
-
-- [x] RLS enabled on all exposed tables
-- [x] Policies reviewed table by table
-- [x] Service-role key is only used on the server
-- [x] Client-side code only uses anon/authenticated access where intended
-
-### Tables to review
-
-- [x] `profiles`
-- [x] `creator_profiles`
-- [x] `bookings`
-- [x] `reviews`
-- [x] `live_sessions`
-- [x] `live_queue`
-- [x] `call_packages`
-- [x] creator availability tables
-- [x] guest/public access tables if any still remain
-- [x] payout-related tables if any exist
-
-For each table:
-
-- [x] Who can `select`
-- [x] Who can `insert`
-- [x] Who can `update`
-- [x] Who can `delete`
-- [x] `USING` and `WITH CHECK` logic is correct where needed
-- [ ] One user cannot access another user's rows unless intended
-
-Notes:
-
-- Guest checkout/access tables are now explicitly service-only via migration `036`.
-- Direct client booking inserts and updates are blocked; booking mutations now go through server routes via migration `037`.
-- Direct live queue inserts and direct analytics inserts are blocked via migration `038`.
-- Supabase linter warnings for mutable function search paths and broad avatar bucket listing are fixed via migration `039`.
-- Public read policies remain intentional for creator discovery, packages, availability, reviews, live sessions, and live chat.
+- [ ] Creator can start a live reliably more than once
+- [ ] Fan live join flow works repeatedly
+- [ ] Queue updates remain correct under repeated joins/leaves
+- [ ] Admit flow still works under churn
+- [ ] End-live cleanup completes without stale live state
+- [ ] Reconnect behavior is acceptable for creator and fan
+- [ ] No obvious duplicate charges or broken queue states appear during live testing
 
 Definition of done:
 
-- Every production table has explicit, reviewed access rules
-- No sensitive table is relying on accidental openness
+- Live sessions remain usable under repeated joins, exits, admits, and reconnects
 
-## 2.5 Auth and Authorization
+### 1.3 Individual Booking Stress Testing
 
-- [x] Every high-risk write route checks authenticated user server-side
-- [x] Every protected payment/booking/live route checks role/ownership server-side
-- [x] Client-submitted role/user IDs are not trusted for creator/fan route authorization
-- [x] Booking ownership is enforced on server
-- [x] Creator-only actions are enforced on server
-- [x] Review submission rules are enforced on server
-- [x] Live room access rules are enforced on server
-- [x] Legacy guest checkout mutation routes are retired
-- [x] Logout/settings/profile access work correctly on both fan and creator sides
-- [ ] Manual cross-account tampering tests pass
+- [ ] Booking creation works repeatedly for valid slots
+- [ ] Already-taken slot protection still holds under repeat attempts
+- [ ] Booking join window opens correctly
+- [ ] Fan join flow works reliably
+- [ ] Creator join flow works reliably
+- [ ] Booking completion and cancellation states stay correct after repeated tests
+- [ ] No duplicate booking rows or inconsistent booking states appear
 
 Definition of done:
 
-- Users can only act on data and rooms they truly own or are allowed to access
+- Individual bookings stay consistent under repeated create, join, cancel, and complete flows
 
-Notes:
+### 1.4 Payments And Payouts Stress Testing
 
-- Creator-only route checks now verify the database `profiles.role` plus creator profile existence.
-- Fan-only claim checks now verify the database `profiles.role` instead of trusting user metadata.
-- Old guest checkout/payment/booking endpoints now return a retired-flow response so booking requires a signed-in fan account.
-- Token-only guest actions for cancel, presence, and late fee no longer mutate bookings without sign-in.
-
-## 2.6 Stripe Security
-
-- [x] Price is determined server-side
-- [x] Client cannot override amount for bookings
-- [x] PaymentIntent is verified server-side
-- [x] Booking is created only after verified successful payment
-- [x] Refund logic is server-enforced
-- [x] Late-fee logic is server-enforced
-- [ ] Stripe Connect is configured for creator payouts
-- [ ] Stripe Connect onboarding flow works
-- [x] Connected account status is validated server-side
-- [x] Payout-related routes only work for eligible connected creators
-- [ ] Stripe webhook secret is configured
-- [x] Webhook signature verification is implemented
-- [ ] Webhook handlers are idempotent
-- [x] Live preauth amount is derived server-side
-- [x] Live queue entry creation is now server-enforced
+- [ ] Booking payment flow succeeds repeatedly
+- [ ] Live preauth and capture flow behaves correctly
+- [ ] Failed payment path recovers cleanly
+- [ ] Repeated submit/refresh behavior does not create duplicate charges
+- [ ] Creator payout status page remains stable
+- [ ] Stripe Connect onboarding still returns cleanly
+- [ ] Withdrawal flow behaves correctly for an eligible creator
+- [ ] Payout history and balances remain internally consistent after testing
 
 Definition of done:
 
-- No payment-critical trust is placed on the browser
+- Payment and payout flows remain correct, non-duplicative, and recoverable
 
-## 2.7 Daily / Video Security
+### 1.5 Booking Link Stress Testing
 
-- [x] Daily room/tokens are created server-side
-- [x] Tokens include expiration for booking room creation
-- [x] Tokens are scoped to the right room
-- [x] Creator/fan room access is enforced by booking/live state for booking rooms
-- [x] Generic Daily room/token routes now require auth and creator ownership checks
-- [x] Live finalize/disconnect/end routes now require the real creator
-- [ ] Users cannot join another room by changing IDs or tokens
+- [ ] Public booking link opens correctly
+- [ ] Valid booking access link still resolves to the intended booking
+- [ ] Claimed/joined behavior stays correct
+- [ ] Expired, invalid, or reused links fail safely
+- [ ] Booking link flow does not expose another user's booking data
 
 Definition of done:
 
-- Video access follows real authorization, not guessable URLs
+- Booking links work for intended users and fail safely for invalid access
 
-## 2.8 Validation and Input Safety
+## Phase 2: Security Review
 
-- [x] Important request bodies are validated on the server
-- [x] IDs, enums, timestamps, and money-related values are validated on high-risk routes
-- [x] User-generated text is rendered safely
-- [x] No user-controlled unsafe HTML rendering path exists
-- [ ] Manual invalid-input testing passes
+Status: start immediately after Phase 1.
 
-## 2.9 Rate Limiting and Abuse Protection
+### 2.1 Claude Skill Security Pass
 
-- [x] Sign in/pre-login endpoint limited
-- [x] Creator sign-up request endpoint limited
-- [x] Booking creation limited
-- [x] Live join endpoints limited
-- [x] Payment-related endpoints limited
-- [x] Review submission limited
-- [x] Avatar upload limited
-- [x] Creator payout onboarding/withdraw routes limited
-- [x] hCaptcha is wired into Supabase signup flows
-- [ ] Any future email/OTP endpoints limited
-- [ ] Replace in-memory limiter with shared production limiter if hosting runs multiple instances
+- [ ] Run security check with Claude skill 1
+- [ ] Run security check with Claude skill 2
+- [ ] Run security check with Claude skill 3
+- [ ] Consolidate findings into one short action list
+- [ ] Patch any fast, high-confidence issues found today
+- [ ] Defer lower-risk findings into follow-up tasks if they are not launch blockers
 
 Definition of done:
 
-- Repeated abuse or spam attempts hit limits before harming the app
+- All three Claude security passes are complete and any launch-blocking findings are resolved or explicitly documented
 
-Notes:
+### 2.2 Core Security Checks To Confirm
 
-- Added shared request-security helpers for safe JSON parsing, ID/date/payment validation, text length bounds, and basic rate limits.
-- Current rate limits are in-memory process limits. They are useful immediately, but a shared limiter such as Redis/Upstash/Vercel KV is stronger for production scale.
-- Unsafe HTML scan only found static Daily video style injection, not user-generated HTML rendering.
+- [ ] Auth and role enforcement still hold on sensitive routes
+- [ ] Booking ownership checks still hold
+- [ ] Live room access still requires valid authorization
+- [ ] Payment amount and payout eligibility remain server-enforced
+- [ ] Booking-link access rules still hold
+- [ ] No newly introduced secret exposure is present in source or logs
 
-## 2.10 Headers and Browser Security
-
-- [x] `Strict-Transport-Security`
-- [x] `X-Content-Type-Options: nosniff`
-- [x] `Referrer-Policy`
-- [x] `Permissions-Policy`
-- [x] CSP added or planned carefully
-- [x] CORS is not overly broad on sensitive endpoints
-- [x] Source maps are not unintentionally exposed in production
-
-Notes:
-
-- Added global security headers in `next.config.mjs`.
-- Disabled production browser source maps through Next config.
-- CSP is intentionally planned, not enforced yet, because Stripe, Daily, Supabase storage, and inline Daily video styles need a careful allowlist to avoid breaking payments/video.
-
-## 2.11 Logging and Recovery
-
-- [x] Auth failures return explicit server-side errors
-- [x] Payment failures return explicit server-side errors
-- [x] Webhook failures logged
-- [ ] High-risk admin/role changes logged
-- [x] Secret rotation process written down
-- [x] Rollback/recovery process written down
-
-Notes:
-
-- Added `docs/SECURITY_RUNBOOK.md` for secret rotation, rollback, webhook recovery, Supabase recovery, logging checks, and manual security smoke tests.
-- Stripe webhook signature/config/processing failures now write server logs.
-- There is no full admin dashboard yet, so high-risk admin/role-change logging stays open until those tools exist.
-
-## Phase 3: Stress Testing
-
-Status: do only after Phase 2 is complete enough.
-
-### Booking and Live Concurrency
-
-- [ ] Concurrent bookings for same slot tested
-- [ ] Simultaneous live joins tested
-- [ ] Creator live join/leave churn tested
-- [ ] Reconnect behavior tested
-
-### Payments and Background Flows
-
-- [ ] Repeated payment attempts tested
-- [ ] Duplicate webhook delivery tested
-- [ ] Payment timeout/failure recovery tested
-
-### Limits
-
-- [ ] Rate limits actually trigger
-- [ ] Abuse attempts are blocked
-- [ ] Failed auth spam does not destabilize app
-
-### Performance Under Load
-
-- [ ] Key pages still work under moderate load
-- [ ] Core APIs stay responsive under moderate load
-- [ ] Realtime features stay usable under moderate load
-
-## Phase 4: Final Deployment Tomorrow
-
-Status: only after security and stress checks are complete enough.
-
-### Before Deploy
-
-- [ ] New Supabase project is live and connected
-- [ ] Production env vars are correct
-- [ ] Stripe production/test choice is intentional
-- [ ] Stripe Connect is fully set up for production
-- [ ] At least one creator completes Stripe Connect onboarding successfully
-- [ ] Creator payout flow is smoke tested
-- [ ] Daily production config is correct
-- [ ] No temporary secrets remain
-- [ ] No temporary bypasses remain in code
-
-### Final Validation
-
-- [ ] Fan sign up/sign in smoke test
-- [ ] Creator flow smoke test
-- [ ] Booking smoke test
-- [ ] Payment smoke test
-- [ ] Stripe Connect onboarding smoke test
-- [ ] Creator payout status smoke test
-- [ ] Live join smoke test
-- [ ] Settings/profile/logout smoke test
-- [ ] Mobile smoke test
-
-### Launch Ready Means
-
-- [ ] Basic functions work
-- [ ] New Supabase project is in place
-- [ ] Exposed secret is no longer relevant to production
-- [ ] Core security items are complete
-- [ ] Stress testing completed at a reasonable level
-- [ ] Final smoke test passed
-
-## Manual Security Tests
+### 2.3 Manual Attack Checks
 
 - [ ] Try changing booking IDs in requests
-- [ ] Try changing live room IDs/tokens
+- [ ] Try changing live identifiers or join parameters
 - [ ] Try changing payment-related values in requests
-- [ ] Try reading another user's data through client-available paths
-- [ ] Try performing creator-only actions as a fan
-- [ ] Try performing fan-only actions as another user
-- [ ] Try replaying Stripe webhook requests without valid signature
+- [ ] Try creator-only payout/live actions from a fan account
+- [ ] Try another-user booking-link access
+- [ ] Try replaying Stripe webhook traffic without a valid signature
 
-## Suggested Working Order Tonight
+## Phase 3: Egress Check
 
-1. Secret response and new Supabase project plan
-2. Environment variable cleanup
-3. Supabase RLS and policy review
-4. Route-level auth/authorization review
-5. Stripe, Stripe Connect, and Daily security review
-6. Rate limiting and headers
-7. Manual security tests
-8. Stress testing
-9. Final deploy prep for tomorrow
+Status: run after the Claude security pass.
+
+- [ ] Confirm current app behavior does not reintroduce the old Supabase egress issue
+- [ ] Watch auth, booking, live, and booking-link flows for suspicious repeated polling
+- [ ] Watch realtime behavior for unnecessary churn
+- [ ] Check that stress testing did not create obvious egress spikes
+- [ ] Record whether current production path is acceptable or if the new Supabase project is still required immediately
+
+Definition of done:
+
+- We understand whether egress is under control and whether the new Supabase project cutover remains mandatory right now
+
+## Phase 4: Key And Project Replacement
+
+Status: do this after the egress check.
+
+### 4.1 Stripe Keys
+
+- [ ] Replace the original Stripe keys with the new Stripe keys locally
+- [ ] Replace Stripe env vars in hosting
+- [ ] Confirm `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is correct
+- [ ] Confirm `STRIPE_SECRET_KEY` is correct
+- [ ] Confirm `STRIPE_WEBHOOK_SECRET` matches the active endpoint
+- [ ] Redeploy after Stripe key changes
+
+### 4.2 Supabase Project And Keys
+
+- [ ] Replace the original Supabase project values with the new project values locally
+- [ ] Replace Supabase env vars in hosting
+- [ ] Confirm `NEXT_PUBLIC_SUPABASE_URL` is correct
+- [ ] Confirm `NEXT_PUBLIC_SUPABASE_ANON_KEY` is correct
+- [ ] Confirm `SUPABASE_SERVICE_ROLE_KEY` is correct
+- [ ] Verify migrations, storage, auth settings, and functions are ready on the new project
+- [ ] Redeploy after Supabase project/key changes
+
+Definition of done:
+
+- The app is pointed at the intended Stripe and Supabase production configuration with fresh values
+
+## Phase 5: Final Smoke Test
+
+Status: run after key replacement.
+
+- [ ] Fan login smoke test
+- [ ] Creator login smoke test
+- [ ] Live smoke test
+- [ ] Individual booking smoke test
+- [ ] Booking payment smoke test
+- [ ] Creator payout status smoke test
+- [ ] Creator payout/withdraw smoke test
+- [ ] Booking link smoke test
+- [ ] Logs look clean enough for launch
+
+## Launch Ready Means
+
+- [ ] Stress testing is complete for login, lives, individual bookings, payments/payouts, and booking links
+- [ ] Three Claude security checks are complete
+- [ ] Egress check is complete
+- [ ] New Stripe keys are live
+- [ ] New Supabase project values are live
+- [ ] Final smoke test passed
+
+## Suggested Working Order Right Now
+
+1. Login stress testing
+2. Live stress testing
+3. Individual booking stress testing
+4. Payments and payouts stress testing
+5. Booking link stress testing
+6. Three Claude security checks
+7. Manual attack checks
+8. Egress check
+9. Replace Stripe keys
+10. Replace Supabase project values
+11. Final smoke test

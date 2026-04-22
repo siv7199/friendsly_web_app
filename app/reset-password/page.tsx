@@ -48,7 +48,7 @@ export default function ResetPasswordPage() {
 
       setSuccess("Password updated. Redirecting you back to sign in...");
       setTimeout(() => {
-        router.replace("/?tab=signin");
+        router.replace("/login?tab=signin");
       }, 1400);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update password.");
@@ -87,7 +87,7 @@ export default function ResetPasswordPage() {
                 <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   This reset link is missing or expired. Request a new one from the sign-in page.
                 </p>
-                <Link href="/?tab=signin" className="block">
+                <Link href="/login?tab=signin" className="block">
                   <Button variant="primary" size="lg" className="w-full">
                     Back to sign in
                   </Button>

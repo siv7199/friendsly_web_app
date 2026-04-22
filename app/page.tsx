@@ -102,7 +102,7 @@ export default function LandingPage() {
             marginBottom: 28, position: "relative", zIndex: 1,
           }}>
             <span className="lp-blink" style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e", display: "inline-block" }} />
-            Launching 2025 · Limited Early Access
+            2026 Early Access
           </div>
 
           <h1 className="lp-fadeup-2" style={{
