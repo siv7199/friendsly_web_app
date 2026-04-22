@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getLiveChargeAmount, getLiveChargeAmountCents, getLiveStageElapsedSeconds, LIVE_PREAUTH_MINUTES, LIVE_STAGE_SECONDS } from "@/lib/live";
+import { getLiveFanChargedAmount, getLiveFanChargedAmountCents, getLiveStageElapsedSeconds, LIVE_PREAUTH_MINUTES, LIVE_STAGE_SECONDS } from "@/lib/live";
 import { settleManualCapturePaymentIntent } from "@/lib/server/stripe";
 
 export async function POST(request: Request) {
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     if (status && entry.status === "active") {
       durationSeconds = Math.max(0, Math.min(LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds(entry.admitted_at, Date.now())));
       const ratePerMinute = Number(entry.amount_pre_authorized ?? 0) / LIVE_PREAUTH_MINUTES;
-      amountCharged = getLiveChargeAmount({
+      amountCharged = getLiveFanChargedAmount({
         ratePerMinute,
         durationSeconds,
       });
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       if (entry.stripe_pre_auth_id) {
         await settleManualCapturePaymentIntent({
           paymentIntentId: entry.stripe_pre_auth_id,
-          amountToCaptureCents: getLiveChargeAmountCents({
+          amountToCaptureCents: getLiveFanChargedAmountCents({
             ratePerMinute,
             durationSeconds,
           }),

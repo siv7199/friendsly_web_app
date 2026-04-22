@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { deriveBookingStatus, getBookingGrossAmount, hasBookingEnded } from "@/lib/bookings";
+import { getLiveCreatorRevenueBaseFromChargedAmount } from "@/lib/live";
 import { getCreatorRevenueShare } from "@/lib/revenue";
 
 export type AnalyticsRangeKey = "7d" | "30d" | "month";
@@ -120,7 +121,9 @@ export async function getCreatorAnalyticsSnapshot(creatorId: string, range: Anal
 
       if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {
         completedCalls += 1;
-        creatorRevenue += getCreatorRevenueShare(Number(entry.amount_charged));
+        creatorRevenue += getCreatorRevenueShare(
+          getLiveCreatorRevenueBaseFromChargedAmount(entry.amount_charged)
+        );
       }
     });
   });

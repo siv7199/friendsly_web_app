@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { deriveBookingStatus, getBookingGrossAmount } from "@/lib/bookings";
+import { getLiveCreatorRevenueBaseFromChargedAmount } from "@/lib/live";
 import { stripe } from "@/lib/server/stripe";
 import { getRetainedBookingAmount } from "@/lib/server/bookings";
 import { getCreatorRevenueShare } from "@/lib/revenue";
@@ -221,7 +222,9 @@ export async function getCreatorPayoutSummary(userId: string): Promise<CreatorPa
   (liveRes.data || []).forEach((session: any) => {
     (session.live_queue_entries || []).forEach((entry: any) => {
       if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {
-        const creatorCut = getCreatorRevenueShare(Number(entry.amount_charged));
+        const creatorCut = getCreatorRevenueShare(
+          getLiveCreatorRevenueBaseFromChargedAmount(entry.amount_charged)
+        );
         totalEarned += creatorCut;
 
         const endedAt = entry.ended_at ? new Date(entry.ended_at) : null;

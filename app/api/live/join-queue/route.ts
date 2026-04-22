@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getLivePreauthAmount, getLivePreauthAmountCents, normalizeLiveJoinFee } from "@/lib/live";
+import { getLivePreauthAmount, getLivePreauthFanChargeAmountCents, normalizeLiveJoinFee } from "@/lib/live";
 import { stripe } from "@/lib/server/stripe";
 import {
   checkRateLimit,
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     }
 
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    const expectedAmountCents = getLivePreauthAmountCents(joinFee);
+    const expectedAmountCents = getLivePreauthFanChargeAmountCents(joinFee);
     const paymentOwnerId = paymentIntent.metadata?.user_id ?? paymentIntent.metadata?.userId ?? null;
     const paymentCreatorId = paymentIntent.metadata?.creator_id ?? null;
     const paymentSessionId = paymentIntent.metadata?.live_session_id ?? null;

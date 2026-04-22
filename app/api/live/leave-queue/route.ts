@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getLivePreauthFanChargeAmountCents, LIVE_PREAUTH_MINUTES } from "@/lib/live";
 import { refundPaymentIntent } from "@/lib/server/stripe";
 
 export async function POST(request: Request) {
@@ -41,7 +42,9 @@ export async function POST(request: Request) {
     if (entry.stripe_pre_auth_id) {
       await refundPaymentIntent({
         paymentIntentId: entry.stripe_pre_auth_id,
-        amountToRefundCents: Math.round(Number(entry.amount_pre_authorized ?? 0) * 100),
+        amountToRefundCents: getLivePreauthFanChargeAmountCents(
+          Number(entry.amount_pre_authorized ?? 0) / LIVE_PREAUTH_MINUTES
+        ),
       });
     }
 

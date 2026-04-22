@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { refundPaymentIntent, settleManualCapturePaymentIntent } from "@/lib/server/stripe";
-import { getLiveChargeAmount, getLiveChargeAmountCents, getLiveStageElapsedSeconds, LIVE_PREAUTH_MINUTES, LIVE_STAGE_SECONDS } from "@/lib/live";
+import { getLiveFanChargedAmount, getLiveFanChargedAmountCents, getLivePreauthFanChargeAmountCents, getLiveStageElapsedSeconds, LIVE_PREAUTH_MINUTES, LIVE_STAGE_SECONDS } from "@/lib/live";
 
 export async function POST(req: Request) {
   try {
@@ -40,12 +40,12 @@ export async function POST(req: Request) {
         if (entry.status === "active") {
           const durationSeconds = Math.max(0, Math.min(LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds(entry.admitted_at, Date.now())));
           const ratePerMinute = Number(entry.amount_pre_authorized ?? 0) / LIVE_PREAUTH_MINUTES;
-          const amountCharged = getLiveChargeAmount({ ratePerMinute, durationSeconds });
+          const amountCharged = getLiveFanChargedAmount({ ratePerMinute, durationSeconds });
 
           if (entry.stripe_pre_auth_id) {
             await settleManualCapturePaymentIntent({
               paymentIntentId: entry.stripe_pre_auth_id,
-              amountToCaptureCents: getLiveChargeAmountCents({ ratePerMinute, durationSeconds }),
+              amountToCaptureCents: getLiveFanChargedAmountCents({ ratePerMinute, durationSeconds }),
             });
           }
 
@@ -65,7 +65,9 @@ export async function POST(req: Request) {
         if (entry.status === "waiting") {
           await refundPaymentIntent({
             paymentIntentId: entry.stripe_pre_auth_id,
-            amountToRefundCents: Math.round(Number(entry.amount_pre_authorized ?? 0) * 100),
+            amountToRefundCents: getLivePreauthFanChargeAmountCents(
+              Number(entry.amount_pre_authorized ?? 0) / LIVE_PREAUTH_MINUTES
+            ),
           });
 
           await serviceSupabase

@@ -3,7 +3,8 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { ensureStripeCustomer, stripe } from "@/lib/server/stripe";
 import {
   getLivePreauthAmount,
-  getLivePreauthAmountCents,
+  getLivePreauthFanChargeAmount,
+  getLivePreauthFanChargeAmountCents,
   isValidLiveJoinFee,
   normalizeLiveJoinFee,
 } from "@/lib/live";
@@ -76,8 +77,9 @@ export async function POST(request: Request) {
       }
     }
 
-    const amount = getLivePreauthAmountCents(joinFee);
+    const amount = getLivePreauthFanChargeAmountCents(joinFee);
     const preauthAmount = getLivePreauthAmount(joinFee);
+    const preauthFanCharge = getLivePreauthFanChargeAmount(joinFee);
     const shouldUseCustomer = Boolean(saveForFuture || paymentMethodId);
     const customerId = shouldUseCustomer
       ? await ensureStripeCustomer({
@@ -106,6 +108,7 @@ export async function POST(request: Request) {
           live_rate_per_minute: String(joinFee),
           hold_minutes: "5",
           hold_amount: String(preauthAmount),
+          fan_hold_amount: String(preauthFanCharge),
           user_id: user.id,
           user_email: user.email ?? "",
         },
@@ -134,6 +137,7 @@ export async function POST(request: Request) {
         live_rate_per_minute: String(joinFee),
         hold_minutes: "5",
         hold_amount: String(preauthAmount),
+        fan_hold_amount: String(preauthFanCharge),
         user_id: user.id,
         user_email: user.email ?? "",
       },

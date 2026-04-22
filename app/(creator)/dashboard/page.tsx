@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { deriveBookingStatus, getBookingGrossAmount, getNextAutoCancelCheckDelay, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
 import { getCreatorAnalyticsSnapshot } from "@/lib/analytics";
 import { getCreatorInsights, type CreatorInsight } from "@/lib/creator-insights";
+import { getLiveCreatorRevenueBaseFromChargedAmount } from "@/lib/live";
 import { formatDateTimeLocalInTimeZone, getBrowserTimeZone, localDateKey, zonedTimeToUtc } from "@/lib/timezones";
 import { getCreatorLiveConsolePath } from "@/lib/routes";
 import { getCreatorRevenueShare } from "@/lib/revenue";
@@ -414,7 +415,7 @@ export default function DashboardPage() {
           if (Array.isArray(session.live_queue_entries)) {
             session.live_queue_entries.forEach((entry: any) => {
               if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {
-                liveQueueEarned += Number(entry.amount_charged);
+                liveQueueEarned += getLiveCreatorRevenueBaseFromChargedAmount(entry.amount_charged);
               }
               if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {
                 const endedAt = entry.ended_at ? new Date(entry.ended_at) : null;

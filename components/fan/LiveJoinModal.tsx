@@ -13,7 +13,7 @@ import { readJsonResponse } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
+import { getLiveFanChargeAmount, getLivePreauthFanChargeAmount, LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
 import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
 import { getLiveSessionPath } from "@/lib/routes";
 
@@ -109,6 +109,9 @@ export function LiveJoinModal({
   });
 
   const joinFee = creator.liveJoinFee ?? 0;
+  const fanPerMinuteCharge = getLiveFanChargeAmount(joinFee);
+  const fanPreauthHold = getLivePreauthFanChargeAmount(joinFee);
+  const liveProcessingFee = Math.max(0, fanPerMinuteCharge - joinFee);
 
   function handleModalClose() {
     onClose();
@@ -355,6 +358,24 @@ export function LiveJoinModal({
             </div>
 
             <div className="space-y-3">
+              <div className="rounded-xl border border-brand-border bg-brand-elevated px-4 py-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-brand-ink-subtle">Creator live rate</span>
+                  <span className="font-semibold text-brand-ink">{formatCurrency(joinFee)} / min</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-sm">
+                  <span className="text-brand-ink-subtle">Processing fee</span>
+                  <span className="font-semibold text-brand-ink">{formatCurrency(liveProcessingFee)} / min</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between border-t border-brand-border pt-2 text-sm">
+                  <span className="font-medium text-brand-ink">Fan total</span>
+                  <span className="font-semibold text-brand-live">{formatCurrency(fanPerMinuteCharge)} / min</span>
+                </div>
+                <p className="mt-2 text-xs text-brand-ink-subtle">
+                  A temporary hold of up to {formatCurrency(fanPreauthHold)} covers the maximum {LIVE_STAGE_MAX_MINUTES} minute live turn.
+                </p>
+              </div>
+
               <p className="text-xs font-semibold uppercase tracking-wider text-brand-ink-subtle">How it works</p>
               {[
                 {
