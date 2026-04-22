@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { StatsCard } from "@/components/creator/StatsCard";
 import { BookingList } from "@/components/creator/BookingList";
+import { ScheduledLiveCard } from "@/components/creator/ScheduledLiveCard";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { MOCK_CREATOR_STATS, MOCK_BOOKINGS } from "@/lib/mock-data";
@@ -27,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { deriveBookingStatus, getBookingGrossAmount, getNextAutoCancelCheckDelay, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
 import { getCreatorAnalyticsSnapshot } from "@/lib/analytics";
 import { getCreatorInsights, type CreatorInsight } from "@/lib/creator-insights";
-import { localDateKey } from "@/lib/timezones";
+import { formatDateTimeLocalInTimeZone, getBrowserTimeZone, localDateKey, zonedTimeToUtc } from "@/lib/timezones";
 import { getCreatorLiveConsolePath } from "@/lib/routes";
 
 interface LiveRequestRow {
@@ -145,6 +146,15 @@ export default function DashboardPage() {
   const [liveRequests, setLiveRequests] = useState<LiveRequestRow[]>([]);
   const [loadingLiveRequests, setLoadingLiveRequests] = useState(true);
   const [showLiveRequests, setShowLiveRequests] = useState(false);
+  const [liveRate, setLiveRate] = useState<number | null>(null);
+  const [scheduledLiveAt, setScheduledLiveAt] = useState("");
+  const [scheduledLiveTimeZone, setScheduledLiveTimeZone] = useState(getBrowserTimeZone());
+  const [scheduledLiveAtIso, setScheduledLiveAtIso] = useState<string | null>(null);
+  const [savingScheduledLive, setSavingScheduledLive] = useState(false);
+
+  function hasConfiguredLiveRate(value: number | null | undefined) {
+    return typeof value === "number" && !Number.isNaN(value) && value > 0;
+  }
 
   async function handleCancelBooking(booking: any) {
     const bookingId = booking.id;
@@ -286,7 +296,7 @@ export default function DashboardPage() {
             .eq("is_active", true),
           supabase
             .from("profiles")
-            .select("id, email, full_name, username, avatar_initials, avatar_color, avatar_url, created_at, role, creator_profiles(bio, category, is_live, live_join_fee, instagram_url, tiktok_url, x_url, avg_rating, review_count)")
+            .select("id, email, full_name, username, avatar_initials, avatar_color, avatar_url, created_at, role, creator_profiles(bio, category, is_live, live_join_fee, scheduled_live_at, scheduled_live_timezone, instagram_url, tiktok_url, x_url, avg_rating, review_count)")
             .eq("id", userId)
             .single(),
         ]);
@@ -421,6 +431,17 @@ export default function DashboardPage() {
         : profileRes.data?.creator_profiles;
       const calculatedAvgRating = Number(profileCreator?.avg_rating ?? 0);
       const reviewCount = Number(profileCreator?.review_count ?? 0);
+      const nextLiveRate = profileCreator?.live_join_fee != null ? Number(profileCreator.live_join_fee) : null;
+      const nextScheduledTimeZone = profileCreator?.scheduled_live_timezone || getBrowserTimeZone();
+
+      setLiveRate(nextLiveRate);
+      setScheduledLiveTimeZone(nextScheduledTimeZone);
+      setScheduledLiveAtIso(profileCreator?.scheduled_live_at ?? null);
+      setScheduledLiveAt(
+        profileCreator?.scheduled_live_at
+          ? formatDateTimeLocalInTimeZone(profileCreator.scheduled_live_at, nextScheduledTimeZone)
+          : ""
+      );
 
       setStats({
         totalEarnings: creatorCut,
@@ -526,6 +547,37 @@ export default function DashboardPage() {
     user,
     activePackageCount ?? 0
   );
+
+  async function saveScheduledLive(nextValue?: string) {
+    if (!user) return;
+    setSavingScheduledLive(true);
+    const supabase = createClient();
+    let scheduledLiveIso: string | null = null;
+
+    if (nextValue) {
+      const [datePart, timePart] = nextValue.split("T");
+      if (datePart && timePart) {
+        const [year, month, day] = datePart.split("-").map(Number);
+        const [hour, minute] = timePart.split(":").map(Number);
+        scheduledLiveIso = zonedTimeToUtc(
+          { year, month, day, hour, minute },
+          scheduledLiveTimeZone
+        ).toISOString();
+      }
+    }
+
+    await supabase
+      .from("creator_profiles")
+      .update({
+        scheduled_live_at: scheduledLiveIso,
+        scheduled_live_timezone: nextValue ? scheduledLiveTimeZone : null,
+      })
+      .eq("id", user.id);
+
+    setScheduledLiveAt(nextValue ?? "");
+    setScheduledLiveAtIso(scheduledLiveIso);
+    setSavingScheduledLive(false);
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-4 py-4 md:px-8">
@@ -704,6 +756,19 @@ export default function DashboardPage() {
               </Button>
             </div>
           </div>
+
+          <ScheduledLiveCard
+            scheduledLiveAt={scheduledLiveAt}
+            scheduledLiveTimeZone={scheduledLiveTimeZone}
+            scheduledLiveAtIso={scheduledLiveAtIso}
+            liveRateConfigured={hasConfiguredLiveRate(liveRate)}
+            saving={savingScheduledLive}
+            onChangeDateTime={setScheduledLiveAt}
+            onChangeTimeZone={setScheduledLiveTimeZone}
+            onSave={() => void saveScheduledLive(scheduledLiveAt)}
+            onClear={() => void saveScheduledLive("")}
+            openStudioHref={user ? getCreatorLiveConsolePath({ id: user.id, username: user.username }) : "/live"}
+          />
 
           {/* Profile card */}
           <div className="overflow-hidden rounded-2xl border border-brand-border bg-brand-surface p-5">

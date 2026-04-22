@@ -7,20 +7,13 @@
 // desktop logic changes, this file needs the same change.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarClock, Loader2, Mic, MicOff, Send, SkipForward, StopCircle, Users, Video, VideoOff, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Mic, MicOff, Send, SkipForward, StopCircle, Users, Video, VideoOff, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { readJsonResponse } from "@/lib/http";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import {
-  COMMON_TIME_ZONES,
-  formatDateTimeLocalInTimeZone,
-  formatTimeZoneLabel,
-  getBrowserTimeZone,
-  zonedTimeToUtc,
-} from "@/lib/timezones";
 import {
   LIVE_STAGE_MAX_MINUTES,
   LIVE_STAGE_MIN_SECONDS,
@@ -153,6 +146,7 @@ function CreatorMobileLiveStage({
 
   const [chatText, setChatText] = useState("");
   const [sending, setSending] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const profileNameCacheRef = useRef<Record<string, string>>({});
   const [messages, setMessages] = useState<
@@ -290,6 +284,8 @@ function CreatorMobileLiveStage({
   const fanVideoActive = isVideoPlayable(fanParticipant);
   const visibleMessages = messages.slice(-5);
   const admitDisabledByMin = Boolean(currentFan) && activeFanElapsedSeconds < LIVE_STAGE_MIN_SECONDS;
+  const queuePreview = queue.slice(0, 4);
+  const remainingQueueCount = Math.max(queueCount - queuePreview.length, 0);
 
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden overscroll-none bg-violet-500" style={MOBILE_LIVE_VIEWPORT_STYLE}>
@@ -330,7 +326,10 @@ function CreatorMobileLiveStage({
       </div>
 
       {/* Video card */}
-      <div className="relative mx-3 shrink-0" style={{ height: "min(36dvh, 320px)" }}>
+      <div
+        className={cn("relative mx-3", chatCollapsed ? "mb-5 flex-1 min-h-0" : "mb-4 shrink-0")}
+        style={chatCollapsed ? undefined : { height: "min(36dvh, 320px)" }}
+      >
         <div
           className="absolute inset-0 rounded-2xl"
           style={{ boxShadow: "0 0 0 2px rgba(192,132,252,0.7), 0 0 24px 4px rgba(168,85,247,0.35)" }}
@@ -347,6 +346,14 @@ function CreatorMobileLiveStage({
             </div>
           )}
           <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-black/25 to-transparent pointer-events-none" />
+          <button
+            onClick={() => setChatCollapsed((value) => !value)}
+            className="absolute right-2.5 top-2.5 z-10 flex h-8 items-center gap-1 rounded-full bg-black/40 px-2.5 text-[11px] font-semibold text-white backdrop-blur-sm transition-all active:scale-95"
+            aria-label={chatCollapsed ? "Show chat" : "Hide chat"}
+          >
+            {chatCollapsed ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            <span>{chatCollapsed ? "Chat" : "Hide"}</span>
+          </button>
 
           {/* PiP — current fan */}
           <div className="absolute bottom-2.5 right-2.5 w-[28%] aspect-video rounded-xl overflow-hidden bg-[#2d2d5e] shadow-md">
@@ -389,51 +396,74 @@ function CreatorMobileLiveStage({
         </div>
       </div>
 
-      {/* Queue avatar row */}
-      <div className="shrink-0 px-3 pt-2 pb-1">
-        <div className="scrollbar-hide flex items-center gap-2 overflow-x-auto rounded-2xl bg-white/8 px-3 py-1.5">
-          {queue.length === 0 && (
-            <p className="text-white/50 text-xs">No fans in line</p>
-          )}
-          {queue.slice(0, 9).map((entry: any) => (
-            <div key={entry.id} className="flex flex-col items-center gap-1.5 shrink-0 px-1">
-              <Avatar
-                initials={entry.avatarInitials ?? entry.fanName?.[0] ?? "F"}
-                color={entry.avatarColor ?? "bg-white/20"}
-                imageUrl={entry.avatarUrl}
-                size="sm"
-              />
-              <span className="text-[10px] font-medium text-white/60">
-                {getFirstName(entry.fanName)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* White panel */}
       <div
-        className="mt-2 flex min-h-[36dvh] flex-1 flex-col overflow-hidden rounded-t-[32px] border-t border-white/70 bg-white shadow-[0_-18px_40px_rgba(15,23,42,0.18)]"
+        className={cn(
+          "mt-0 flex min-h-[36dvh] flex-1 flex-col overflow-hidden rounded-t-[32px] border-t border-white/70 bg-white shadow-[0_-18px_40px_rgba(15,23,42,0.18)]",
+          chatCollapsed && "hidden"
+        )}
       >
-        {/* Admit / End controls */}
-        <div className="flex shrink-0 gap-2 px-4 pt-3 pb-2">
-          <button
-            onClick={onAdmitNext}
-            disabled={queueCount < 1 || admitDisabledByMin}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-full bg-emerald-500 text-white font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50"
-          >
-            <SkipForward className="w-3.5 h-3.5" />
-            {admitDisabledByMin
-              ? `Min ${formatCountdown(LIVE_STAGE_MIN_SECONDS - activeFanElapsedSeconds)}`
-              : currentFan ? "Next fan" : "Admit"}
-          </button>
-          <button
-            onClick={onEndSession}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-red-500 text-white font-semibold text-sm transition-all active:scale-[0.98]"
-          >
-            <StopCircle className="w-3.5 h-3.5" />
-            End
-          </button>
+        <div className="shrink-0 border-b border-slate-200/80 px-4 pb-3 pt-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Queue
+              </p>
+              {queueCount > 0 ? (
+                <div className="mt-2 flex items-center">
+                  <div className="flex items-center">
+                    {queuePreview.map((entry: any, index: number) => (
+                      <Avatar
+                        key={entry.id}
+                        initials={entry.avatarInitials ?? getDisplayInitial(entry.fanName)}
+                        color={entry.avatarColor ?? "bg-brand-primary"}
+                        imageUrl={entry.avatarUrl}
+                        size="sm"
+                        className={cn(index > 0 ? "-ml-2 ring-2 ring-white" : "ring-2 ring-white")}
+                      />
+                    ))}
+                    {remainingQueueCount > 0 ? (
+                      <div className="-ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white ring-2 ring-white">
+                        +{remainingQueueCount}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="ml-3 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {queueCount} {queueCount === 1 ? "person" : "people"} waiting
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {currentFan
+                        ? `${getFirstName(currentFan.fanName)} is on stage right now.`
+                        : "Fans will appear here as they join the live queue."}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-slate-500">No one is waiting yet.</p>
+              )}
+            </div>
+
+            <div className="flex w-[144px] shrink-0 flex-col gap-2">
+              <button
+                onClick={onAdmitNext}
+                disabled={queueCount < 1 || admitDisabledByMin}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                <SkipForward className="w-3.5 h-3.5" />
+                {admitDisabledByMin
+                  ? `Min ${formatCountdown(LIVE_STAGE_MIN_SECONDS - activeFanElapsedSeconds)}`
+                  : currentFan ? "Next fan" : "Admit"}
+              </button>
+              <button
+                onClick={onEndSession}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+              >
+                <StopCircle className="w-3.5 h-3.5" />
+                End
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Chat */}
@@ -520,9 +550,6 @@ export function MobileLiveConsole() {
   const [startError, setStartError] = useState("");
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [creatorJoined, setCreatorJoined] = useState(false);
-  const [scheduledLiveAt, setScheduledLiveAt] = useState("");
-  const [scheduledLiveTimeZone, setScheduledLiveTimeZone] = useState(getBrowserTimeZone());
-  const [savingScheduledLive, setSavingScheduledLive] = useState(false);
   const [creatorProfileAvatarUrl, setCreatorProfileAvatarUrl] = useState<string | undefined>();
 
   const finishingFanRef = useRef(false);
@@ -557,7 +584,7 @@ export function MobileLiveConsole() {
     const supabase = createClient();
     const { data: profile } = await supabase
       .from("creator_profiles")
-      .select("live_join_fee, scheduled_live_at, scheduled_live_timezone, timezone")
+      .select("live_join_fee")
       .eq("id", userId)
       .maybeSingle();
     const { data: publicProfile } = await supabase
@@ -569,20 +596,11 @@ export function MobileLiveConsole() {
     setCreatorProfileAvatarUrl(publicProfile?.avatar_url ?? undefined);
 
     const parsedRate = profile?.live_join_fee != null ? Number(profile.live_join_fee) : null;
-    const nextScheduledTimeZone = profile?.scheduled_live_timezone || profile?.timezone || getBrowserTimeZone();
 
     setLiveRate(parsedRate);
-    setScheduledLiveTimeZone(nextScheduledTimeZone);
-    setScheduledLiveAt(
-      profile?.scheduled_live_at
-        ? formatDateTimeLocalInTimeZone(profile.scheduled_live_at, nextScheduledTimeZone)
-        : ""
-    );
 
     return {
       liveRate: parsedRate,
-      scheduledLiveAt: profile?.scheduled_live_at ?? null,
-      scheduledLiveTimeZone: nextScheduledTimeZone,
     };
   }
 
@@ -830,7 +848,6 @@ export function MobileLiveConsole() {
             .eq("id", user.id);
           setRoomUrl(data.url);
           setToken(data.token);
-          setScheduledLiveAt("");
           setSessionState("live");
         }
       }
@@ -902,33 +919,6 @@ export function MobileLiveConsole() {
         body: JSON.stringify({ creatorId: user.id, sessionId: activeSessionId }),
       });
     } catch {}
-  }
-
-  async function saveScheduledLive(nextValue?: string) {
-    if (!user) return;
-    setSavingScheduledLive(true);
-    const supabase = createClient();
-    let scheduledLiveIso: string | null = null;
-    if (nextValue) {
-      const [datePart, timePart] = nextValue.split("T");
-      if (datePart && timePart) {
-        const [year, month, day] = datePart.split("-").map(Number);
-        const [hour, minute] = timePart.split(":").map(Number);
-        scheduledLiveIso = zonedTimeToUtc(
-          { year, month, day, hour, minute },
-          scheduledLiveTimeZone
-        ).toISOString();
-      }
-    }
-    await supabase
-      .from("creator_profiles")
-      .update({
-        scheduled_live_at: scheduledLiveIso,
-        scheduled_live_timezone: nextValue ? scheduledLiveTimeZone : null,
-      })
-      .eq("id", user.id);
-    setScheduledLiveAt(nextValue ?? "");
-    setSavingScheduledLive(false);
   }
 
   if (initializing) {
@@ -1012,44 +1002,11 @@ export function MobileLiveConsole() {
           className="mt-1 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden rounded-t-3xl bg-white/98 px-4 pt-4"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)" }}
         >
-          <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <div className="flex items-center gap-2 text-slate-800 mb-3">
-              <CalendarClock className="w-4 h-4 text-violet-600 shrink-0" />
-              <p className="text-sm font-semibold">Announce when you're going live</p>
-            </div>
-            <input
-              type="datetime-local"
-              value={scheduledLiveAt}
-              onChange={(e) => setScheduledLiveAt(e.target.value)}
-              style={{ fontSize: "16px", WebkitAppearance: "none", appearance: "none" }}
-              className="block h-11 w-full max-w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:border-violet-500"
-            />
-            <select
-              value={scheduledLiveTimeZone}
-              onChange={(e) => setScheduledLiveTimeZone(e.target.value)}
-              className="mt-3 block h-11 w-full max-w-full min-w-0 truncate rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:border-violet-500"
-            >
-              {COMMON_TIME_ZONES.map((timeZone) => (
-                <option key={timeZone} value={timeZone}>
-                  {formatTimeZoneLabel(timeZone)}
-                </option>
-              ))}
-            </select>
-            <div className="mt-2.5 flex gap-2">
-              <button
-                onClick={() => saveScheduledLive("")}
-                className="flex-1 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-semibold text-sm transition-all active:scale-[0.98]"
-              >
-                Clear
-              </button>
-              <button
-                onClick={() => saveScheduledLive(scheduledLiveAt)}
-                disabled={savingScheduledLive}
-                className="flex-1 py-2 rounded-full bg-violet-600 text-white font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-50"
-              >
-                {savingScheduledLive ? "Saving…" : "Save"}
-              </button>
-            </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Mobile Live</p>
+            <p className="mt-2 text-sm text-slate-700">
+              Check your framing, then start your live. Scheduling now lives on the dashboard.
+            </p>
           </div>
 
           {!hasConfiguredLiveRate(liveRate) ? (

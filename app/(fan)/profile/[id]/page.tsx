@@ -116,6 +116,33 @@ function getPackageAccentClasses(index: number) {
   return accents[index % accents.length];
 }
 
+function getMobilePackageAccentStyle(index: number) {
+  const accents = [
+    {
+      borderColor: "rgba(108, 92, 231, 0.24)",
+      backgroundColor: "rgba(108, 92, 231, 0.08)",
+      boxShadow: "none",
+    },
+    {
+      borderColor: "rgba(245, 158, 11, 0.28)",
+      backgroundColor: "rgba(245, 158, 11, 0.08)",
+      boxShadow: "none",
+    },
+    {
+      borderColor: "rgba(99, 102, 241, 0.26)",
+      backgroundColor: "rgba(99, 102, 241, 0.08)",
+      boxShadow: "none",
+    },
+    {
+      borderColor: "rgba(34, 197, 94, 0.24)",
+      backgroundColor: "rgba(34, 197, 94, 0.08)",
+      boxShadow: "none",
+    },
+  ];
+
+  return accents[index % accents.length];
+}
+
 function parseViewerSlotToDate(date: Date, slot: string) {
   const timeParts = slot.match(/(\d+):(\d+)\s+(AM|PM)/);
   let hours = 12;
@@ -887,15 +914,17 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               >
                 {activePackages.map((pkg) => (
                   (() => {
-                    const accent = getPackageAccentClasses(activePackages.findIndex((candidate) => candidate.id === pkg.id));
+                    const accentIndex = activePackages.findIndex((candidate) => candidate.id === pkg.id);
+                    const accent = getPackageAccentClasses(accentIndex);
+                    const mobileAccentStyle = getMobilePackageAccentStyle(accentIndex);
                     return (
                   <button
                     key={pkg.id}
                     type="button"
                     className={cn(
-                      "flex w-full min-w-0 flex-col items-start gap-1 rounded-2xl border px-3 pt-3 pb-3.5 text-left transition-colors active:opacity-80",
-                      accent.card,
+                      "relative isolate flex w-full min-w-0 flex-col items-start gap-1 overflow-hidden rounded-2xl border px-3 pt-3 pb-3.5 text-left transition-colors active:opacity-80",
                     )}
+                    style={mobileAccentStyle}
                     onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
                   >
                     <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
