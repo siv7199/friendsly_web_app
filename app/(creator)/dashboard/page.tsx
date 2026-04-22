@@ -545,14 +545,13 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Stats Grid ── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <StatsCard
           title="Total Earnings"
           value={formatCurrency(stats.totalEarnings)}
           subtext="All time"
           icon={<DollarSign className="w-5 h-5" />}
           accent="gold"
-          className="sm:col-span-2 xl:col-span-2"
         />
         <StatsCard
           title="Calls This Month"
@@ -587,7 +586,6 @@ export default function DashboardPage() {
           }
           accent={hasLiveRequests ? "live" : "primary"}
           className={cn(
-            "sm:col-span-2 xl:col-span-1",
             hasLiveRequests
               ? "border-red-300 bg-red-50/80 shadow-[0_0_0_1px_rgba(239,68,68,0.08)] hover:border-red-400"
               : ""
