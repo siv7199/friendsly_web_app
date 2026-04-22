@@ -56,7 +56,7 @@ export default function ManagementPage() {
     async function load() {
       const { data: pkgs } = await supabase
         .from("call_packages")
-        .select("*")
+        .select("id, name, duration, price, description, is_active, created_at")
         .eq("creator_id", user!.id)
         .order("created_at");
 

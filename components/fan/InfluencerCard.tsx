@@ -84,7 +84,11 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
     const supabase = createClient();
     try {
       const [{ data: packageData }, { data: availabilityData, error: availabilityError }] = await Promise.all([
-        supabase.from("call_packages").select("*").eq("creator_id", creator.id).eq("is_active", true),
+        supabase
+          .from("call_packages")
+          .select("id, name, duration, price, description, is_active, bookings_count")
+          .eq("creator_id", creator.id)
+          .eq("is_active", true),
         supabase.from("creator_availability").select("day_of_week, start_time, end_time, package_id").eq("creator_id", creator.id).eq("is_active", true),
       ]);
       if (packageData) {

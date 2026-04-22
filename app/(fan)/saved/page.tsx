@@ -38,10 +38,9 @@ export default function SavedPage() {
            creator:profiles!creator_id(
            id, full_name, username, avatar_initials, avatar_color, avatar_url, created_at,
             creator_profiles(
-              bio, category, tags, live_join_fee, is_live, booking_interval_minutes,
+              category, live_join_fee, is_live, booking_interval_minutes,
               scheduled_live_at, scheduled_live_timezone, timezone,
-              followers_count, avg_rating, review_count, total_calls,
-              response_time, next_available
+              avg_rating, review_count, total_calls, next_available
             )
          )`
       )
@@ -86,36 +85,28 @@ export default function SavedPage() {
         avatar_color: string;
         avatar_url: string | null;
         creator_profiles: {
-          bio: string;
           category: string;
-          tags: string[];
-            live_join_fee: number | null;
-            scheduled_live_at: string | null;
-            scheduled_live_timezone: string | null;
-            timezone: string | null;
-            booking_interval_minutes: number | null;
-            is_live: boolean;
-          followers_count: number;
+          live_join_fee: number | null;
+          scheduled_live_at: string | null;
+          scheduled_live_timezone: string | null;
+          timezone: string | null;
+          booking_interval_minutes: number | null;
+          is_live: boolean;
           avg_rating: number;
           review_count: number;
           total_calls: number;
-          response_time: string;
           next_available: string;
         } | {
-          bio: string;
           category: string;
-          tags: string[];
-            live_join_fee: number | null;
-            scheduled_live_at: string | null;
-            scheduled_live_timezone: string | null;
-            timezone: string | null;
-            booking_interval_minutes: number | null;
-            is_live: boolean;
-          followers_count: number;
+          live_join_fee: number | null;
+          scheduled_live_at: string | null;
+          scheduled_live_timezone: string | null;
+          timezone: string | null;
+          booking_interval_minutes: number | null;
+          is_live: boolean;
           avg_rating: number;
           review_count: number;
           total_calls: number;
-          response_time: string;
           next_available: string;
         }[] | null;
       };
@@ -134,9 +125,9 @@ export default function SavedPage() {
         name: p.full_name,
         username: `@${p.username}`,
         createdAt: p.created_at,
-        bio: cp?.bio ?? "",
+        bio: "",
         category: cp?.category ?? "",
-        tags: cp?.tags ?? [],
+        tags: [],
         followers: "",
         rating: Number(cp?.avg_rating ?? 0),
         reviewCount: Number(cp?.review_count ?? 0),

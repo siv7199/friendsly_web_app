@@ -75,6 +75,26 @@ function shouldRefreshFromLiveSessionChange(payload: any) {
   );
 }
 
+function shouldRefreshFromCreatorProfileChange(payload: any) {
+  if (payload.eventType === "INSERT" || payload.eventType === "DELETE") return true;
+
+  const previousProfile = payload.old ?? {};
+  const nextProfile = payload.new ?? {};
+
+  return (
+    previousProfile.bio !== nextProfile.bio ||
+    previousProfile.category !== nextProfile.category ||
+    JSON.stringify(previousProfile.tags ?? []) !== JSON.stringify(nextProfile.tags ?? []) ||
+    previousProfile.avg_rating !== nextProfile.avg_rating ||
+    previousProfile.review_count !== nextProfile.review_count ||
+    previousProfile.total_calls !== nextProfile.total_calls ||
+    previousProfile.live_join_fee !== nextProfile.live_join_fee ||
+    previousProfile.scheduled_live_at !== nextProfile.scheduled_live_at ||
+    previousProfile.scheduled_live_timezone !== nextProfile.scheduled_live_timezone ||
+    previousProfile.timezone !== nextProfile.timezone
+  );
+}
+
 async function fetchCreators(): Promise<Creator[]> {
   const supabase = createClient();
 
@@ -85,9 +105,8 @@ async function fetchCreators(): Promise<Creator[]> {
       avatar_initials, avatar_color, avatar_url,
       creator_profiles(
         bio, category, tags, avg_rating, live_join_fee,
-        next_available, booking_interval_minutes, review_count, total_calls,
-        scheduled_live_at, scheduled_live_timezone, timezone,
-        current_live_session_id, instagram_url, tiktok_url, x_url
+        review_count, total_calls, scheduled_live_at,
+        scheduled_live_timezone, timezone
       ),
       live_sessions(id, is_active, daily_room_url, last_heartbeat_at)
     `)
@@ -177,17 +196,17 @@ async function fetchCreators(): Promise<Creator[]> {
       queueCount: queueCountByCreator[profile.id] ?? 0,
       callPrice: minPrice,
       callDuration: minDuration,
-      nextAvailable: minPrice > 0 ? creatorProfile?.next_available ?? "Available this week" : "No packages yet",
+      nextAvailable: minPrice > 0 ? "Available this week" : "No packages yet",
       totalCalls: Number(creatorProfile?.total_calls ?? 0),
       responseTime: "",
       liveJoinFee,
       scheduledLiveAt: creatorProfile?.scheduled_live_at ?? undefined,
       scheduledLiveTimeZone: creatorProfile?.scheduled_live_timezone ?? creatorProfile?.timezone ?? undefined,
-      bookingIntervalMinutes: creatorProfile?.booking_interval_minutes ? Number(creatorProfile.booking_interval_minutes) : 30,
+      bookingIntervalMinutes: 30,
       isNew: isNewCreator(profile.created_at),
-      instagramUrl: creatorProfile?.instagram_url ?? undefined,
-      tiktokUrl: creatorProfile?.tiktok_url ?? undefined,
-      xUrl: creatorProfile?.x_url ?? undefined,
+      instagramUrl: undefined,
+      tiktokUrl: undefined,
+      xUrl: undefined,
     } satisfies Creator;
   });
 }
@@ -202,6 +221,10 @@ export default function DiscoverPage() {
   const refreshTimeoutsRef = useRef<number[]>([]);
   const liveExpiryTimeoutsRef = useRef<Record<string, number>>({});
   const lastLoadAtRef = useRef(0);
+  const creatorIdsKey = useMemo(
+    () => creators.map((creator) => creator.id).sort().join(","),
+    [creators]
+  );
 
   useEffect(() => {
     function load() {
@@ -256,7 +279,7 @@ export default function DiscoverPage() {
             )
           );
         }
-        scheduleRefreshes();
+        if (shouldRefreshFromCreatorProfileChange(payload)) scheduleRefreshes();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, (payload: any) => {
         const nextSession = payload.new ?? payload.old;
@@ -305,21 +328,22 @@ export default function DiscoverPage() {
   }, []);
 
   useEffect(() => {
-    if (!user || creators.length === 0) {
+    if (!user || creatorIdsKey.length === 0) {
       setSavedCreatorIds(new Set());
       return;
     }
 
     const supabase = createClient();
+    const creatorIds = creatorIdsKey.split(",").filter(Boolean);
     supabase
       .from("saved_creators")
       .select("creator_id")
       .eq("fan_id", user.id)
-      .in("creator_id", creators.map((creator) => creator.id))
+      .in("creator_id", creatorIds)
       .then(({ data }: any) => {
         setSavedCreatorIds(new Set((data ?? []).map((entry: { creator_id: string }) => entry.creator_id)));
       });
-  }, [user, creators]);
+  }, [user, creatorIdsKey]);
 
   const filtered = useMemo(() => {
     let list = creators;

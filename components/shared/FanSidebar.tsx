@@ -41,7 +41,7 @@ export function FanSidebar() {
       const heartbeatCutoffIso = new Date(Date.now() - LIVE_SESSION_STALE_MS).toISOString();
       const { data } = await supabase
         .from("live_sessions")
-        .select("id, creator_id, last_heartbeat_at")
+        .select("creator_id, last_heartbeat_at")
         .eq("is_active", true)
         .not("daily_room_url", "is", null)
         .gte("last_heartbeat_at", heartbeatCutoffIso);

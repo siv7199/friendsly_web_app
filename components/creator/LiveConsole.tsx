@@ -596,7 +596,7 @@ export function LiveConsole() {
 
         const { data: activeSessions } = await supabase
           .from("live_sessions")
-          .select("*")
+          .select("id, daily_room_url, last_heartbeat_at, started_at")
           .eq("creator_id", currentUser.id)
           .eq("is_active", true)
           .order("started_at", { ascending: false });

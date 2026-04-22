@@ -79,7 +79,7 @@ export function WaitingRoom({
     const supabase = createClient();
 
     supabase.from("live_chat_messages")
-      .select("*, profiles!user_id(username, avatar_initials, avatar_color, avatar_url, role)")
+      .select("id, message, created_at, user_id, profiles!user_id(username, avatar_initials, avatar_color, avatar_url, role)")
       .eq("session_id", resolvedSessionId).order("created_at", { ascending: true }).limit(50)
       .then(({ data }: { data: any[] | null }) => {
         if (data) {

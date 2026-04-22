@@ -186,7 +186,7 @@ export default function SettingsPage() {
       
       const [bookingsRes, payoutsRes, liveRes] = await Promise.all([
         supabase.from("bookings").select("id, price, scheduled_at, duration, status, creator_present, fan_present, late_fee_amount, late_fee_paid_at").eq("creator_id", user!.id),
-        supabase.from("payouts").select("*").eq("creator_id", user!.id).order('created_at', { ascending: false }),
+        supabase.from("payouts").select("id, amount, status, created_at").eq("creator_id", user!.id).order('created_at', { ascending: false }),
         supabase
           .from("live_sessions")
           .select("id, live_queue_entries(id, status, amount_charged, ended_at)")

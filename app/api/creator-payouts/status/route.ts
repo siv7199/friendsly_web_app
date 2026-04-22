@@ -22,7 +22,7 @@ export async function GET() {
 
     const { data: payouts } = await serviceSupabase
       .from("payouts")
-      .select("*")
+      .select("id, amount, status, created_at, failure_reason")
       .eq("creator_id", user.id)
       .order("created_at", { ascending: false });
 

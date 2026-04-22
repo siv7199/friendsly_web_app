@@ -102,48 +102,101 @@ function buildAuthMetadata(input: {
   };
 }
 
+const PROFILE_CACHE_TTL_MS = 5000;
+const profileFetchCache = new Map<string, { profile: MockProfile | null; expiresAt: number }>();
+const inFlightProfileFetches = new Map<string, Promise<MockProfile | null>>();
+
 // ── Fetch full profile from DB (used for enriching state after nav) ───────────
 async function fetchProfile(userId: string): Promise<MockProfile | null> {
-  const supabase = createClient();
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("*, creator_profiles(*)")
-    .eq("id", userId)
-    .single();
-
-  if (error || !profile) return null;
-
-  const cp = Array.isArray(profile.creator_profiles)
-    ? profile.creator_profiles[0]
-    : profile.creator_profiles;
-
-  const base = {
-    id: profile.id,
-    email: profile.email,
-    full_name: profile.full_name,
-    username: profile.username,
-    avatar_initials: profile.avatar_initials,
-    avatar_color: profile.avatar_color,
-    avatar_url: profile.avatar_url ?? undefined,
-    created_at: profile.created_at,
-  };
-
-  if (profile.role === "creator") {
-    return {
-      ...base,
-      role: "creator",
-      bio: cp?.bio ?? "",
-      hourly_rate: 0,
-      category: cp?.category ?? "",
-      is_live: cp?.is_live ?? false,
-      live_join_fee: cp?.live_join_fee ? Number(cp.live_join_fee) : undefined,
-      instagram_url: cp?.instagram_url ?? undefined,
-      tiktok_url: cp?.tiktok_url ?? undefined,
-      x_url: cp?.x_url ?? undefined,
-    } as MockProfile;
+  const now = Date.now();
+  const cached = profileFetchCache.get(userId);
+  if (cached && cached.expiresAt > now) {
+    return cached.profile;
   }
-  if (profile.role === "fan") return { ...base, role: "fan" } as MockProfile;
-  return { ...base, role: null } as unknown as MockProfile;
+
+  const inFlight = inFlightProfileFetches.get(userId);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const supabase = createClient();
+  const request = supabase
+    .from("profiles")
+    .select(`
+      id,
+      email,
+      full_name,
+      username,
+      avatar_initials,
+      avatar_color,
+      avatar_url,
+      created_at,
+      role,
+      creator_profiles(
+        bio,
+        category,
+        is_live,
+        live_join_fee,
+        instagram_url,
+        tiktok_url,
+        x_url
+      )
+    `)
+    .eq("id", userId)
+    .single()
+    .then(({ data: profile, error }: { data: any; error: any }) => {
+      if (error || !profile) {
+        profileFetchCache.set(userId, { profile: null, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS });
+        return null;
+      }
+
+      const cp = Array.isArray(profile.creator_profiles)
+        ? profile.creator_profiles[0]
+        : profile.creator_profiles;
+
+      const base = {
+        id: profile.id,
+        email: profile.email,
+        full_name: profile.full_name,
+        username: profile.username,
+        avatar_initials: profile.avatar_initials,
+        avatar_color: profile.avatar_color,
+        avatar_url: profile.avatar_url ?? undefined,
+        created_at: profile.created_at,
+      };
+
+      let resolvedProfile: MockProfile;
+      if (profile.role === "creator") {
+        resolvedProfile = {
+          ...base,
+          role: "creator",
+          bio: cp?.bio ?? "",
+          hourly_rate: 0,
+          category: cp?.category ?? "",
+          is_live: cp?.is_live ?? false,
+          live_join_fee: cp?.live_join_fee ? Number(cp.live_join_fee) : undefined,
+          instagram_url: cp?.instagram_url ?? undefined,
+          tiktok_url: cp?.tiktok_url ?? undefined,
+          x_url: cp?.x_url ?? undefined,
+        } as MockProfile;
+      } else if (profile.role === "fan") {
+        resolvedProfile = { ...base, role: "fan" } as MockProfile;
+      } else {
+        resolvedProfile = { ...base, role: null } as unknown as MockProfile;
+      }
+
+      profileFetchCache.set(userId, {
+        profile: resolvedProfile,
+        expiresAt: Date.now() + PROFILE_CACHE_TTL_MS,
+      });
+      return resolvedProfile;
+    })
+    .finally(() => {
+      inFlightProfileFetches.delete(userId);
+    });
+
+  inFlightProfileFetches.set(userId, request);
+  return request;
 }
 
 // ── The Hook ──────────────────────────────────────────────────────────────────
