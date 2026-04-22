@@ -17,10 +17,7 @@ import { readJsonResponse } from "@/lib/http";
 import { formatCurrency, cn } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import {
-  formatTimeZoneLabel,
-  getAvailabilityWindowsForViewer,
   getAvailableStartTimesForViewerDate,
-  getBrowserTimeZone,
   getTimeZoneAbbreviation,
   localDateKey,
 } from "@/lib/timezones";
@@ -650,7 +647,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const hasLiveRate   = Boolean(creator.liveJoinFee && creator.liveJoinFee > 0);
   const weekDates     = getWeekDates(weekOffset);
   const today         = new Date();
-  const viewerTimeZone = getBrowserTimeZone();
   const scheduledLiveCountdown = (() => {
     if (!creator.scheduledLiveAt || creator.isLive) return null;
     const diff = new Date(creator.scheduledLiveAt).getTime() - Date.now();
@@ -689,31 +685,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     )
   );
   const shouldShowLiveButton = showLiveCard && !isOwnProfile;
-
-  // Map availability slots: { [dayOfWeek]: string[] of formatted time ranges }
   const filteredAvailability = availability.filter((slot) =>
     availabilityPackageId === "all"
       ? true
       : slot.package_id == null || slot.package_id === availabilityPackageId
   );
-
-  const availMap: Record<string, string[]> = {};
-  filteredAvailability.forEach(({ day_of_week, start_time, end_time }) => {
-    if (!availMap[day_of_week]) availMap[day_of_week] = [];
-    const fmt = (t: string) => {
-      const [h, m] = t.split(":").map(Number);
-      const ampm = h >= 12 ? "PM" : "AM";
-      return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
-    };
-    availMap[day_of_week].push(`${fmt(start_time)} - ${fmt(end_time)}`);
-  });
-
-  Object.assign(availMap, getAvailabilityWindowsForViewer({
-    weekDates,
-    availability,
-    creatorTimeZone: creator.timeZone ?? "America/New_York",
-    packageId: availabilityPackageId === "all" ? undefined : availabilityPackageId,
-  }));
 
   const hasBookableLeadTimeSlot = (date: Date) => {
     const slots = getAvailableStartTimesForViewerDate({
@@ -872,7 +848,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 <Zap className="h-3 w-3" />
                 Join Friendsly Live
               </div>
-              <p className="mt-2 text-sm text-brand-ink-muted">Free to watch.</p>
+              <h2 className="mt-3 text-base font-bold text-brand-ink">Free to watch.</h2>
+              <p className="mt-1 text-sm text-brand-ink-muted">Quick chats, Q&amp;As, and meet and greets.</p>
               {shouldShowLiveButton && (
                 creator.isLive && hasLiveRate ? (
                   <Link href={liveHref ?? "#"} className="mt-3 block">
@@ -936,20 +913,20 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            <p className="text-xs text-brand-ink-subtle mb-3">
-              Times shown in your local {getTimeZoneAbbreviation(new Date(), viewerTimeZone)}
-            </p>
-            <p className="text-xs text-brand-ink-muted mb-3 -mt-2">
-              Creator schedules in {formatTimeZoneLabel(creator.timeZone ?? "America/New_York")}
-            </p>
-
             {filteredAvailability.length === 0 ? (
               <p className="text-sm text-brand-ink-subtle py-4 text-center">No availability set yet.</p>
             ) : (
               <div className="grid grid-cols-7 gap-1.5">
                 {weekDates.map((date) => {
                   const dow = date.getDay();
-                  const slots = availMap[localDateKey(date)] ?? [];
+                  const slots = getAvailableStartTimesForViewerDate({
+                    date,
+                    availability: filteredAvailability,
+                    creatorTimeZone: creator.timeZone ?? "America/New_York",
+                    durationMinutes: creator.callDuration,
+                    incrementMinutes: creator.bookingIntervalMinutes ?? 30,
+                    packageId: availabilityPackageId === "all" ? undefined : availabilityPackageId,
+                  });
                   const isToday = isSameDay(date, today);
                   const isPast = date < today && !isToday;
                   const hasAnySlots = slots.length > 0 && !isPast;
@@ -971,7 +948,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                             : `${formatShortDate(date)} has no availability`
                       }
                       className={cn(
-                        "rounded-xl p-2 text-center border transition-colors",
+                        "rounded-xl border p-2 text-center transition-colors",
                         isToday
                           ? "border-brand-primary/50 bg-brand-primary/10"
                           : canBookDate
@@ -985,16 +962,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       <p className={cn("text-sm font-bold mt-0.5", isToday ? "text-brand-primary-light" : canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
                         {date.getDate()}
                       </p>
-                      {hasAnySlots ? (
-                        <div className="mt-1 space-y-0.5">
-                          {slots.slice(0, 2).map((s, i) => (
-                            <p key={i} className={cn("text-[8px] leading-tight", canBookDate ? "text-brand-info" : "text-brand-ink-muted")}>{s}</p>
-                          ))}
-                          {slots.length > 2 && <p className="text-[8px] text-brand-ink-subtle">+{slots.length - 2} more</p>}
-                        </div>
-                      ) : (
-                        <p className="mt-1 text-[8px] text-brand-ink-subtle">{isPast ? "-" : "Off"}</p>
-                      )}
+                      <p className={cn("mt-1 text-[9px] font-medium", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
+                        {hasAnySlots ? "Available" : isPast ? "-" : "Off"}
+                      </p>
                     </button>
                   );
                 })}
@@ -1318,7 +1288,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   <Zap className="h-3 w-3" />
                   Join Friendsly Live
                 </div>
-                <p className="mt-2 text-sm text-brand-ink-muted">Free to watch.</p>
+                <h2 className="mt-3 text-xl font-serif font-normal text-brand-ink">Free to watch.</h2>
+                <p className="mt-1 text-sm text-brand-ink-muted">Quick chats, Q&amp;As, and meet and greets.</p>
                 {shouldShowLiveButton && (
                   creator.isLive && hasLiveRate ? (
                     <Link href={liveHref ?? "#"}>
@@ -1351,12 +1322,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     <Calendar className="h-5 w-5 text-brand-primary-light" />
                     Availability
                   </h2>
-                  <p className="mt-1 text-xs text-brand-ink-subtle">
-                    Times shown in your local {getTimeZoneAbbreviation(new Date(), viewerTimeZone)}
-                  </p>
-                  <p className="mt-1 text-xs text-brand-ink-muted">
-                    Creator schedules in {formatTimeZoneLabel(creator.timeZone ?? "America/New_York")}
-                  </p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -1408,9 +1373,16 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 <p className="py-6 text-center text-sm text-brand-ink-subtle">No availability set for this offering yet.</p>
               ) : (
                 <div className="grid grid-cols-7 gap-1.5">
-                {weekDates.map((date) => {
+                  {weekDates.map((date) => {
                     const dow = date.getDay();
-                    const slots = availMap[localDateKey(date)] ?? [];
+                    const slots = getAvailableStartTimesForViewerDate({
+                      date,
+                      availability: filteredAvailability,
+                      creatorTimeZone: creator.timeZone ?? "America/New_York",
+                      durationMinutes: creator.callDuration,
+                      incrementMinutes: creator.bookingIntervalMinutes ?? 30,
+                      packageId: availabilityPackageId === "all" ? undefined : availabilityPackageId,
+                    });
                     const isToday = isSameDay(date, today);
                     const isPast = date < today && !isToday;
                     const hasAnySlots = slots.length > 0 && !isPast;
@@ -1446,16 +1418,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         <p className={cn("mt-0.5 text-base font-bold", isToday ? "text-brand-primary-light" : canBookDate ? "text-brand-ink" : "text-brand-ink-subtle")}>
                           {date.getDate()}
                         </p>
-                        {hasAnySlots ? (
-                          <div className="mt-1 space-y-0.5">
-                            {slots.slice(0, 2).map((s, i) => (
-                              <p key={i} className={cn("text-[9px] leading-tight", canBookDate ? "text-brand-info" : "text-brand-ink-muted")}>{s}</p>
-                            ))}
-                            {slots.length > 2 && <p className="text-[9px] text-brand-ink-subtle">+{slots.length - 2} more</p>}
-                          </div>
-                        ) : (
-                          <p className="mt-1 text-[9px] text-brand-ink-subtle">{isPast ? "-" : "Off"}</p>
-                        )}
+                        <p className={cn("mt-1 text-[9px] font-medium", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
+                          {hasAnySlots ? "Available" : isPast ? "-" : "Off"}
+                        </p>
                       </button>
                     );
                   })}
