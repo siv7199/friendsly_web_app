@@ -14,14 +14,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PROTECTED_FAN     = ["/discover", "/profile", "/waiting-room", "/bookings", "/payments", "/saved", "/settings", "/room", "/m/waiting-room", "/m/room"];
-const PROTECTED_CREATOR = ["/dashboard", "/management", "/calendar", "/live", "/settings", "/earnings", "/room", "/m/live", "/m/room"];
+const SHARED_PROTECTED  = ["/settings", "/room", "/m/room"];
+const PROTECTED_FAN     = ["/discover", "/profile", "/waiting-room", "/bookings", "/payments", "/saved", "/m/waiting-room"];
+const PROTECTED_CREATOR = ["/dashboard", "/management", "/calendar", "/live", "/earnings", "/m/live"];
 const MOBILE_CALL_ROUTES = ["/waiting-room", "/live", "/room", "/guest-room"];
 const ONBOARDING_PREFIX = "/onboarding";
 const AUTH_ROUTES       = ["/login", "/signup"];
 
 function isProtected(pathname: string): boolean {
-  return [...PROTECTED_FAN, ...PROTECTED_CREATOR].some(
+  return [...SHARED_PROTECTED, ...PROTECTED_FAN, ...PROTECTED_CREATOR].some(
     (r) => pathname === r || pathname.startsWith(r + "/")
   );
 }
@@ -105,6 +106,11 @@ export async function middleware(request: NextRequest) {
   if (isFullAuth) {
     const onCreatorRoute = matchesProtectedRoute(pathname, PROTECTED_CREATOR);
     const onFanRoute = matchesProtectedRoute(pathname, PROTECTED_FAN);
+    const onSharedRoute = matchesProtectedRoute(pathname, SHARED_PROTECTED);
+
+    if (onSharedRoute) {
+      return response;
+    }
 
     if (role === "fan" && onCreatorRoute) {
       return NextResponse.redirect(new URL("/discover", request.url));

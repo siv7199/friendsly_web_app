@@ -36,7 +36,8 @@ import { sanitizeSocialUrl } from "@/lib/social";
 import { removeAvatarFile, uploadAvatarFile } from "@/lib/avatar-upload";
 import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : Promise.resolve(null);
 
 interface SavedPaymentMethod {
   id: string;
@@ -278,6 +279,11 @@ export default function SettingsPage() {
   }, [user, activeTab]);
 
   async function handleAddCard() {
+    if (!stripePublicKey) {
+      setBillingError("Billing is not configured yet. Add the Stripe publishable key to enable saved cards.");
+      return;
+    }
+
     setLoadingSetup(true);
     setBillingError("");
     try {
