@@ -843,99 +843,101 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       <div className="app-safe-screen md:hidden bg-white flex flex-col">
         {/* Scrollable body */}
         <div className={cn("flex-1", (hasPackages || shouldShowLiveButton) && "pb-32")}>
-          <div className="border-b border-brand-border/70 px-4 py-3">
-            <Link href="/discover" className="inline-flex items-center gap-2 text-sm font-medium text-brand-ink-muted transition-colors hover:text-brand-ink">
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Link>
-          </div>
+          <div className="bg-white pb-6">
+            <div className="border-b border-brand-border/70 px-4 py-3">
+              <Link href="/discover" className="inline-flex items-center gap-2 text-sm font-medium text-brand-ink-muted transition-colors hover:text-brand-ink">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Link>
+            </div>
 
-          {/* Hero image */}
-          <div className="relative mx-4 mt-4 aspect-square rounded-2xl overflow-hidden">
-            {creator.avatarUrl ? (
-              <img src={creator.avatarUrl} alt={creator.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className={cn("w-full h-full flex items-center justify-center", creator.avatarColor ?? "bg-[#4a4878]")}>
-                <span className="text-8xl font-bold text-white/70">{creator.avatarInitials}</span>
-              </div>
-            )}
-            {creator.isLive && (
-              <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-live text-white text-xs font-bold">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_0_4px_rgba(239,68,68,0.18)]" />
-                LIVE
-              </div>
-            )}
-          </div>
-
-          {/* Creator info */}
-          <div className="px-4 pt-3 pb-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <h1 className="text-xl font-bold text-brand-ink leading-tight">{creator.name}</h1>
-                {hasPackages && (
-                  <p className="text-sm text-brand-ink-muted mt-0.5">
-                    {formatCurrency(creator.callPrice)} &bull; Session
-                  </p>
-                )}
-                <p className="text-xs text-brand-ink-subtle mt-0.5">{creator.username}</p>
-              </div>
-              {creator.rating > 0 && (
-                <div className="flex items-center gap-0.5 shrink-0 pt-0.5">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <Star
-                      key={n}
-                      className={cn(
-                        "w-3.5 h-3.5",
-                        n <= Math.round(creator.rating) ? "fill-brand-gold text-brand-gold" : "text-brand-border"
-                      )}
-                    />
-                  ))}
+            {/* Hero image */}
+            <div className="relative mx-4 mt-4 aspect-square rounded-2xl overflow-hidden">
+              {creator.avatarUrl ? (
+                <img src={creator.avatarUrl} alt={creator.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className={cn("w-full h-full flex items-center justify-center", creator.avatarColor ?? "bg-[#4a4878]")}>
+                  <span className="text-8xl font-bold text-white/70">{creator.avatarInitials}</span>
+                </div>
+              )}
+              {creator.isLive && (
+                <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-live text-white text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_0_4px_rgba(239,68,68,0.18)]" />
+                  LIVE
                 </div>
               )}
             </div>
 
-            {/* Price pills */}
-            <div className="flex flex-wrap gap-2 mt-2.5">
-              {hasLiveRate && (
-                showLiveCard ? (
+            {/* Creator info */}
+            <div className="px-4 pt-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-xl font-bold text-brand-ink leading-tight">{creator.name}</h1>
+                  {hasPackages && (
+                    <p className="text-sm text-brand-ink-muted mt-0.5">
+                      {formatCurrency(creator.callPrice)} &bull; Session
+                    </p>
+                  )}
+                  <p className="text-xs text-brand-ink-subtle mt-0.5">{creator.username}</p>
+                </div>
+                {creator.rating > 0 && (
+                  <div className="flex items-center gap-0.5 shrink-0 pt-0.5">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Star
+                        key={n}
+                        className={cn(
+                          "w-3.5 h-3.5",
+                          n <= Math.round(creator.rating) ? "fill-brand-gold text-brand-gold" : "text-brand-border"
+                        )}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Price pills */}
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {hasLiveRate && (
+                  showLiveCard ? (
+                    <button
+                      type="button"
+                      onClick={() => scrollToMobileSection("live")}
+                      className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live transition-colors active:bg-brand-live/10"
+                    >
+                      <Zap className="h-3 w-3" />
+                      {formatCurrency(creator.liveJoinFee!)} / min
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live">
+                      <Zap className="h-3 w-3" />
+                      {formatCurrency(creator.liveJoinFee!)} / min
+                    </span>
+                  )
+                )}
+                {hasPackages && (
                   <button
                     type="button"
-                    onClick={() => scrollToMobileSection("live")}
-                    className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live transition-colors active:bg-brand-live/10"
+                    onClick={() => scrollToMobileSection("booking")}
+                    className="rounded-full border border-brand-border bg-brand-surface px-3 py-1.5 text-xs font-medium text-brand-ink transition-colors active:bg-brand-elevated"
                   >
-                    <Zap className="h-3 w-3" />
-                    {formatCurrency(creator.liveJoinFee!)} / min
+                    from {formatCurrency(creator.callPrice)} / session
                   </button>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live">
-                    <Zap className="h-3 w-3" />
-                    {formatCurrency(creator.liveJoinFee!)} / min
-                  </span>
-                )
+                )}
+              </div>
+
+              {creator.isLive && (
+                <div className="mt-4">
+                  {mobileLiveCard}
+                </div>
               )}
-              {hasPackages && (
-                <button
-                  type="button"
-                  onClick={() => scrollToMobileSection("booking")}
-                  className="rounded-full border border-brand-border bg-brand-surface px-3 py-1.5 text-xs font-medium text-brand-ink transition-colors active:bg-brand-elevated"
-                >
-                  from {formatCurrency(creator.callPrice)} / session
-                </button>
+
+              {creator.bio && (
+                <div className="mt-4 border-t border-brand-border pb-1 pt-4">
+                  <h2 className="mb-2 text-base font-bold text-brand-ink">About</h2>
+                  <p className="text-sm leading-relaxed text-brand-ink-muted">{creator.bio}</p>
+                </div>
               )}
             </div>
-
-            {creator.isLive && (
-              <div className="mt-4">
-                {mobileLiveCard}
-              </div>
-            )}
-
-            {creator.bio && (
-              <div className="mt-4 border-t border-brand-border pb-1 pt-4">
-                <h2 className="mb-2 text-base font-bold text-brand-ink">About</h2>
-                <p className="text-sm leading-relaxed text-brand-ink-muted">{creator.bio}</p>
-              </div>
-            )}
           </div>
 
           <div className="bg-[linear-gradient(180deg,#fbf9ff_0%,#f3ecff_38%,#ede4ff_100%)] pb-6 pt-5">
