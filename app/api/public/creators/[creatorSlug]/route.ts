@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const LIVE_SESSION_STALE_MS = 45000;
-const CREATOR_CACHE_CONTROL = "public, max-age=60, s-maxage=300, stale-while-revalidate=600";
+const CREATOR_CACHE_CONTROL = "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";
 
 export async function GET(
   _request: Request,

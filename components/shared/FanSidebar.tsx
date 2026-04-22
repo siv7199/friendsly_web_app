@@ -15,44 +15,7 @@ import { BrandLogo } from "@/components/shared/BrandLogo";
 import { createClient } from "@/lib/supabase/client";
 
 const LIVE_SESSION_STALE_MS = 45000;
-
-function isSessionFresh(session: {
-  is_active?: boolean | null;
-  daily_room_url?: string | null;
-  last_heartbeat_at?: string | null;
-}) {
-  return Boolean(
-    session?.is_active &&
-    session?.daily_room_url &&
-    session?.last_heartbeat_at &&
-    Date.now() - new Date(session.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
-  );
-}
-
-function shouldRefreshFromLiveSessionChange(payload: any) {
-  const previousSession = payload.old;
-  const nextSession = payload.new;
-
-  if (payload.eventType === "INSERT" || payload.eventType === "DELETE") return true;
-
-  const wasLive = isSessionFresh(previousSession);
-  const isLiveNow = isSessionFresh(nextSession);
-
-  return (
-    wasLive !== isLiveNow ||
-    previousSession?.is_active !== nextSession?.is_active ||
-    previousSession?.daily_room_url !== nextSession?.daily_room_url ||
-    previousSession?.creator_id !== nextSession?.creator_id
-  );
-}
-
-function shouldRefreshFromCreatorProfileChange(payload: any) {
-  if (payload.eventType === "INSERT" || payload.eventType === "DELETE") return true;
-  return (
-    payload.old?.is_live !== payload.new?.is_live ||
-    payload.old?.current_live_session_id !== payload.new?.current_live_session_id
-  );
-}
+const LIVE_COUNT_REFRESH_MS = 60000;
 
 const NAV_ITEMS = [
   { label: "Discover",    href: "/discover",  icon: Compass },
@@ -107,28 +70,15 @@ export function FanSidebar() {
 
     void getCount();
 
-    const channel = supabase
-      .channel("fan-sidebar-live-count")
-      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, (payload: any) => {
-        if (shouldRefreshFromLiveSessionChange(payload)) {
-          refreshIfVisible();
-        }
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "creator_profiles" }, (payload: any) => {
-        if (shouldRefreshFromCreatorProfileChange(payload)) {
-          refreshIfVisible();
-        }
-      })
-      .subscribe();
-
+    const fallbackInterval = window.setInterval(refreshIfVisible, LIVE_COUNT_REFRESH_MS);
     window.addEventListener("focus", refreshIfVisible);
     document.addEventListener("visibilitychange", refreshIfVisible);
 
     return () => {
       if (liveExpiryTimeoutRef.current) window.clearTimeout(liveExpiryTimeoutRef.current);
+      window.clearInterval(fallbackInterval);
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
-      supabase.removeChannel(channel);
     };
   }, []);
 
