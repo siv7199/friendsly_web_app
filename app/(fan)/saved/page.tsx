@@ -58,8 +58,7 @@ export default function SavedPage() {
               category, live_join_fee, booking_interval_minutes,
               scheduled_live_at, scheduled_live_timezone, timezone,
               avg_rating, review_count, total_calls, next_available
-            ),
-            live_sessions(id, is_active, daily_room_url, last_heartbeat_at)
+            )
          )`
       )
       .eq("fan_id", user!.id)
@@ -77,18 +76,41 @@ export default function SavedPage() {
       return (creator as { id: string })?.id;
     }).filter(Boolean);
 
-    const { data: allPackages } = await supabase
-      .from("call_packages")
-      .select("creator_id, price, duration")
-      .in("creator_id", creatorIds)
-      .eq("is_active", true)
-      .order("price");
+    const [{ data: allPackages }, { data: liveSessions }] = await Promise.all([
+      supabase
+        .from("call_packages")
+        .select("creator_id, price, duration")
+        .in("creator_id", creatorIds)
+        .eq("is_active", true)
+        .order("price"),
+      creatorIds.length > 0
+        ? supabase
+            .from("live_sessions")
+            .select("id, creator_id, is_active, daily_room_url, last_heartbeat_at, started_at")
+            .in("creator_id", creatorIds)
+            .eq("is_active", true)
+            .not("daily_room_url", "is", null)
+            .order("started_at", { ascending: false })
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const packagesByCreator: Record<string, any[]> = {};
     (allPackages ?? []).forEach((pkg: { creator_id: string; price: number; duration: number }) => {
       if (!packagesByCreator[pkg.creator_id]) packagesByCreator[pkg.creator_id] = [];
       packagesByCreator[pkg.creator_id]!.push(pkg);
+    });
+
+    const activeSessionByCreator: Record<string, {
+      id: string;
+      is_active: boolean | null;
+      daily_room_url: string | null;
+      last_heartbeat_at: string | null;
+    }> = {};
+    (liveSessions ?? []).forEach((session: any) => {
+      if (!session?.creator_id || activeSessionByCreator[session.creator_id]) return;
+      if (!isSessionFresh(session)) return;
+      activeSessionByCreator[session.creator_id] = session;
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -125,20 +147,12 @@ export default function SavedPage() {
           total_calls: number;
           next_available: string;
         }[] | null;
-        live_sessions: {
-          id: string;
-          is_active: boolean | null;
-          daily_room_url: string | null;
-          last_heartbeat_at: string | null;
-        }[] | null;
       };
 
       const cp = Array.isArray(p.creator_profiles)
         ? p.creator_profiles[0]
         : p.creator_profiles;
-      const activeSession = (Array.isArray(p.live_sessions) ? p.live_sessions : []).find((session) =>
-        isSessionFresh(session)
-      );
+      const activeSession = activeSessionByCreator[p.id];
 
       const packages = packagesByCreator[p.id] ?? [];
       const minPrice = packages.length

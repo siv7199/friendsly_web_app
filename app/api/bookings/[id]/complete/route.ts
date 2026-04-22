@@ -34,7 +34,7 @@ export async function POST(
       .from("bookings")
       .update({ status: "completed", creator_present: false, fan_present: false })
       .eq("id", params.id)
-      .select("*")
+      .select("id, status, creator_present, fan_present")
       .single();
 
     if (updateError || !updatedBooking) {

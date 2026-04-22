@@ -56,7 +56,7 @@ export async function POST(
       .update(payload)
       .eq("id", params.id)
       .in("status", ["upcoming", "live"])
-      .select("*")
+      .select("id, status, creator_present, fan_present, creator_joined_at, fan_joined_at")
       .single();
 
     if (updateError || !updatedBooking) {

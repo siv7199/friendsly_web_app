@@ -49,22 +49,6 @@ function getSessionExpiryDelay(lastHeartbeatAt?: string | null) {
   return Math.max(1000, remainingMs + 1000);
 }
 
-function shouldRefreshFromLiveSessionChange(payload: any) {
-  const previousSession = payload.old;
-  const nextSession = payload.new;
-
-  if (payload.eventType === "INSERT" || payload.eventType === "DELETE") return true;
-
-  const wasLive = isSessionFresh(previousSession);
-  const isLiveNow = isSessionFresh(nextSession);
-
-  return (
-    wasLive !== isLiveNow ||
-    previousSession?.is_active !== nextSession?.is_active ||
-    previousSession?.daily_room_url !== nextSession?.daily_room_url
-  );
-}
-
 function getWeekDates(offset = 0): Date[] {
   const today = new Date();
   const monday = new Date(today);
@@ -189,6 +173,7 @@ async function fetchCreatorData(creatorRef: string): Promise<{
   packages: CallPackage[];
   availability: AvailabilitySlot[];
   reviewCount: number;
+  liveSessionLastHeartbeatAt: string | null;
 }> {
   const supabase = createClient();
   const creatorLookupColumn = isUuidLike(creatorRef) ? "id" : "username";
@@ -201,30 +186,77 @@ async function fetchCreatorData(creatorRef: string): Promise<{
       creator_profiles(
         bio, category, tags, followers_count, avg_rating, response_time, live_join_fee,
         scheduled_live_at, scheduled_live_timezone, timezone, booking_interval_minutes,
+        is_live, current_live_session_id,
         instagram_url, tiktok_url, x_url
-      ),
-      live_sessions(id, is_active, daily_room_url, last_heartbeat_at)
+      )
     `)
     .eq(creatorLookupColumn, creatorLookupValue)
     .eq("role", "creator")
     .single();
 
-  if (!profile) return { creator: null, packages: [], availability: [], reviewCount: 0 };
+  if (!profile) {
+    return { creator: null, packages: [], availability: [], reviewCount: 0, liveSessionLastHeartbeatAt: null };
+  }
 
-  const { data: pkgs } = await supabase
-    .from("call_packages")
-    .select("id, name, duration, price, description, is_active, bookings_count")
-    .eq("creator_id", profile.id)
-    .eq("is_active", true)
-    .order("price");
+  const cp = Array.isArray(profile.creator_profiles)
+    ? profile.creator_profiles[0]
+    : profile.creator_profiles;
 
-  let avail: AvailabilitySlot[] | null = null;
-  const availRes = await supabase
+  const liveSessionQuery = cp?.current_live_session_id
+    ? supabase
+        .from("live_sessions")
+        .select("id, is_active, daily_room_url, last_heartbeat_at, started_at")
+        .eq("id", cp.current_live_session_id)
+        .eq("creator_id", profile.id)
+        .limit(1)
+    : supabase
+        .from("live_sessions")
+        .select("id, is_active, daily_room_url, last_heartbeat_at, started_at")
+        .eq("creator_id", profile.id)
+        .eq("is_active", true)
+        .not("daily_room_url", "is", null)
+        .order("started_at", { ascending: false })
+        .limit(1);
+
+  const [
+    { data: pkgs },
+    availRes,
+    { count: reviewCount },
+    { count: completedBookingsCount },
+    { count: completedLiveQueueCount },
+    liveSessionsRes,
+  ] = await Promise.all([
+    supabase
+      .from("call_packages")
+      .select("id, name, duration, price, description, is_active, bookings_count")
+      .eq("creator_id", profile.id)
+      .eq("is_active", true)
+      .order("price"),
+    supabase
       .from("creator_availability")
       .select("id, day_of_week, start_time, end_time, package_id")
       .eq("creator_id", profile.id)
       .eq("is_active", true)
-      .order("day_of_week");
+      .order("day_of_week"),
+    supabase
+      .from("reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("creator_id", profile.id),
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("creator_id", profile.id)
+      .eq("status", "completed"),
+    supabase
+      .from("live_queue_entries")
+      .select("id, live_sessions!inner(creator_id)", { count: "exact", head: true })
+      .eq("live_sessions.creator_id", profile.id)
+      .in("status", ["completed", "skipped"])
+      .not("amount_charged", "is", null),
+    liveSessionQuery,
+  ]);
+
+  let avail: AvailabilitySlot[] | null = null;
 
   if (availRes.error) {
     const fallbackAvailRes = await supabase
@@ -238,36 +270,19 @@ async function fetchCreatorData(creatorRef: string): Promise<{
     avail = availRes.data ?? [];
   }
 
-  const { count: reviewCount } = await supabase
-    .from("reviews")
-    .select("*", { count: "exact", head: true })
-    .eq("creator_id", profile.id);
-
-  const [{ count: completedBookingsCount }, { count: completedLiveQueueCount }] = await Promise.all([
-    supabase
-      .from("bookings")
-      .select("*", { count: "exact", head: true })
-      .eq("creator_id", profile.id)
-      .eq("status", "completed"),
-    supabase
-      .from("live_queue_entries")
-      .select("id, live_sessions!inner(creator_id)", { count: "exact", head: true })
-      .eq("live_sessions.creator_id", profile.id)
-      .in("status", ["completed", "skipped"])
-      .not("amount_charged", "is", null),
-  ]);
-
-  const cp = Array.isArray(profile.creator_profiles)
-    ? profile.creator_profiles[0]
-    : profile.creator_profiles;
-
-  const sessions = Array.isArray(profile.live_sessions) ? profile.live_sessions : [];
-  const activeSession = sessions.find(
+  const sessions = liveSessionsRes.data ?? [];
+  const freshActiveSession = sessions.find(
     (s: any) =>
       s?.is_active === true &&
       !!s?.daily_room_url &&
       !!s?.last_heartbeat_at &&
       Date.now() - new Date(s.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+  ) ?? null;
+  const activeSession = freshActiveSession ?? sessions.find(
+    (s: any) =>
+      s?.is_active === true &&
+      !!s?.daily_room_url &&
+      (!cp?.current_live_session_id || s.id === cp.current_live_session_id)
   ) ?? null;
   const isActuallyLive = Boolean(activeSession);
 
@@ -335,6 +350,7 @@ async function fetchCreatorData(creatorRef: string): Promise<{
     packages,
     availability: avail ?? [],
     reviewCount: reviewCount ?? 0,
+    liveSessionLastHeartbeatAt: freshActiveSession?.last_heartbeat_at ?? null,
   };
 }
 
@@ -389,6 +405,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [liveRequestStatus, setLiveRequestStatus] = useState<LiveRequestStatus | null>(null);
   const [submittingLiveRequest, setSubmittingLiveRequest] = useState(false);
+  const [liveSessionLastHeartbeatAt, setLiveSessionLastHeartbeatAt] = useState<string | null>(null);
   const refreshTimeoutsRef = useRef<number[]>([]);
   const liveExpiryTimeoutRef = useRef<number | null>(null);
   const lastLoadAtRef = useRef(0);
@@ -436,8 +453,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
   const loadCreatorData = useCallback((supabase = createClient(), incrementProfileView = false) => {
     lastLoadAtRef.current = Date.now();
-    fetchCreatorData(params.id).then(({ creator, packages, availability }) => {
+    fetchCreatorData(params.id).then(({ creator, packages, availability, liveSessionLastHeartbeatAt }) => {
       if (!creator) {
+        setLiveSessionLastHeartbeatAt(null);
         setLoading(false);
         return;
       }
@@ -445,6 +463,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       setCreator(creator);
       setActivePackages(packages);
       setAvailability(availability);
+      setLiveSessionLastHeartbeatAt(liveSessionLastHeartbeatAt);
       setLoading(false);
 
       if (incrementProfileView) {
@@ -454,6 +473,27 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   }, [params.id]);
 
   useEffect(() => {
+    if (liveExpiryTimeoutRef.current) {
+      window.clearTimeout(liveExpiryTimeoutRef.current);
+      liveExpiryTimeoutRef.current = null;
+    }
+
+    const delay = getSessionExpiryDelay(liveSessionLastHeartbeatAt);
+    if (!delay) return;
+
+    liveExpiryTimeoutRef.current = window.setTimeout(() => {
+      loadCreatorData(createClient());
+    }, delay);
+
+    return () => {
+      if (liveExpiryTimeoutRef.current) {
+        window.clearTimeout(liveExpiryTimeoutRef.current);
+        liveExpiryTimeoutRef.current = null;
+      }
+    };
+  }, [liveSessionLastHeartbeatAt, loadCreatorData]);
+
+  useEffect(() => {
     const supabase = createClient();
 
     function scheduleRefreshes() {
@@ -461,26 +501,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       refreshTimeoutsRef.current = [window.setTimeout(() => loadCreatorData(supabase), 400)];
     }
 
-    function clearLiveExpiry() {
-      if (liveExpiryTimeoutRef.current) {
-        window.clearTimeout(liveExpiryTimeoutRef.current);
-        liveExpiryTimeoutRef.current = null;
-      }
-    }
-
-    function scheduleLiveExpiry(lastHeartbeatAt?: string | null) {
-      clearLiveExpiry();
-      const delay = getSessionExpiryDelay(lastHeartbeatAt);
-      if (!delay) return;
-      liveExpiryTimeoutRef.current = window.setTimeout(() => loadCreatorData(supabase), delay);
-    }
-
     loadCreatorData(supabase, !creator?.id);
 
     if (!creator?.id) {
       return () => {
         refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-        clearLiveExpiry();
       };
     }
 
@@ -553,7 +578,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         { event: "*", schema: "public", table: "creator_profiles", filter: `id=eq.${creator.id}` },
         (payload: any) => {
           if (payload.new?.is_live === false || !payload.new?.current_live_session_id) {
-            clearLiveExpiry();
+            setLiveSessionLastHeartbeatAt(null);
           }
           setCreator((prev) =>
                 prev
@@ -571,34 +596,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               : prev
           );
           scheduleRefreshes();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "live_sessions", filter: `creator_id=eq.${creator.id}` },
-        (payload: any) => {
-          const nextSession = payload.new ?? payload.old;
-          const liveNow = payload.eventType !== "DELETE" && isSessionFresh(nextSession);
-          if (liveNow) {
-            scheduleLiveExpiry(nextSession?.last_heartbeat_at);
-          } else {
-            clearLiveExpiry();
-          }
-
-          setCreator((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  isLive: liveNow,
-                  currentLiveSessionId: liveNow ? nextSession?.id : undefined,
-                  queueCount: liveNow ? prev.queueCount : 0,
-                }
-              : prev
-          );
-
-          if (shouldRefreshFromLiveSessionChange(payload)) {
-            scheduleRefreshes();
-          }
         }
       )
       .subscribe();
@@ -620,7 +617,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
     return () => {
       refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      clearLiveExpiry();
       window.removeEventListener("focus", refreshIfStale);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(realtimeChannel);

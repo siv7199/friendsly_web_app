@@ -20,7 +20,11 @@ export async function POST(
     // 1. Fetch booking details
     const { data: booking, error: fetchError } = await serviceSupabase
       .from("bookings")
-      .select("*, creator:profiles!creator_id(full_name)")
+      .select(`
+        id, creator_id, fan_id, status, scheduled_at, duration, price,
+        creator_present, fan_present, creator_joined_at, fan_joined_at,
+        late_fee_paid_at, late_fee_amount, daily_room_url
+      `)
       .eq("id", bookingId)
       .single();
 

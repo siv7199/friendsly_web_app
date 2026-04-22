@@ -30,7 +30,7 @@ export async function POST(
 
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("*, creator:profiles!creator_id(full_name)")
+      .select("id, booking_owner_type")
       .eq("id", tokenRecord.booking_id)
       .single();
 

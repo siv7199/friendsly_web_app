@@ -107,7 +107,7 @@ export async function POST(request: Request) {
         topic: topic || null,
         stripe_payment_intent_id: paymentIntentId,
       })
-      .select("*")
+      .select("id, creator_id, fan_id, package_id, scheduled_at, duration, price, status, topic, stripe_payment_intent_id")
       .single();
 
     if (insertError || !booking) {

@@ -279,7 +279,7 @@ export async function cancelBookingWithRefund(params: {
       auto_cancelled_at: autoCancelled ? new Date().toISOString() : null,
     })
     .eq("id", bookingId)
-    .select("*")
+    .select("id, status, refund_amount, refunded_at, cancellation_reason, cancelled_by_user_id, auto_cancelled_at, creator_present, fan_present")
     .single();
 
   if (updateError || !updatedBooking) {
