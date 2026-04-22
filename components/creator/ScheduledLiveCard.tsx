@@ -56,7 +56,7 @@ export function ScheduledLiveCard({
           <CalendarClock className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-primary-light">Scheduled Live</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-primary-light">Schedule Live</p>
           <p className="mt-1 max-w-full break-words pr-1 text-sm font-semibold leading-5 text-brand-ink">
             {formatScheduledLiveLabel(scheduledLiveAtIso, scheduledLiveTimeZone)}
           </p>
@@ -66,17 +66,17 @@ export function ScheduledLiveCard({
         </div>
       </div>
 
-      <div className="mt-4 space-y-3 min-w-0">
+      <div className="mt-4 space-y-3 min-w-0 px-1">
         <input
           type="datetime-local"
           value={scheduledLiveAt}
           onChange={(event) => onChangeDateTime(event.target.value)}
-          className="block h-11 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary"
+          className="block h-11 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-4 text-sm text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary"
         />
         <select
           value={scheduledLiveTimeZone}
           onChange={(event) => onChangeTimeZone(event.target.value)}
-          className="block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
+          className="block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-elevated px-4 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
         >
           {COMMON_TIME_ZONES.map((timeZone) => (
             <option key={timeZone} value={timeZone}>
