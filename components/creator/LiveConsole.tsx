@@ -372,7 +372,7 @@ function LiveVideoStage({
                 </div>
               ) : (
                 <p className="min-w-0 flex-1 truncate text-xs text-white/72">
-                  No fans yet — share your link
+                  No fans yet
                 </p>
               )}
             </div>
@@ -454,7 +454,7 @@ function LiveVideoStage({
                 <span className="truncate text-[11px] font-semibold text-brand-ink">{entry.fanName}</span>
               </div>
             )) : (
-              <span className="text-[11px] text-brand-ink-subtle">No fans yet — share your link</span>
+              <span className="text-[11px] text-brand-ink-subtle">No fans yet</span>
             )}
             {queue.length > 4 ? (
               <div className="rounded-[12px] border border-brand-border bg-brand-surface px-2 py-1 text-[11px] font-semibold text-brand-ink-muted">
