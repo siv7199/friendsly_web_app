@@ -441,7 +441,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
           Back to {creatorState.name}&apos;s profile
         </Link>
 
-        <div className="grid flex-1 min-h-0 gap-3 xl:grid-cols-[minmax(0,1.7fr)_360px]">
+        <div className="grid flex-1 min-h-0 gap-3 lg:grid-cols-[minmax(0,1.7fr)_360px]">
           <div className="min-h-0">
             {roomUrl && token ? (
               <PublicLiveRoom
@@ -485,7 +485,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             )}
           </div>
 
-          <div className="hidden min-h-[360px] xl:block xl:min-h-0">
+          <div className="hidden min-h-[360px] lg:block lg:min-h-0">
             <WaitingRoom
               queue={[]}
               currentUserPosition={0}

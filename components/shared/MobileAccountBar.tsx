@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { LifeBuoy, LogOut, Settings } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuthContext } from "@/lib/context/AuthContext";
 
 export function MobileAccountBar() {
   const { user, logout } = useAuthContext();
+  const router = useRouter();
 
   async function handleLogout() {
     await logout();
@@ -15,7 +16,7 @@ export function MobileAccountBar() {
 
   return (
     <div
-      className="fixed inset-x-0 top-0 z-40 border-b border-brand-border/70 bg-white/95 px-4 pb-3 shadow-[0_10px_30px_rgba(26,22,40,0.06)] backdrop-blur supports-[backdrop-filter]:bg-white/88 md:bottom-0 md:top-auto md:border-b-0 md:border-t md:py-3 md:shadow-[0_-10px_30px_rgba(26,22,40,0.08)]"
+      className="fixed inset-x-0 top-0 z-50 border-b border-brand-border/70 bg-white/95 px-4 pb-3 shadow-[0_10px_30px_rgba(26,22,40,0.06)] backdrop-blur supports-[backdrop-filter]:bg-white/88 md:bottom-0 md:top-auto md:border-b-0 md:border-t md:py-3 md:shadow-[0_-10px_30px_rgba(26,22,40,0.08)]"
       style={{
         paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)",
         paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)",
@@ -36,20 +37,22 @@ export function MobileAccountBar() {
             {user?.username ? `@${user.username}` : "Signed in"}
           </p>
         </div>
-        <Link
-          href="/settings"
+        <button
+          type="button"
+          onClick={() => router.push("/settings")}
           className="rounded-xl border border-brand-border bg-brand-surface p-2 text-brand-ink-subtle transition-colors hover:text-brand-ink"
           aria-label="Settings"
         >
           <Settings className="h-4 w-4" />
-        </Link>
-        <Link
-          href="/support"
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push("/support")}
           className="rounded-xl border border-brand-border bg-brand-surface p-2 text-brand-ink-subtle transition-colors hover:text-brand-ink"
           aria-label="Support"
         >
           <LifeBuoy className="h-4 w-4" />
-        </Link>
+        </button>
         <button
           type="button"
           onClick={() => void handleLogout()}

@@ -17,6 +17,23 @@ import { createClient } from "@/lib/supabase/client";
 import type { Creator } from "@/types";
 import { isNewCreator } from "@/lib/creators";
 
+const LIVE_SESSION_STALE_MS = 45000;
+
+function isSessionFresh(session: {
+  id?: string | null;
+  is_active?: boolean | null;
+  daily_room_url?: string | null;
+  last_heartbeat_at?: string | null;
+}) {
+  return Boolean(
+    session?.id &&
+      session?.is_active &&
+      session?.daily_room_url &&
+      session?.last_heartbeat_at &&
+      Date.now() - new Date(session.last_heartbeat_at).getTime() <= LIVE_SESSION_STALE_MS
+  );
+}
+
 export default function SavedPage() {
   const { user } = useAuthContext();
   const [savedCreators, setSavedCreators] = useState<Creator[]>([]);
@@ -38,10 +55,11 @@ export default function SavedPage() {
            creator:profiles!creator_id(
            id, full_name, username, avatar_initials, avatar_color, avatar_url, created_at,
             creator_profiles(
-              category, live_join_fee, is_live, booking_interval_minutes,
+              category, live_join_fee, booking_interval_minutes,
               scheduled_live_at, scheduled_live_timezone, timezone,
               avg_rating, review_count, total_calls, next_available
-            )
+            ),
+            live_sessions(id, is_active, daily_room_url, last_heartbeat_at)
          )`
       )
       .eq("fan_id", user!.id)
@@ -91,7 +109,6 @@ export default function SavedPage() {
           scheduled_live_timezone: string | null;
           timezone: string | null;
           booking_interval_minutes: number | null;
-          is_live: boolean;
           avg_rating: number;
           review_count: number;
           total_calls: number;
@@ -103,17 +120,25 @@ export default function SavedPage() {
           scheduled_live_timezone: string | null;
           timezone: string | null;
           booking_interval_minutes: number | null;
-          is_live: boolean;
           avg_rating: number;
           review_count: number;
           total_calls: number;
           next_available: string;
+        }[] | null;
+        live_sessions: {
+          id: string;
+          is_active: boolean | null;
+          daily_room_url: string | null;
+          last_heartbeat_at: string | null;
         }[] | null;
       };
 
       const cp = Array.isArray(p.creator_profiles)
         ? p.creator_profiles[0]
         : p.creator_profiles;
+      const activeSession = (Array.isArray(p.live_sessions) ? p.live_sessions : []).find((session) =>
+        isSessionFresh(session)
+      );
 
       const packages = packagesByCreator[p.id] ?? [];
       const minPrice = packages.length
@@ -134,7 +159,8 @@ export default function SavedPage() {
         avatarInitials: p.avatar_initials,
         avatarColor: p.avatar_color,
         avatarUrl: p.avatar_url ?? undefined,
-        isLive: cp?.is_live ?? false,
+        isLive: Boolean(activeSession),
+        currentLiveSessionId: activeSession?.id ?? undefined,
         queueCount: 0,
         callPrice: minPrice,
         callDuration: packages[0]?.duration ?? 15,

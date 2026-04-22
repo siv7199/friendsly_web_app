@@ -421,3 +421,15 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
     text-align: left !important;
   }
 }
+
+.scheduled-live-datetime::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+.scheduled-live-datetime::-webkit-datetime-edit {
+  padding-right: 0.5rem;
+}
+
+.scheduled-live-datetime::-webkit-calendar-picker-indicator {
+  margin-right: 0.125rem;
+}

@@ -7,6 +7,7 @@ import {
   BarChart3,
   DollarSign,
   Settings2,
+  Settings,
   CalendarDays,
   Radio,
 } from "lucide-react";
@@ -32,6 +33,7 @@ export function CreatorSidebar() {
     { label: "Earnings",         href: "/earnings",   icon: DollarSign,      highlight: false },
     { label: "Bookings / Offerings", href: "/management", icon: Settings2,       highlight: false },
     { label: "Calendar",         href: "/calendar",   icon: CalendarDays,    highlight: false },
+    { label: "Settings",         href: "/settings",   icon: Settings,        highlight: false },
     { label: "Go Live",          href: liveHref,      icon: Radio,           highlight: true  },
   ];
 

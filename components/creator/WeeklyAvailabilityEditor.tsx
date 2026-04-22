@@ -320,7 +320,7 @@ export function WeeklyAvailabilityEditor({
                             : "border-brand-border bg-brand-surface"
                         )}
                       >
-                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1.2fr_auto] gap-3 items-end">
+                        <div className="grid grid-cols-1 gap-3 items-end lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
                           <div>
                             <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
                               Start
@@ -367,7 +367,7 @@ export function WeeklyAvailabilityEditor({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-brand-ink-subtle hover:text-red-400"
+                            className="justify-self-start text-brand-ink-subtle hover:text-red-400 lg:justify-self-auto"
                             onClick={() => removeAvailabilitySlot(slot.id)}
                           >
                             <Trash2 className="w-4 h-4" />

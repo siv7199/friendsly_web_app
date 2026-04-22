@@ -242,8 +242,8 @@ function LiveVideoStage({
   }, [currentFan?.admittedDailySessionId, currentFan?.fanId, daily]);
 
   return (
-    <div className="grid w-full grid-cols-1 gap-4 xl:h-full xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0">
+    <div className="grid w-full grid-cols-1 gap-4 lg:h-full lg:min-h-0 lg:overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 flex flex-col gap-3 overflow-hidden lg:h-full lg:min-h-0">
         {audibleSessionIds.map((sessionId) => (
           <DailyAudioTrack key={sessionId} sessionId={sessionId} />
         ))}
@@ -266,7 +266,7 @@ function LiveVideoStage({
             <button
               type="button"
               onClick={() => setChatCollapsed((v) => !v)}
-              className="xl:hidden inline-flex h-7 items-center gap-1 rounded-full border border-brand-border bg-brand-elevated px-2.5 text-[11px] font-semibold text-brand-ink-muted transition-all active:scale-95"
+              className="lg:hidden inline-flex h-7 items-center gap-1 rounded-full border border-brand-border bg-brand-elevated px-2.5 text-[11px] font-semibold text-brand-ink-muted transition-all active:scale-95"
               aria-label={chatCollapsed ? "Show chat" : "Hide chat"}
             >
               {chatCollapsed ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -352,7 +352,7 @@ function LiveVideoStage({
         </div>
 
         {/* Mobile queue + controls — below video, hidden on desktop */}
-        <div className="xl:hidden shrink-0">
+        <div className="lg:hidden shrink-0">
           <div className="rounded-[22px] border border-[rgba(184,146,255,0.34)] bg-[linear-gradient(135deg,rgba(96,43,141,0.48),rgba(58,17,90,0.24))] p-2.5 shadow-[0_18px_40px_rgba(32,10,55,0.28)] backdrop-blur-sm">
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/78">
@@ -421,11 +421,11 @@ function LiveVideoStage({
       </div>
 
       <div className={cn(
-        "min-h-[420px] rounded-[28px] border border-brand-border bg-brand-surface p-3 flex flex-col gap-3 overflow-hidden xl:h-full xl:min-h-0 xl:min-h-0",
-        chatCollapsed && "hidden xl:flex"
+        "min-h-[420px] rounded-[28px] border border-brand-border bg-brand-surface p-3 flex flex-col gap-3 overflow-hidden lg:h-full lg:min-h-0 lg:min-h-0",
+        chatCollapsed && "hidden lg:flex"
       )}>
         {/* Queue strip at top of chat column — xl+ desktop sidebar only */}
-        <div className="hidden xl:block rounded-[20px] border border-brand-border bg-brand-elevated p-2.5 shrink-0">
+        <div className="hidden lg:block rounded-[20px] border border-brand-border bg-brand-elevated p-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2 mb-2">
             <p className="text-[11px] uppercase tracking-[0.24em] text-brand-ink-muted">
               Queue · {queueCount}
@@ -920,10 +920,10 @@ export function LiveConsole() {
   return (
     <div className="h-full min-h-0 w-full flex flex-col gap-4 overflow-hidden">
       {sessionState === "idle" ? (
-        <div className="flex-1 min-h-0 grid grid-cols-1 gap-4 xl:h-full xl:min-h-0 xl:overflow-hidden xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="flex-1 min-h-0 grid grid-cols-1 gap-4 lg:h-full lg:min-h-0 lg:overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
           {/* Left — full-height camera preview */}
-          <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 xl:h-full xl:min-h-0 overflow-hidden">
-            <div className="relative flex-1 min-h-[320px] xl:min-h-0 rounded-[20px] bg-[#0f0f1a] overflow-hidden flex items-center justify-center">
+          <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 md:p-4 flex flex-col gap-3 lg:h-full lg:min-h-0 overflow-hidden">
+            <div className="relative flex-1 min-h-[320px] lg:min-h-0 rounded-[20px] bg-[#0f0f1a] overflow-hidden flex items-center justify-center">
               {camOn
                 ? <video ref={previewVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full object-cover" />
                 : <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="xl" />}
@@ -939,7 +939,7 @@ export function LiveConsole() {
             </div>
           </div>
           {/* Right — schedule + start */}
-          <div className="rounded-[28px] border border-brand-border bg-brand-surface p-5 flex flex-col gap-5 overflow-y-auto xl:h-full xl:min-h-0">
+          <div className="rounded-[28px] border border-brand-border bg-brand-surface p-5 flex flex-col gap-5 overflow-y-auto lg:h-full lg:min-h-0">
             <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4 text-left">
               <div className="flex items-center gap-2 text-brand-ink">
                 <CalendarClock className="w-4 h-4 text-brand-primary" />

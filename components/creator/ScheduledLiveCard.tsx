@@ -50,7 +50,7 @@ export function ScheduledLiveCard({
   openStudioHref,
 }: ScheduledLiveCardProps) {
   return (
-    <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface p-5">
+    <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface p-5 md:p-6">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-primary/10 text-brand-primary-light">
           <CalendarClock className="h-4 w-4" />
@@ -66,16 +66,16 @@ export function ScheduledLiveCard({
         </div>
       </div>
 
-      <div className="mt-4 space-y-3 min-w-0 px-1">
-        <div className="min-w-0 px-1">
+      <div className="mt-4 space-y-3 min-w-0 md:px-1">
+        <div className="min-w-0 md:px-1">
           <input
             type="datetime-local"
             value={scheduledLiveAt}
             onChange={(event) => onChangeDateTime(event.target.value)}
-            className="block h-11 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-brand-border bg-brand-elevated pl-4 pr-12 text-sm text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary"
+            className="scheduled-live-datetime block h-11 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-4 text-sm text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary"
           />
         </div>
-        <div className="min-w-0 px-1">
+        <div className="min-w-0 md:px-1">
           <select
             value={scheduledLiveTimeZone}
             onChange={(event) => onChangeTimeZone(event.target.value)}

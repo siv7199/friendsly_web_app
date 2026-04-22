@@ -9,6 +9,7 @@ import {
   CreditCard,
   Heart,
   Radio,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/shared/BrandLogo";
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { label: "My Bookings", href: "/bookings",  icon: BookOpen },
   { label: "Payments",    href: "/payments",  icon: CreditCard },
   { label: "Saved",       href: "/saved",     icon: Heart },
+  { label: "Settings",    href: "/settings",  icon: Settings },
 ];
 
 export function FanSidebar() {
