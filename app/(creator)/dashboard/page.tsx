@@ -151,6 +151,7 @@ export default function DashboardPage() {
   const [scheduledLiveTimeZone, setScheduledLiveTimeZone] = useState(getBrowserTimeZone());
   const [scheduledLiveAtIso, setScheduledLiveAtIso] = useState<string | null>(null);
   const [savingScheduledLive, setSavingScheduledLive] = useState(false);
+  const scheduledLiveDraftDirtyRef = useRef(false);
 
   function hasConfiguredLiveRate(value: number | null | undefined) {
     return typeof value === "number" && !Number.isNaN(value) && value > 0;
@@ -435,13 +436,16 @@ export default function DashboardPage() {
       const nextScheduledTimeZone = profileCreator?.scheduled_live_timezone || getBrowserTimeZone();
 
       setLiveRate(nextLiveRate);
-      setScheduledLiveTimeZone(nextScheduledTimeZone);
-      setScheduledLiveAtIso(profileCreator?.scheduled_live_at ?? null);
-      setScheduledLiveAt(
-        profileCreator?.scheduled_live_at
-          ? formatDateTimeLocalInTimeZone(profileCreator.scheduled_live_at, nextScheduledTimeZone)
-          : ""
-      );
+
+      if (!scheduledLiveDraftDirtyRef.current) {
+        setScheduledLiveTimeZone(nextScheduledTimeZone);
+        setScheduledLiveAtIso(profileCreator?.scheduled_live_at ?? null);
+        setScheduledLiveAt(
+          profileCreator?.scheduled_live_at
+            ? formatDateTimeLocalInTimeZone(profileCreator.scheduled_live_at, nextScheduledTimeZone)
+            : ""
+        );
+      }
 
       setStats({
         totalEarnings: creatorCut,
@@ -574,9 +578,20 @@ export default function DashboardPage() {
       })
       .eq("id", user.id);
 
+    scheduledLiveDraftDirtyRef.current = false;
     setScheduledLiveAt(nextValue ?? "");
     setScheduledLiveAtIso(scheduledLiveIso);
     setSavingScheduledLive(false);
+  }
+
+  function handleScheduledLiveDateTimeChange(value: string) {
+    scheduledLiveDraftDirtyRef.current = true;
+    setScheduledLiveAt(value);
+  }
+
+  function handleScheduledLiveTimeZoneChange(value: string) {
+    scheduledLiveDraftDirtyRef.current = true;
+    setScheduledLiveTimeZone(value);
   }
 
   return (
@@ -763,8 +778,8 @@ export default function DashboardPage() {
             scheduledLiveAtIso={scheduledLiveAtIso}
             liveRateConfigured={hasConfiguredLiveRate(liveRate)}
             saving={savingScheduledLive}
-            onChangeDateTime={setScheduledLiveAt}
-            onChangeTimeZone={setScheduledLiveTimeZone}
+            onChangeDateTime={handleScheduledLiveDateTimeChange}
+            onChangeTimeZone={handleScheduledLiveTimeZoneChange}
             onSave={() => void saveScheduledLive(scheduledLiveAt)}
             onClear={() => void saveScheduledLive("")}
             openStudioHref={user ? getCreatorLiveConsolePath({ id: user.id, username: user.username }) : "/live"}
