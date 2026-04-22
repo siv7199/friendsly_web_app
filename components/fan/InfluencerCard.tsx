@@ -244,7 +244,7 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
           </Link>
 
           {/* Price + rating row */}
-          <div className={cn("mt-auto flex flex-col gap-0.5", creator.isLive && hasLiveRate && hasPackages ? "min-h-[48px]" : "min-h-[34px]")}>
+          <div className={cn("mt-auto flex flex-col gap-0.5", creator.isLive && hasLiveRate && hasPackages ? "min-h-[48px]" : "min-h-[46px]")}>
             <div className="flex items-center justify-between gap-1">
               <div className="flex min-w-0 items-center gap-2">
                 {creator.isLive ? (
@@ -262,9 +262,6 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
                         <span className="font-normal text-brand-ink-subtle text-[11px]"> /call</span>
                       </span>
                     )}
-                    {countdownText && (
-                      <span className="text-[10px] text-brand-primary font-semibold truncate">{countdownText}</span>
-                    )}
                   </>
                 )}
               </div>
@@ -278,6 +275,11 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
                 )}
               </div>
             </div>
+            {!creator.isLive && countdownText && (
+              <div className="pt-1 text-[10px] font-semibold leading-tight text-brand-primary sm:text-[11px]">
+                {countdownText}
+              </div>
+            )}
             {creator.isLive && hasPackages && (
               <span className="text-[11px] text-brand-ink-subtle">
                 Book from {formatCurrency(creator.callPrice)}

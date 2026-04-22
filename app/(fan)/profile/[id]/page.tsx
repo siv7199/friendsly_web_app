@@ -1124,7 +1124,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       <p className={cn("text-sm font-bold mt-0.5", isToday ? "text-brand-primary-light" : canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
                         {date.getDate()}
                       </p>
-                      <p className={cn("mt-1 text-[8px] font-medium leading-none", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
+                      <p className={cn("mt-1 w-full px-0.5 text-center text-[7px] font-medium leading-[1.05]", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
                         {hasAnySlots ? "Available" : isPast ? "-" : "Off"}
                       </p>
                     </button>
@@ -1560,7 +1560,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         <p className={cn("mt-0.5 text-base font-bold", isToday ? "text-brand-primary-light" : canBookDate ? "text-brand-ink" : "text-brand-ink-subtle")}>
                           {date.getDate()}
                         </p>
-                        <p className={cn("mt-1 w-full px-0.5 text-center text-[8px] font-medium leading-tight sm:text-[9px]", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
+                        <p className={cn("mt-1 w-full px-0.5 text-center text-[7px] font-medium leading-[1.05] sm:text-[8px]", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
                           {hasAnySlots ? "Available" : isPast ? "-" : "Off"}
                         </p>
                       </button>

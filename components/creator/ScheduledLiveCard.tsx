@@ -50,7 +50,7 @@ export function ScheduledLiveCard({
   openStudioHref,
 }: ScheduledLiveCardProps) {
   return (
-    <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface p-6 md:p-6">
+    <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface p-5 sm:p-6">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-primary/10 text-brand-primary-light">
           <CalendarClock className="h-4 w-4" />
@@ -66,20 +66,20 @@ export function ScheduledLiveCard({
         </div>
       </div>
 
-      <div className="mt-4 min-w-0 space-y-3">
+      <div className="mt-4 min-w-0 space-y-3 px-1 sm:px-0">
         <div className="min-w-0">
           <input
             type="datetime-local"
             value={scheduledLiveAt}
             onChange={(event) => onChangeDateTime(event.target.value)}
-            className="scheduled-live-datetime block h-11 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-4 pr-5 text-[13px] text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary sm:text-sm"
+            className="scheduled-live-datetime scheduled-live-field block h-12 w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated px-4 pr-12 text-[12px] leading-tight text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary sm:h-11 sm:rounded-xl sm:pr-5 sm:text-sm"
           />
         </div>
         <div className="min-w-0">
           <select
             value={scheduledLiveTimeZone}
             onChange={(event) => onChangeTimeZone(event.target.value)}
-            className="block h-11 w-full min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-elevated pl-4 pr-10 text-[13px] text-brand-ink focus:outline-none focus:border-brand-primary sm:text-sm"
+            className="scheduled-live-field block h-12 w-full min-w-0 max-w-full rounded-2xl border border-brand-border bg-brand-elevated pl-4 pr-10 text-[12px] leading-tight text-brand-ink focus:outline-none focus:border-brand-primary sm:h-11 sm:rounded-xl sm:text-sm"
           >
             {COMMON_TIME_ZONES.map((timeZone) => (
               <option key={timeZone} value={timeZone}>

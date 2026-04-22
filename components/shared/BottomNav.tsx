@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Compass, BookOpen, Heart, CreditCard,
-  LayoutDashboard, Settings2, CalendarDays, Radio, DollarSign, Settings,
+  LayoutDashboard, Settings2, CalendarDays, Radio, DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
@@ -15,7 +15,6 @@ const FAN_ITEMS = [
   { label: "Bookings",  href: "/bookings",  icon: BookOpen },
   { label: "Payments",  href: "/payments",  icon: CreditCard },
   { label: "Saved",     href: "/saved",     icon: Heart },
-  { label: "Settings",  href: "/settings",  icon: Settings },
 ];
 
 export function BottomNav({ type }: { type: "fan" | "creator" }) {
@@ -32,7 +31,6 @@ export function BottomNav({ type }: { type: "fan" | "creator" }) {
     { label: "Earnings",  href: "/earnings",   icon: DollarSign },
     { label: "Offerings", href: "/management", icon: Settings2 },
     { label: "Calendar",  href: "/calendar",   icon: CalendarDays },
-    { label: "Settings",  href: "/settings",   icon: Settings },
     { label: "Go Live",   href: liveHref,      icon: Radio, highlight: true },
   ];
 
