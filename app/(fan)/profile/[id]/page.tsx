@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
@@ -802,8 +802,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             </Link>
           </div>
 
-          {creator.isLive ? mobileLiveCard : null}
-
           {/* Hero image */}
           <div className="relative mx-4 mt-4 aspect-square rounded-2xl overflow-hidden">
             {creator.avatarUrl ? (
@@ -863,6 +861,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               )}
             </div>
 
+            {mobileLiveCard}
+
             {creator.bio && (
               <div className="mt-4 border-t border-brand-border pt-4">
                 <h2 className="mb-2 text-base font-bold text-brand-ink">About</h2>
@@ -915,7 +915,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {!creator.isLive ? mobileLiveCard : null}
 
           {/* Availability */}
           <div className="px-4 mb-6">
