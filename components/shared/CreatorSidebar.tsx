@@ -36,7 +36,7 @@ export function CreatorSidebar() {
   ];
 
   return (
-    <aside className="hidden w-[220px] shrink-0 self-start fan-rail animate-rail-enter md:sticky md:top-0 md:flex md:h-screen md:flex-col">
+    <aside className="hidden w-[220px] shrink-0 fan-rail animate-rail-enter md:sticky md:top-0 md:flex md:h-screen md:flex-col md:self-stretch">
 
       {/* Logo */}
       <div className="px-5 py-5 border-b border-brand-border/60">

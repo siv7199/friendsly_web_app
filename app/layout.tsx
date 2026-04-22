@@ -49,6 +49,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
   themeColor: "#7468F2",
   viewportFit: "cover",
 };
@@ -59,11 +61,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${brandFont.variable} ${serifFont.variable} ${pacificoFont.variable}`}>
-      <body className="bg-brand-bg text-brand-ink antialiased min-h-[100svh] font-sans">
+    <html
+      lang="en"
+      className={`${displayFont.variable} ${bodyFont.variable} ${brandFont.variable} ${serifFont.variable} ${pacificoFont.variable} h-full overflow-hidden bg-brand-bg`}
+    >
+      <body className="h-full overflow-hidden bg-brand-bg text-brand-ink antialiased font-sans">
         <AuthProvider>
           <GlobalLiveStatusManager />
-          {children}
+          <div id="app-root" className="app-root-shell">
+            {children}
+          </div>
         </AuthProvider>
       </body>
     </html>

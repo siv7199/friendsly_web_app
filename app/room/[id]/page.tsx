@@ -323,7 +323,7 @@ export default function RoomPage() {
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const autoCancelRequestedRef = useRef(false);
   const bookingHasStarted = scheduledAt ? currentTime >= new Date(scheduledAt).getTime() : true;
-  const canUseMedia = isCreator || bookingHasStarted;
+  const canUseMedia = bookingHasStarted;
 
   const loadBooking = useCallback(async (bId: string) => {
     const supabase = createClient();

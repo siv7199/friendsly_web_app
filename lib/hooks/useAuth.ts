@@ -355,13 +355,13 @@ export function useAuth() {
     email: string,
     password: string,
     full_name: string,
-    nextPath?: string | null
+    _nextPath?: string | null
   ): Promise<SignupResult> => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
       const supabase = createClient();
       const normalizedEmail = email.trim().toLowerCase();
-      const redirectUrl = `${getSiteUrl()}/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`;
+      const redirectUrl = `${getSiteUrl()}/auth/callback?next=${encodeURIComponent("/login?tab=signin")}&post_confirm=signin`;
       const { data, error } = await Promise.race([
         supabase.auth.signUp({
           email: normalizedEmail,
@@ -454,43 +454,41 @@ export function useAuth() {
   const updateProfile = useCallback(async (updates: Partial<MockProfile>): Promise<void> => {
     if (!state.user) return;
     const supabase = createClient();
+    const { role: _ignoredRole, ...safeUpdates } = updates;
 
     const profileUpdates: Record<string, unknown> = {};
     const creatorUpdates: Record<string, unknown> = {};
-    const nextFullName = "full_name" in updates ? (updates.full_name ?? state.user.full_name) : state.user.full_name;
+    const nextFullName = "full_name" in safeUpdates ? (safeUpdates.full_name ?? state.user.full_name) : state.user.full_name;
     const nextInitials = deriveInitials(nextFullName);
 
-    if ("full_name" in updates) {
-      profileUpdates.full_name = updates.full_name;
+    if ("full_name" in safeUpdates) {
+      profileUpdates.full_name = safeUpdates.full_name;
       profileUpdates.avatar_initials = nextInitials;
     }
-    if ("username" in updates) {
-      profileUpdates.username = updates.username;
+    if ("username" in safeUpdates) {
+      profileUpdates.username = safeUpdates.username;
     }
-    if ("avatar_url" in updates) {
-      profileUpdates.avatar_url = updates.avatar_url;
+    if ("avatar_url" in safeUpdates) {
+      profileUpdates.avatar_url = safeUpdates.avatar_url;
     }
-    if ("avatar_color" in updates) {
-      profileUpdates.avatar_color = updates.avatar_color;
-    }
-    if ("role" in updates) {
-      profileUpdates.role = updates.role;
+    if ("avatar_color" in safeUpdates) {
+      profileUpdates.avatar_color = safeUpdates.avatar_color;
     }
 
-    if ("bio" in updates)      creatorUpdates.bio = (updates as { bio?: string }).bio;
-    if ("category" in updates) creatorUpdates.category = (updates as { category?: string }).category;
-    if ("is_live" in updates)  creatorUpdates.is_live = (updates as { is_live?: boolean }).is_live;
-    if ("instagram_url" in updates) {
-      creatorUpdates.instagram_url = sanitizeSocialUrl((updates as { instagram_url?: string }).instagram_url ?? "");
+    if ("bio" in safeUpdates)      creatorUpdates.bio = (safeUpdates as { bio?: string }).bio;
+    if ("category" in safeUpdates) creatorUpdates.category = (safeUpdates as { category?: string }).category;
+    if ("is_live" in safeUpdates)  creatorUpdates.is_live = (safeUpdates as { is_live?: boolean }).is_live;
+    if ("instagram_url" in safeUpdates) {
+      creatorUpdates.instagram_url = sanitizeSocialUrl((safeUpdates as { instagram_url?: string }).instagram_url ?? "");
     }
-    if ("tiktok_url" in updates) {
-      creatorUpdates.tiktok_url = sanitizeSocialUrl((updates as { tiktok_url?: string }).tiktok_url ?? "");
+    if ("tiktok_url" in safeUpdates) {
+      creatorUpdates.tiktok_url = sanitizeSocialUrl((safeUpdates as { tiktok_url?: string }).tiktok_url ?? "");
     }
-    if ("x_url" in updates) {
-      creatorUpdates.x_url = sanitizeSocialUrl((updates as { x_url?: string }).x_url ?? "");
+    if ("x_url" in safeUpdates) {
+      creatorUpdates.x_url = sanitizeSocialUrl((safeUpdates as { x_url?: string }).x_url ?? "");
     }
-    if ("live_join_fee" in updates) {
-      creatorUpdates.live_join_fee = (updates as { live_join_fee?: number }).live_join_fee;
+    if ("live_join_fee" in safeUpdates) {
+      creatorUpdates.live_join_fee = (safeUpdates as { live_join_fee?: number }).live_join_fee;
     }
 
     if (Object.keys(profileUpdates).length > 0) {
@@ -509,23 +507,30 @@ export function useAuth() {
     await supabase.auth.updateUser({
       data: buildAuthMetadata({
         full_name: nextFullName,
-        username: ("username" in updates ? updates.username : state.user.username) ?? "",
-        avatar_color: ("avatar_color" in updates ? updates.avatar_color : state.user.avatar_color) ?? "bg-violet-600",
-        role: ("role" in updates ? updates.role : state.user.role) ?? null,
+        username: ("username" in safeUpdates ? safeUpdates.username : state.user.username) ?? "",
+        avatar_color: ("avatar_color" in safeUpdates ? safeUpdates.avatar_color : state.user.avatar_color) ?? "bg-violet-600",
+        role: state.user.role ?? null,
       }),
     });
 
     // Update local state optimistically
     setState((s) => ({
       ...s,
-      user: s.user ? { ...s.user, ...updates, avatar_initials: nextInitials } as MockProfile : null,
-      isAuthenticated: Boolean(updates.role ?? s.user?.role),
+      user: s.user ? { ...s.user, ...safeUpdates, avatar_initials: nextInitials } as MockProfile : null,
+      isAuthenticated: Boolean(s.user?.role),
     }));
   }, [state.user]);
 
   // ── setRole ───────────────────────────────────────────────────────────────
   const setRole = useCallback(async (role: UserRole): Promise<void> => {
     if (!state.user) return;
+    if (role !== "fan") {
+      setState((s) => ({
+        ...s,
+        error: "Creator access can only be granted through the approved review flow.",
+      }));
+      return;
+    }
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !isEmailVerified(user)) {
@@ -548,11 +553,6 @@ export function useAuth() {
         role,
       }),
     });
-
-    if (role === "creator") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("creator_profiles") as any).upsert({ id: state.user.id }, { onConflict: "id" });
-    }
 
     setState((s) => ({
       ...s,

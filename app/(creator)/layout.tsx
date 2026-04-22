@@ -11,10 +11,16 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
   const isImmersiveLiveRoute = pathname === "/live" || pathname.startsWith("/live/");
 
   return (
-    <div className="flex min-h-screen items-stretch bg-brand-bg">
+    <div className="flex h-full min-h-0 items-stretch overflow-hidden bg-brand-bg">
       <GlobalLiveStatusManager />
       {!isImmersiveLiveRoute ? <CreatorSidebar /> : null}
-      <main className={isImmersiveLiveRoute ? "flex-1 overflow-hidden" : "flex-1 overflow-x-hidden pb-36 pt-24 md:pb-24 md:pt-0"}>
+      <main
+        className={
+          isImmersiveLiveRoute
+            ? "flex-1 overflow-hidden"
+            : "flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain pb-36 pt-24 md:pb-24 md:pt-0"
+        }
+      >
         {!isImmersiveLiveRoute ? <MobileAccountBar /> : null}
         {children}
       </main>

@@ -14,18 +14,50 @@
 * { box-sizing: border-box; }
 
 html {
+  height: 100%;
+  margin: 0;
+  padding: 0;
   scroll-behavior: smooth;
-  overflow-x: hidden;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #F7F5FB;
 }
 
 body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
   background-color: #F7F5FB;
   color: #1A1628;
   font-family: var(--font-sans, "Nunito Sans", system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  overscroll-behavior: none;
+  min-height: 100%;
+}
+
+#__next,
+#app-root {
+  height: 100%;
+}
+
+.app-root-shell {
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
   overflow-x: hidden;
-  min-height: 100svh;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  background: #F7F5FB;
+}
+
+@supports not (height: 100dvh) {
+  .app-root-shell {
+    height: 100vh;
+    min-height: 100vh;
+  }
 }
 
 /* native password reveal controls suppressed */
@@ -123,7 +155,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
   }
 
   .app-safe-screen {
-    min-height: 100svh;
+    min-height: 100dvh;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
   }
