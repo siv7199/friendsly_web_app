@@ -90,7 +90,7 @@ export function BottomNav({
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all duration-150 min-w-[52px]",
+                "flex flex-col items-center gap-0.5 px-1 py-2 rounded-xl transition-all duration-150 min-w-0 flex-1",
                 isActive
                   ? "text-brand-primary"
                   : isHighlight && !isActive

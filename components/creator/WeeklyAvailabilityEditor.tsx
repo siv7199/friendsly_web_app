@@ -299,7 +299,7 @@ export function WeeklyAvailabilityEditor({
             <div
               key={dayLabel}
               className={cn(
-                "overflow-hidden rounded-2xl border p-4 transition-colors",
+                "min-w-0 overflow-hidden rounded-2xl border p-4 transition-colors",
                 scheduledLiveDayOfWeek === dayIndex
                   ? "border-emerald-400/45 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(74,222,128,0.08),0_0_30px_rgba(34,197,94,0.12)]"
                   : "border-brand-border bg-brand-elevated/40"
@@ -351,7 +351,7 @@ export function WeeklyAvailabilityEditor({
                             : "border-brand-border bg-brand-surface"
                         )}
                       >
-                        <div className="grid grid-cols-1 gap-3 items-end lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
+                        <div className="grid grid-cols-1 gap-3 items-end overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
                           <div className="min-w-0">
                             <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
                               Start

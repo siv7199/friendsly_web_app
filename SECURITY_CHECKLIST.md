@@ -46,9 +46,9 @@ Definition of done:
 
 ### 1.2 Live Stress Testing
 
-- [ ] Creator can start a live reliably more than once
-- [ ] Fan live join flow works repeatedly
-- [ ] Queue updates remain correct under repeated joins/leaves
+- [x] Creator can start a live reliably more than once
+- [x] Fan live join flow works repeatedly
+- [x] Queue updates remain correct under repeated joins/leaves
 - [ ] Admit flow still works under churn
 - [ ] End-live cleanup completes without stale live state
 - [ ] Reconnect behavior is acceptable for creator and fan
@@ -74,8 +74,8 @@ Definition of done:
 
 ### 1.4 Payments And Payouts Stress Testing
 
-- [ ] Booking payment flow succeeds repeatedly
-- [ ] Live preauth and capture flow behaves correctly
+- [] Booking payment flow succeeds repeatedly
+- [x] Live preauth and capture flow behaves correctly
 - [ ] Failed payment path recovers cleanly
 - [ ] Repeated submit/refresh behavior does not create duplicate charges
 - [ ] Creator payout status page remains stable

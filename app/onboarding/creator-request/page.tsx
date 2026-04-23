@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { readJsonResponse } from "@/lib/http";
+import { formatSupabaseAuthError } from "@/lib/supabase/auth-errors";
 import { createClient } from "@/lib/supabase/client";
+import { getSiteUrl } from "@/lib/site-url";
 
 export default function CreatorRequestPage() {
   const router = useRouter();
@@ -48,6 +50,8 @@ export default function CreatorRequestPage() {
 
     try {
       if (!user) {
+        const normalizedEmail = form.email.trim().toLowerCase();
+
         if (!form.password || form.password.length < 8) {
           throw new Error("Please create a password with at least 8 characters.");
         }
@@ -56,23 +60,43 @@ export default function CreatorRequestPage() {
           throw new Error("Password confirmation does not match.");
         }
 
+        const preflightResponse = await fetch("/api/auth/prelogin-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: normalizedEmail }),
+        });
+
+        const preflight = await readJsonResponse<{ error?: string; hasApprovedRole?: boolean }>(preflightResponse);
+
+        if (!preflightResponse.ok) {
+          throw new Error(preflight?.error ?? "Could not verify this email address right now.");
+        }
+
+        if (preflight?.hasApprovedRole) {
+          throw new Error("This email already has a Friendsly account. Please sign in first, then request creator access.");
+        }
+
         const supabase = createClient();
+        const redirectUrl = `${getSiteUrl()}/auth/callback?next=${encodeURIComponent("/login?tab=signin")}&post_confirm=signin`;
         const { data, error: signupError } = await supabase.auth.signUp({
-          email: form.email.trim(),
+          email: normalizedEmail,
           password: form.password,
           options: {
             data: {
               full_name: form.fullName.trim(),
             },
+            emailRedirectTo: redirectUrl,
           },
         });
 
         if (signupError) {
-          throw new Error(signupError.message);
+          throw new Error(formatSupabaseAuthError(signupError.message));
         }
 
         if (data.user && !data.session) {
-          throw new Error("Email confirmation is required before we can save this creator request.");
+          throw new Error(
+            "Check your email to confirm your account before submitting your creator request. If you already have a Friendsly account with this email, sign in instead."
+          );
         }
       }
 
@@ -81,7 +105,7 @@ export default function CreatorRequestPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: form.fullName,
-          email: form.email,
+          email: form.email.trim().toLowerCase(),
           phone: form.phone,
           instagramUrl: form.instagramUrl,
           tiktokUrl: form.tiktokUrl,

@@ -610,7 +610,7 @@ export default function DashboardPage() {
   }, [showLiveRequests]);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 px-4 py-4 md:px-8">
+    <div className="mx-auto max-w-6xl min-w-0 space-y-5 overflow-x-hidden px-4 py-4 md:px-8">
       {/* ── Quick Join banner — top of page so creator sees it immediately ── */}
       {nextJoinableBooking && (
         <div className="rounded-2xl border border-brand-live/30 bg-brand-live/10 p-4 flex items-center justify-between gap-4">
@@ -704,7 +704,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Main Grid ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid min-w-0 grid-cols-1 gap-6 overflow-hidden lg:grid-cols-3">
         {/* Upcoming bookings */}
         <div className="lg:col-span-2">
           {showLiveRequests && (

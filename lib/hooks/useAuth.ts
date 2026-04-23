@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { formatSupabaseAuthError } from "@/lib/supabase/auth-errors";
 import type { MockProfile, UserRole } from "@/types";
 import { sanitizeSocialUrl } from "@/lib/social";
 import { getSiteUrl } from "@/lib/site-url";
@@ -427,7 +428,7 @@ export function useAuth() {
         new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Request timed out — check your connection.")), 8000)),
       ]);
       if (error) {
-        setState((s) => ({ ...s, isLoading: false, error: error.message }));
+        setState((s) => ({ ...s, isLoading: false, error: formatSupabaseAuthError(error.message) }));
         return { requiresEmailConfirmation: false, signedIn: false };
       }
       if (data.session) {
