@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getLiveFanChargedAmount, getLiveFanChargedAmountCents, getLiveStageElapsedSeconds, LIVE_PREAUTH_MINUTES, LIVE_STAGE_SECONDS } from "@/lib/live";
+import { getLiveBillableDurationSeconds, getLiveFanChargedAmount, getLiveFanChargedAmountCents, getLiveStageElapsedSeconds, LIVE_PREAUTH_MINUTES, LIVE_STAGE_SECONDS } from "@/lib/live";
 import { settleManualCapturePaymentIntent } from "@/lib/server/stripe";
 
 export async function POST(request: Request) {
@@ -55,7 +55,9 @@ export async function POST(request: Request) {
     let endedAt = entry.ended_at;
 
     if (status && entry.status === "active") {
-      durationSeconds = Math.max(0, Math.min(LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds(entry.admitted_at, Date.now())));
+      durationSeconds = getLiveBillableDurationSeconds(
+        Math.min(LIVE_STAGE_SECONDS, getLiveStageElapsedSeconds(entry.admitted_at, Date.now()))
+      );
       const ratePerMinute = Number(entry.amount_pre_authorized ?? 0) / LIVE_PREAUTH_MINUTES;
       amountCharged = getLiveFanChargedAmount({
         ratePerMinute,

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getLiveStageElapsedSeconds, getLiveFanChargedAmount, getLiveFanChargedAmountCents, LIVE_PREAUTH_MINUTES } from "@/lib/live";
+import { getLiveBillableDurationSeconds, getLiveStageElapsedSeconds, getLiveFanChargedAmount, getLiveFanChargedAmountCents, LIVE_PREAUTH_MINUTES } from "@/lib/live";
 import { settleManualCapturePaymentIntent } from "@/lib/server/stripe";
 
 // Fan-initiated leave-stage: charges for elapsed time and marks the entry completed.
@@ -25,7 +25,9 @@ export async function POST(request: Request) {
     if (entry.fan_id !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     if (entry.status !== "active") return NextResponse.json({ ok: true, message: "Already ended" });
 
-    const durationSeconds = Math.max(0, getLiveStageElapsedSeconds(entry.admitted_at, Date.now()));
+    const durationSeconds = getLiveBillableDurationSeconds(
+      getLiveStageElapsedSeconds(entry.admitted_at, Date.now())
+    );
     const ratePerMinute = Number(entry.amount_pre_authorized ?? 0) / LIVE_PREAUTH_MINUTES;
     const amountCharged = getLiveFanChargedAmount({ ratePerMinute, durationSeconds });
     const endedAt = new Date().toISOString();

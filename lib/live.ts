@@ -87,3 +87,8 @@ export function getLiveStageElapsedSeconds(startedAt?: string | null, nowMs = Da
 export function getLiveStageRemainingSeconds(startedAt?: string | null, nowMs = Date.now()) {
   return Math.max(0, LIVE_STAGE_SECONDS - getLiveStageElapsedSeconds(startedAt, nowMs));
 }
+
+export function getLiveBillableDurationSeconds(elapsedSeconds: number) {
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return 0;
+  return Math.min(LIVE_STAGE_SECONDS, Math.max(LIVE_STAGE_MIN_SECONDS, Math.floor(elapsedSeconds)));
+}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import {
   Users, SkipForward, StopCircle, CalendarClock,
-  Mic, MicOff, Video, VideoOff, Loader2, ChevronDown, ChevronUp
+  Mic, MicOff, Video, VideoOff, Loader2, ChevronDown, ChevronUp, ShieldX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -137,6 +137,7 @@ function LiveVideoStage({
   creatorAvatarUrl,
   endSession,
   admitNext,
+  kickCurrentFan,
   queueCount,
   initialMic,
   initialCam,
@@ -408,6 +409,14 @@ function LiveVideoStage({
                   : "Admit"}
               </button>
               <button
+                onClick={kickCurrentFan}
+                disabled={!currentFan}
+                className="inline-flex shrink-0 items-center justify-center gap-1 rounded-full border border-brand-gold/35 bg-brand-gold/15 px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-brand-gold/25 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <ShieldX className="w-3.5 h-3.5" />
+                Kick
+              </button>
+              <button
                 onClick={endSession}
                 className="inline-flex shrink-0 items-center justify-center gap-1 rounded-full border border-red-500/40 bg-red-500/30 px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-red-500/50"
               >
@@ -436,6 +445,10 @@ function LiveVideoStage({
                 {currentFan && activeFanElapsedSeconds < LIVE_STAGE_MIN_SECONDS
                   ? `Min ${formatCountdown(LIVE_STAGE_MIN_SECONDS - activeFanElapsedSeconds)}`
                   : "Admit"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={kickCurrentFan} disabled={!currentFan} className="h-8 gap-1 px-2.5 text-[11px]">
+                <ShieldX className="w-3.5 h-3.5" />
+                Kick
               </Button>
               <Button variant="danger" size="sm" onClick={endSession} className="h-8 gap-1 px-2.5 text-[11px]">
                 <StopCircle className="w-3.5 h-3.5" />
@@ -852,6 +865,18 @@ export function LiveConsole() {
     }, 1000);
   }
 
+  async function kickCurrentFan() {
+    if (!currentFan) return;
+    try {
+      await fetch("/api/live/kick-fan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queueEntryId: currentFan.id }),
+      });
+    } catch {}
+    setCurrentFan(null);
+  }
+
   async function handleCreatorJoined() {
     setCreatorJoined(true);
     const activeSessionId = sessionIdRef.current;
@@ -995,6 +1020,7 @@ export function LiveConsole() {
               creatorAvatarUrl={creatorAvatarUrl}
               endSession={endSession}
               admitNext={admitNext}
+              kickCurrentFan={kickCurrentFan}
               queueCount={queue.length}
               initialMic={micOn}
               initialCam={camOn}

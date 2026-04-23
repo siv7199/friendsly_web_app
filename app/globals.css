@@ -465,4 +465,9 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
   .scheduled-live-datetime::-webkit-datetime-edit {
     justify-content: flex-start;
   }
+
+  .scheduled-live-datetime::-webkit-calendar-picker-indicator {
+    margin-right: 0.5rem;
+    padding: 0.25rem;
+  }
 }

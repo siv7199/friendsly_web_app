@@ -1118,6 +1118,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   const hasAnySlots = slots.length > 0 && !isPast;
                   const canBookDate = hasAnySlots && hasBookableLeadTimeSlot(date);
                   const isScheduledLiveDay = scheduledLiveDateKey === localDateKey(date);
+                  const isLiveAndAvailable = isScheduledLiveDay && hasAnySlots;
                   return (
                     <button
                       type="button"
@@ -1136,7 +1137,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       }
                       className={cn(
                         "flex min-h-[84px] flex-col items-center justify-center rounded-xl border px-1.5 py-2 text-center transition-colors",
-                        isScheduledLiveDay
+                        isLiveAndAvailable
+                          ? "border-brand-live/45 bg-white shadow-sm"
+                          : isScheduledLiveDay
                           ? "border-brand-live/45 bg-brand-live/12 shadow-sm"
                           : isToday
                           ? "border-brand-primary bg-brand-primary/20 shadow-sm"
@@ -1147,10 +1150,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                           : "border-brand-border bg-brand-elevated opacity-50"
                       )}
                     >
-                      <p className="text-[9px] font-medium uppercase text-brand-ink-subtle">{DAY_NAMES[dow]}</p>
+                      <p className={cn("text-[9px] font-medium uppercase", isLiveAndAvailable ? "text-brand-live" : "text-brand-ink-subtle")}>{DAY_NAMES[dow]}</p>
                       <p className={cn(
                         "mt-0.5 text-sm font-bold",
-                        isScheduledLiveDay
+                        isLiveAndAvailable
+                          ? "text-brand-live"
+                          : isScheduledLiveDay
                           ? "text-brand-live"
                           : isToday
                           ? "text-brand-primary-light"
@@ -1162,7 +1167,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                       </p>
                       <p className={cn(
                         "mt-1 flex w-full items-center justify-center text-center text-[8px] font-medium leading-[1.1]",
-                        isScheduledLiveDay
+                        isLiveAndAvailable
+                          ? "text-brand-live"
+                          : isScheduledLiveDay
                           ? "text-brand-live"
                           : canBookDate
                           ? "text-brand-info"
@@ -1573,6 +1580,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     const hasAnySlots = slots.length > 0 && !isPast;
                     const canBookDate = hasAnySlots && hasBookableLeadTimeSlot(date);
                     const isScheduledLiveDay = scheduledLiveDateKey === localDateKey(date);
+                    const isLiveAndAvailable = isScheduledLiveDay && hasAnySlots;
                     return (
                       <button
                         type="button"
@@ -1591,7 +1599,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         }
                         className={cn(
                           "rounded-xl border p-2 text-center transition-all",
-                          isScheduledLiveDay
+                          isLiveAndAvailable
+                            ? "border-brand-live/45 bg-white hover:border-brand-live"
+                            : isScheduledLiveDay
                             ? "border-brand-live/45 bg-brand-live/12 hover:border-brand-live"
                             : isToday
                             ? "border-brand-primary/50 bg-brand-primary/10 hover:border-brand-primary"
@@ -1602,10 +1612,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                             : "border-brand-border bg-brand-elevated opacity-50 cursor-not-allowed"
                         )}
                       >
-                        <p className="text-[10px] font-medium uppercase text-brand-ink-subtle">{DAY_NAMES[dow]}</p>
+                        <p className={cn("text-[10px] font-medium uppercase", isLiveAndAvailable ? "text-brand-live" : "text-brand-ink-subtle")}>{DAY_NAMES[dow]}</p>
                         <p className={cn(
                           "mt-0.5 text-base font-bold",
-                          isScheduledLiveDay
+                          isLiveAndAvailable
+                            ? "text-brand-live"
+                            : isScheduledLiveDay
                             ? "text-brand-live"
                             : isToday
                             ? "text-brand-primary-light"
@@ -1617,7 +1629,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         </p>
                         <p className={cn(
                           "mt-1 block w-full text-center text-[7px] font-medium leading-[1.05] sm:text-[8px]",
-                          isScheduledLiveDay
+                          isLiveAndAvailable
+                            ? "text-brand-live"
+                            : isScheduledLiveDay
                             ? "text-brand-live"
                             : canBookDate
                             ? "text-brand-info"

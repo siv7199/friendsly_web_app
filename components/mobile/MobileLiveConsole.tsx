@@ -9,7 +9,7 @@ import Link from "next/link";
 // desktop logic changes, this file needs the same change.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Loader2, Mic, MicOff, Send, SkipForward, StopCircle, Users, Video, VideoOff, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Mic, MicOff, Send, ShieldX, SkipForward, StopCircle, Users, Video, VideoOff, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
 import { useAuthContext } from "@/lib/context/AuthContext";
@@ -116,6 +116,7 @@ function CreatorMobileLiveStage({
   initialMic,
   initialCam,
   onAdmitNext,
+  onKickCurrentFan,
   onEndSession,
   onExit,
   sessionId,
@@ -132,6 +133,7 @@ function CreatorMobileLiveStage({
   initialMic: boolean;
   initialCam: boolean;
   onAdmitNext: () => void;
+  onKickCurrentFan: () => void;
   onEndSession: () => void;
   onExit: () => void;
   sessionId: string | null;
@@ -456,6 +458,14 @@ function CreatorMobileLiveStage({
                 {admitDisabledByMin
                   ? `Min ${formatCountdown(LIVE_STAGE_MIN_SECONDS - activeFanElapsedSeconds)}`
                   : currentFan ? "Next fan" : "Admit"}
+              </button>
+              <button
+                onClick={onKickCurrentFan}
+                disabled={!currentFan}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-40"
+              >
+                <ShieldX className="w-3.5 h-3.5" />
+                Kick fan
               </button>
               <button
                 onClick={onEndSession}
@@ -892,6 +902,18 @@ export function MobileLiveConsole() {
     window.setTimeout(() => { endingSessionRef.current = false; }, 1000);
   }
 
+  async function kickCurrentFan() {
+    if (!currentFan) return;
+    try {
+      await fetch("/api/live/kick-fan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queueEntryId: currentFan.id }),
+      });
+    } catch {}
+    setCurrentFan(null);
+  }
+
   async function handleExitLive() {
     if (sessionState === "live" && sessionId) {
       await endSession();
@@ -1058,6 +1080,7 @@ export function MobileLiveConsole() {
         initialMic={micOn}
         initialCam={camOn}
         onAdmitNext={admitNext}
+        onKickCurrentFan={kickCurrentFan}
         onEndSession={endSession}
         onExit={handleExitLive}
         sessionId={sessionId}
