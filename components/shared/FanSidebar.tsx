@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -29,58 +29,32 @@ const NAV_ITEMS = [
 export function FanSidebar() {
   const pathname = usePathname();
   const [liveCount, setLiveCount] = useState(0);
-  const liveExpiryTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
+    let cancelled = false;
 
     async function getCount() {
-      if (liveExpiryTimeoutRef.current) {
-        window.clearTimeout(liveExpiryTimeoutRef.current);
-        liveExpiryTimeoutRef.current = null;
-      }
-
+      if (document.visibilityState !== "visible") return;
       const heartbeatCutoffIso = new Date(Date.now() - LIVE_SESSION_STALE_MS).toISOString();
       const { data } = await supabase
         .from("live_sessions")
-        .select("creator_id, last_heartbeat_at")
+        .select("creator_id")
         .eq("is_active", true)
         .not("daily_room_url", "is", null)
         .gte("last_heartbeat_at", heartbeatCutoffIso);
 
+      if (cancelled) return;
       const uniqueLiveCreators = new Set((data ?? []).map((session: any) => session.creator_id));
       setLiveCount(uniqueLiveCreators.size);
-
-      const activeSessions = (data ?? []) as { last_heartbeat_at?: string | null }[];
-      const nextExpiryDelay = activeSessions.reduce<number | null>((soonestDelay, session) => {
-        if (!session.last_heartbeat_at) return soonestDelay;
-        const delay = Math.max(
-          1000,
-          LIVE_SESSION_STALE_MS - (Date.now() - new Date(session.last_heartbeat_at).getTime()) + 1000
-        );
-        return soonestDelay == null ? delay : Math.min(soonestDelay, delay);
-      }, null);
-
-      if (nextExpiryDelay != null) {
-        liveExpiryTimeoutRef.current = window.setTimeout(refreshIfVisible, nextExpiryDelay);
-      }
-    }
-
-    function refreshIfVisible() {
-      if (document.visibilityState === "visible") void getCount();
     }
 
     void getCount();
-
-    const fallbackInterval = window.setInterval(refreshIfVisible, LIVE_COUNT_REFRESH_MS);
-    window.addEventListener("focus", refreshIfVisible);
-    document.addEventListener("visibilitychange", refreshIfVisible);
+    const interval = window.setInterval(getCount, LIVE_COUNT_REFRESH_MS);
 
     return () => {
-      if (liveExpiryTimeoutRef.current) window.clearTimeout(liveExpiryTimeoutRef.current);
-      window.clearInterval(fallbackInterval);
-      window.removeEventListener("focus", refreshIfVisible);
-      document.removeEventListener("visibilitychange", refreshIfVisible);
+      cancelled = true;
+      window.clearInterval(interval);
     };
   }, []);
 

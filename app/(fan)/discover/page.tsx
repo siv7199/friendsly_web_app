@@ -255,7 +255,6 @@ export default function DiscoverPage() {
     }
 
     load();
-    const pollId = window.setInterval(load, 15000);
 
     const supabase = createClient();
     const channel = supabase
@@ -304,7 +303,6 @@ export default function DiscoverPage() {
     return () => {
       refreshTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
       Object.values(liveExpiryTimeoutsRef.current).forEach((id) => window.clearTimeout(id));
-      window.clearInterval(pollId);
       window.removeEventListener("focus", refreshIfStale);
       document.removeEventListener("visibilitychange", handleVisibility);
       supabase.removeChannel(channel);

@@ -43,10 +43,6 @@ export default function SavedPage() {
   useEffect(() => {
     if (!user) return;
     loadSaved();
-    const pollId = window.setInterval(() => {
-      void loadSaved();
-    }, 15000);
-    return () => window.clearInterval(pollId);
   }, [user]);
 
   async function loadSaved() {

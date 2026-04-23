@@ -300,7 +300,7 @@ export default function DashboardPage() {
             .eq("is_active", true),
           supabase
             .from("profiles")
-            .select("id, email, full_name, username, avatar_initials, avatar_color, avatar_url, created_at, role, creator_profiles(bio, category, is_live, live_join_fee, scheduled_live_at, scheduled_live_timezone, instagram_url, tiktok_url, x_url, avg_rating, review_count)")
+            .select("id, full_name, username, avatar_initials, avatar_color, avatar_url, created_at, role, creator_profiles(bio, category, is_live, live_join_fee, scheduled_live_at, scheduled_live_timezone, instagram_url, tiktok_url, x_url, avg_rating, review_count)")
             .eq("id", userId)
             .single(),
         ]);

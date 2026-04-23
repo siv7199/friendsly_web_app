@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
-import { deriveBookingStatus, getNextAutoCancelCheckDelay, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable } from "@/lib/bookings";
+import { deriveBookingStatus, getNextAutoCancelCheckDelay, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable, shouldRefetchOnBookingChange } from "@/lib/bookings";
 import { RefundPolicyModal } from "@/components/shared/RefundPolicyModal";
 
 type Tab = "upcoming" | "completed" | "cancelled";
@@ -182,8 +182,8 @@ export default function BookingsPage() {
         schema: "public",
         table: "bookings",
         filter: `fan_id=eq.${userId}`,
-      }, () => {
-        loadBookings();
+      }, (payload: any) => {
+        if (shouldRefetchOnBookingChange(payload)) loadBookings();
       })
       .subscribe();
 

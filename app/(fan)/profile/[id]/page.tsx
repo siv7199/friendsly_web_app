@@ -513,14 +513,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     }
 
     loadCreatorData(supabase, !creator?.id);
-    const pollId = window.setInterval(() => {
-      loadCreatorData(supabase);
-    }, 15000);
 
     if (!creator?.id) {
       return () => {
         refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-        window.clearInterval(pollId);
       };
     }
 
@@ -649,7 +645,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
     return () => {
       refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      window.clearInterval(pollId);
       window.removeEventListener("focus", refreshIfStale);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(realtimeChannel);

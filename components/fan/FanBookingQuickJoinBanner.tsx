@@ -7,7 +7,7 @@ import { Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { getBookingWindow, getNextAutoCancelCheckDelay, isBookingJoinable } from "@/lib/bookings";
+import { getBookingWindow, getNextAutoCancelCheckDelay, isBookingJoinable, shouldRefetchOnBookingChange } from "@/lib/bookings";
 
 type ReadyBooking = {
   id: string;
@@ -101,7 +101,9 @@ export function FanBookingQuickJoinBanner() {
 
     const channel = supabase.channel(`fan-bookings-banner-${currentUser.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "bookings", filter: `fan_id=eq.${currentUser.id}` },
-        () => { loadReadyBooking(); })
+        (payload: any) => {
+          if (shouldRefetchOnBookingChange(payload)) loadReadyBooking();
+        })
       .subscribe();
 
     return () => {

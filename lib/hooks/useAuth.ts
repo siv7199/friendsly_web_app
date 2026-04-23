@@ -108,7 +108,7 @@ const profileFetchCache = new Map<string, { profile: MockProfile | null; expires
 const inFlightProfileFetches = new Map<string, Promise<MockProfile | null>>();
 
 // ── Fetch full profile from DB (used for enriching state after nav) ───────────
-async function fetchProfile(userId: string): Promise<MockProfile | null> {
+async function fetchProfile(userId: string, sessionEmail: string): Promise<MockProfile | null> {
   const now = Date.now();
   const cached = profileFetchCache.get(userId);
   if (cached && cached.expiresAt > now) {
@@ -125,7 +125,6 @@ async function fetchProfile(userId: string): Promise<MockProfile | null> {
     .from("profiles")
     .select(`
       id,
-      email,
       full_name,
       username,
       avatar_initials,
@@ -157,7 +156,7 @@ async function fetchProfile(userId: string): Promise<MockProfile | null> {
 
       const base = {
         id: profile.id,
-        email: profile.email,
+        email: sessionEmail,
         full_name: profile.full_name,
         username: profile.username,
         avatar_initials: profile.avatar_initials,
@@ -255,7 +254,7 @@ export function useAuth() {
         setState({ user, isAuthenticated: Boolean(user.role), isLoading: false, error: null });
 
         // Enrich with DB profile in background (non-blocking)
-        fetchProfile(session.user.id).then((full) => {
+        fetchProfile(session.user.id, session.user.email ?? "").then((full) => {
           if (!full) return;
 
           const merged = mergeSessionAvatarIntoProfile(full, session);
@@ -288,7 +287,7 @@ export function useAuth() {
       setState({ user, isAuthenticated: Boolean(user.role), isLoading: false, error: null });
 
       // Enrich with DB profile in background (non-blocking)
-      fetchProfile(session.user.id).then((full) => {
+      fetchProfile(session.user.id, session.user.email ?? "").then((full) => {
         if (!full) return;
 
         const merged = mergeSessionAvatarIntoProfile(full, session);
@@ -370,7 +369,7 @@ export function useAuth() {
       });
 
       try {
-        const full = await fetchProfile(session.user.id);
+        const full = await fetchProfile(session.user.id, session.user.email ?? "");
         if (full) {
           const merged = mergeSessionAvatarIntoProfile(full, session);
           resolvedUser = merged;

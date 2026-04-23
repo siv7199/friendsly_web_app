@@ -2,6 +2,32 @@ export const BOOKING_EARLY_JOIN_MINUTES = 5;
 export const BOOKING_FAN_LATE_FEE_MINUTES = 5;
 export const BOOKING_NO_SHOW_GRACE_MINUTES = 10;
 
+// Only a small set of booking columns affect what the fan UI renders or
+// which buttons are enabled. Skipping refetches on unrelated column changes
+// (late-fee bookkeeping, payment-intent IDs, analytics fields) avoids a
+// flurry of duplicate GETs every time a non-UI column is written.
+const BOOKING_UI_RELEVANT_COLUMNS = [
+  "status",
+  "creator_present",
+  "fan_present",
+  "scheduled_at",
+  "duration",
+  "late_fee_paid_at",
+] as const;
+
+export function shouldRefetchOnBookingChange(payload: {
+  eventType?: string;
+  new?: Record<string, unknown> | null;
+  old?: Record<string, unknown> | null;
+}): boolean {
+  if (payload.eventType === "INSERT" || payload.eventType === "DELETE") return true;
+  const prev = payload.old ?? {};
+  const next = payload.new ?? {};
+  return BOOKING_UI_RELEVANT_COLUMNS.some(
+    (col) => (prev as Record<string, unknown>)[col] !== (next as Record<string, unknown>)[col]
+  );
+}
+
 function toDate(value: string | Date): Date {
   return value instanceof Date ? value : new Date(value);
 }
