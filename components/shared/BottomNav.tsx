@@ -17,7 +17,13 @@ const FAN_ITEMS = [
   { label: "Saved",     href: "/saved",     icon: Heart },
 ];
 
-export function BottomNav({ type }: { type: "fan" | "creator" }) {
+export function BottomNav({
+  type,
+  floating = true,
+}: {
+  type: "fan" | "creator";
+  floating?: boolean;
+}) {
   const pathname = usePathname();
   const { user } = useAuthContext();
   const isFan = type === "fan";
@@ -35,6 +41,38 @@ export function BottomNav({ type }: { type: "fan" | "creator" }) {
   ];
 
   const items = type === "fan" ? FAN_ITEMS : CREATOR_ITEMS;
+
+  if (!floating) {
+    return (
+      <nav className="md:hidden rounded-2xl border border-brand-border/70 bg-white/95 p-2 shadow-[0_16px_36px_rgba(26,22,40,0.08)] backdrop-blur-md">
+        <div className="grid grid-cols-3 gap-2">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            const isHighlight = (item as { highlight?: boolean }).highlight;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-center transition-all duration-150",
+                  isActive
+                    ? "bg-brand-primary/10 text-brand-primary"
+                    : isHighlight
+                      ? "text-brand-live"
+                      : "text-brand-ink-subtle hover:bg-brand-elevated hover:text-brand-ink"
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="text-[10px] font-semibold font-display tracking-wide">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <nav className={cn(

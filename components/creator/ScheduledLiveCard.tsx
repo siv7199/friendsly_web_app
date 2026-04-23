@@ -85,20 +85,20 @@ export function ScheduledLiveCard({
       </div>
 
       <div className="mt-4 min-w-0 space-y-3">
-        <div className="min-w-0 px-1 sm:hidden">
-          <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-[minmax(0,1fr)_132px]">
+        <div className="min-w-0 sm:hidden">
+          <div className="grid grid-cols-1 gap-3">
             <input
               type="date"
               value={scheduledLiveDatePart}
               onChange={(event) => onChangeDateTime(combineDateTimeParts(event.target.value, scheduledLiveTimePart))}
-              className="scheduled-live-field block h-12 w-full min-w-0 max-w-full rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[11px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none"
+              className="mobile-native-field scheduled-live-field block h-12 w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[16px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none"
             />
             <input
               type="time"
               value={scheduledLiveTimePart}
               onChange={(event) => onChangeDateTime(combineDateTimeParts(scheduledLiveDatePart, event.target.value))}
               disabled={!scheduledLiveDatePart}
-              className="scheduled-live-field block h-12 w-full min-w-0 max-w-full rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[11px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="mobile-native-field scheduled-live-field block h-12 w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[16px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
         </div>
@@ -107,14 +107,14 @@ export function ScheduledLiveCard({
             type="datetime-local"
             value={scheduledLiveAt}
             onChange={(event) => onChangeDateTime(event.target.value)}
-            className="scheduled-live-datetime scheduled-live-field block h-11 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-4 pr-5 text-sm leading-tight text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary"
+            className="mobile-native-field scheduled-live-datetime scheduled-live-field block h-11 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-4 pr-5 text-sm leading-tight text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary"
           />
         </div>
         <div className="min-w-0">
           <select
             value={scheduledLiveTimeZone}
             onChange={(event) => onChangeTimeZone(event.target.value)}
-            className="scheduled-live-field block h-12 w-full min-w-0 max-w-full rounded-2xl border border-brand-border bg-brand-elevated pl-3 pr-9 text-[11px] leading-tight text-brand-ink focus:outline-none focus:border-brand-primary sm:h-11 sm:rounded-xl sm:pl-4 sm:pr-10 sm:text-sm"
+            className="mobile-native-field scheduled-live-field block h-12 w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated pl-3 pr-9 text-[16px] leading-tight text-brand-ink focus:outline-none focus:border-brand-primary sm:h-11 sm:rounded-xl sm:pl-4 sm:pr-10 sm:text-sm"
           >
             {COMMON_TIME_ZONES.map((timeZone) => (
               <option key={timeZone} value={timeZone}>

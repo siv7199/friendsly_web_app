@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { LifeBuoy, LogOut, Settings } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { cn } from "@/lib/utils";
 
-export function MobileAccountBar() {
+export function MobileAccountBar({ floating = true }: { floating?: boolean }) {
   const { user, logout } = useAuthContext();
   const router = useRouter();
 
@@ -16,10 +17,17 @@ export function MobileAccountBar() {
 
   return (
     <div
-      className="fixed inset-x-0 top-0 z-50 border-b border-brand-border/70 bg-white/95 px-4 pb-3 shadow-[0_10px_30px_rgba(26,22,40,0.06)] backdrop-blur supports-[backdrop-filter]:bg-white/88 md:bottom-0 md:top-auto md:border-b-0 md:border-t md:py-3 md:shadow-[0_-10px_30px_rgba(26,22,40,0.08)]"
+      className={cn(
+        "border-b border-brand-border/70 bg-white/95 px-4 shadow-[0_10px_30px_rgba(26,22,40,0.06)] backdrop-blur supports-[backdrop-filter]:bg-white/88 md:hidden",
+        floating
+          ? "fixed inset-x-0 top-0 z-50 pb-3"
+          : "relative z-10 mb-4 pb-3"
+      )}
       style={{
         paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)",
-        paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)",
+        paddingBottom: floating
+          ? "calc(env(safe-area-inset-bottom) + 0.75rem)"
+          : "0.75rem",
       }}
     >
       <div className="flex w-full items-center gap-3">

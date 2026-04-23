@@ -299,7 +299,7 @@ export function WeeklyAvailabilityEditor({
             <div
               key={dayLabel}
               className={cn(
-                "rounded-2xl border p-4 transition-colors",
+                "overflow-hidden rounded-2xl border p-4 transition-colors",
                 scheduledLiveDayOfWeek === dayIndex
                   ? "border-emerald-400/45 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(74,222,128,0.08),0_0_30px_rgba(34,197,94,0.12)]"
                   : "border-brand-border bg-brand-elevated/40"
@@ -345,7 +345,7 @@ export function WeeklyAvailabilityEditor({
                       <div
                         key={slot.id}
                         className={cn(
-                          "rounded-xl border px-3 py-3",
+                          "overflow-hidden rounded-xl border px-3 py-3",
                           isInvalid
                             ? "border-red-500/40 bg-red-500/5"
                             : "border-brand-border bg-brand-surface"
@@ -361,7 +361,7 @@ export function WeeklyAvailabilityEditor({
                               value={slot.start_time}
                               onChange={(e) => updateAvailabilitySlot(slot.id, "start_time", e.target.value)}
                               step={bookingIntervalMinutes * 60}
-                              className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
+                              className="mobile-native-field w-full h-10 min-w-0 overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-3 text-[16px] text-brand-ink focus:outline-none focus:border-brand-primary sm:text-sm"
                             />
                           </div>
                           <div className="min-w-0">
@@ -373,7 +373,7 @@ export function WeeklyAvailabilityEditor({
                               value={slot.end_time}
                               onChange={(e) => updateAvailabilitySlot(slot.id, "end_time", e.target.value)}
                               step={bookingIntervalMinutes * 60}
-                              className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
+                              className="mobile-native-field w-full h-10 min-w-0 overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-3 text-[16px] text-brand-ink focus:outline-none focus:border-brand-primary sm:text-sm"
                             />
                           </div>
                           <div className="min-w-0">
@@ -383,7 +383,7 @@ export function WeeklyAvailabilityEditor({
                             <select
                               value={slot.package_id ?? ""}
                               onChange={(e) => updateAvailabilitySlot(slot.id, "package_id", e.target.value)}
-                              className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
+                              className="mobile-native-field w-full h-10 min-w-0 overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-3 text-[16px] text-brand-ink focus:outline-none focus:border-brand-primary sm:text-sm"
                             >
                               <option value="">All offerings</option>
                               {packages
