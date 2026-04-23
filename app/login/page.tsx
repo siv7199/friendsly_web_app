@@ -55,6 +55,7 @@ export default function AuthPage() {
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [showEmailConfirmationModal, setShowEmailConfirmationModal] = useState(false);
   const [emailConfirmedMessage, setEmailConfirmedMessage] = useState(false);
+  const [authCallbackError, setAuthCallbackError] = useState<string | null>(null);
   const signInEmailRef = useRef<HTMLInputElement | null>(null);
   const signInPasswordRef = useRef<HTMLInputElement | null>(null);
 
@@ -67,7 +68,32 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (!isLoading && user && !user.role) {
-      router.replace(next ? `/onboarding/fan-setup?next=${encodeURIComponent(next)}` : "/onboarding/fan-setup");
+      let cancelled = false;
+
+      const resolveExistingRole = async () => {
+        try {
+          const res = await fetch("/api/auth/resolve-role", { method: "POST" });
+          const data = await res.json().catch(() => null);
+
+          if (cancelled) return;
+          if (data?.role === "creator") {
+            router.replace("/dashboard");
+            return;
+          }
+        } catch {
+          // Fall back to fan setup when role resolution is unavailable.
+        }
+
+        if (!cancelled) {
+          router.replace(next ? `/onboarding/fan-setup?next=${encodeURIComponent(next)}` : "/onboarding/fan-setup");
+        }
+      };
+
+      void resolveExistingRole();
+
+      return () => {
+        cancelled = true;
+      };
     }
   }, [isLoading, user, next, router]);
 
@@ -81,6 +107,7 @@ export default function AuthPage() {
     const t = params.get("tab");
     setRequestedTab(t === "signup" ? "signup" : t === "signin" ? "signin" : null);
     setEmailConfirmedMessage(params.get("emailConfirmed") === "1");
+    setAuthCallbackError(params.get("authCallbackError"));
   }, []);
 
   useEffect(() => {
@@ -236,6 +263,11 @@ export default function AuthPage() {
                   {emailConfirmedMessage ? (
                     <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
                       Your Friendsly email is confirmed. Sign in to continue.
+                    </p>
+                  ) : null}
+                  {authCallbackError ? (
+                    <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                      Email confirmation failed: {authCallbackError}
                     </p>
                   ) : null}
                   <Input
@@ -467,7 +499,6 @@ export default function AuthPage() {
       <Dialog open={showEmailConfirmationModal} onClose={() => setShowEmailConfirmationModal(false)}>
         <DialogContent
           title="Check your email"
-          description="We sent your Friendsly confirmation email. Press the link in that email to confirm your account, then come right back here to sign in."
           onClose={() => setShowEmailConfirmationModal(false)}
           className="max-w-md"
         >

@@ -34,6 +34,13 @@ type AuthMetadataShape = {
   role: UserRole | null;
 };
 
+type SupabaseWriteError = {
+  code?: string;
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+};
+
 export type OAuthProvider = "google" | "apple";
 
 export type SignupResult = {
@@ -101,6 +108,100 @@ function buildAuthMetadata(input: {
     avatar_initials: deriveInitials(fullName),
     role: input.role ?? null,
   };
+}
+
+function sanitizeUsernameCandidate(value: string): string {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "")
+    .slice(0, 24);
+
+  return normalized || "user";
+}
+
+function buildGeneratedUsername(...candidates: Array<string | undefined>): string {
+  const base = sanitizeUsernameCandidate(candidates.find((value) => typeof value === "string" && value.trim().length > 0) ?? "user");
+  return `${base}_${Date.now().toString(36)}`;
+}
+
+function isUsernameConflict(error: SupabaseWriteError | null | undefined): boolean {
+  if (!error) return false;
+
+  const combined = `${error.message ?? ""} ${error.details ?? ""} ${error.hint ?? ""}`.toLowerCase();
+  return error.code === "23505" && combined.includes("username");
+}
+
+function formatProfileWriteError(error: SupabaseWriteError | null | undefined, fallback: string): string {
+  if (isUsernameConflict(error)) {
+    return "That username is already taken. Try another one.";
+  }
+
+  if (typeof error?.message === "string" && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+async function insertMissingProfileRow(
+  supabase: ReturnType<typeof createClient>,
+  input: {
+    id: string;
+    email: string;
+    full_name: string;
+    username?: string;
+    avatar_color?: string;
+    avatar_url?: string;
+    role: UserRole | null;
+  },
+  options?: {
+    allowGeneratedUsernameFallback?: boolean;
+  }
+): Promise<{ username: string; role: UserRole | null }> {
+  const fullName = input.full_name.trim() || input.email.split("@")[0] || "User";
+  const requestedUsername = sanitizeUsernameCandidate(
+    input.username || input.email.split("@")[0] || fullName
+  );
+  const attemptedUsernames = [
+    requestedUsername,
+    ...(options?.allowGeneratedUsernameFallback
+      ? [buildGeneratedUsername(requestedUsername, input.email, fullName)]
+      : []),
+  ];
+
+  let lastError: SupabaseWriteError | null = null;
+
+  for (const username of attemptedUsernames) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .insert({
+        id: input.id,
+        email: input.email,
+        full_name: fullName,
+        username,
+        avatar_initials: deriveInitials(fullName),
+        avatar_color: input.avatar_color ?? "bg-violet-600",
+        avatar_url: input.avatar_url,
+        role: input.role,
+      })
+      .select("username, role")
+      .single();
+
+    if (!error && data) {
+      return {
+        username: data.username,
+        role: data.role ?? input.role,
+      };
+    }
+
+    lastError = error;
+    if (!(options?.allowGeneratedUsernameFallback && isUsernameConflict(error))) {
+      break;
+    }
+  }
+
+  throw new Error(formatProfileWriteError(lastError, "Could not create your profile."));
 }
 
 const PROFILE_CACHE_TTL_MS = 5000;
@@ -513,6 +614,9 @@ export function useAuth() {
     const creatorUpdates: Record<string, unknown> = {};
     const nextFullName = "full_name" in safeUpdates ? (safeUpdates.full_name ?? state.user.full_name) : state.user.full_name;
     const nextInitials = deriveInitials(nextFullName);
+    const nextUsername = ("username" in safeUpdates ? safeUpdates.username : state.user.username) ?? "";
+    const nextAvatarColor = ("avatar_color" in safeUpdates ? safeUpdates.avatar_color : state.user.avatar_color) ?? "bg-violet-600";
+    const nextAvatarUrl = ("avatar_url" in safeUpdates ? safeUpdates.avatar_url : state.user.avatar_url) ?? undefined;
 
     if ("full_name" in safeUpdates) {
       profileUpdates.full_name = safeUpdates.full_name;
@@ -545,26 +649,71 @@ export function useAuth() {
     }
 
     if (Object.keys(profileUpdates).length > 0) {
-      await supabase.from("profiles").update(profileUpdates).eq("id", state.user.id);
+      const { data: updatedProfile, error: profileError } = await supabase
+        .from("profiles")
+        .update(profileUpdates)
+        .eq("id", state.user.id)
+        .select("id")
+        .maybeSingle();
+
+      if (profileError) {
+        throw new Error(formatProfileWriteError(profileError, "Could not save your profile."));
+      }
+
+      if (!updatedProfile) {
+        await insertMissingProfileRow(
+          supabase,
+          {
+            id: state.user.id,
+            email: state.user.email,
+            full_name: nextFullName,
+            username: nextUsername,
+            avatar_color: nextAvatarColor,
+            avatar_url: nextAvatarUrl,
+            role: state.user.role ?? null,
+          },
+          { allowGeneratedUsernameFallback: false }
+        );
+      }
     }
 
     if (Object.keys(creatorUpdates).length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from("creator_profiles") as any).update(creatorUpdates).eq("id", state.user.id);
-      if (error?.code === "PGRST116") {
+      const { data: updatedCreator, error } = await (supabase.from("creator_profiles") as any)
+        .update(creatorUpdates)
+        .eq("id", state.user.id)
+        .select("id")
+        .maybeSingle();
+
+      if (error) {
+        throw new Error(error.message || "Could not save your creator profile.");
+      }
+
+      if (!updatedCreator) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from("creator_profiles") as any).insert({ id: state.user.id, ...creatorUpdates });
+        const { error: insertCreatorError } = await (supabase.from("creator_profiles") as any).insert({
+          id: state.user.id,
+          ...creatorUpdates,
+        });
+
+        if (insertCreatorError) {
+          throw new Error(insertCreatorError.message || "Could not create your creator profile.");
+        }
       }
     }
 
-    await supabase.auth.updateUser({
+    const { error: authUpdateError } = await supabase.auth.updateUser({
       data: buildAuthMetadata({
         full_name: nextFullName,
-        username: ("username" in safeUpdates ? safeUpdates.username : state.user.username) ?? "",
-        avatar_color: ("avatar_color" in safeUpdates ? safeUpdates.avatar_color : state.user.avatar_color) ?? "bg-violet-600",
+        username: nextUsername,
+        avatar_color: nextAvatarColor,
         role: state.user.role ?? null,
       }),
     });
+
+    if (authUpdateError) {
+      throw new Error(formatSupabaseAuthError(authUpdateError.message));
+    }
 
     // Update local state optimistically
     setState((s) => ({
@@ -597,19 +746,55 @@ export function useAuth() {
       return;
     }
 
-    await supabase.from("profiles").update({ role }).eq("id", state.user.id);
-    await supabase.auth.updateUser({
+    const { data: updated, error: updateError } = await supabase
+      .from("profiles")
+      .update({ role })
+      .eq("id", state.user.id)
+      .select("id")
+      .maybeSingle();
+
+    if (updateError) {
+      throw new Error(formatProfileWriteError(updateError, "Could not finish role setup."));
+    }
+
+    let resolvedUsername = state.user.username;
+
+    if (!updated) {
+      // No profile row yet (e.g. fresh DB without the handle_new_user trigger).
+      // Recreate it here. If the original trigger failed because the default
+      // username collided, fall back to a generated username so onboarding can continue.
+      const insertedProfile = await insertMissingProfileRow(
+        supabase,
+        {
+          id: state.user.id,
+          email: state.user.email,
+          full_name: state.user.full_name,
+          username: state.user.username,
+          avatar_color: state.user.avatar_color,
+          avatar_url: state.user.avatar_url,
+          role,
+        },
+        { allowGeneratedUsernameFallback: true }
+      );
+      resolvedUsername = insertedProfile.username;
+    }
+
+    const { error: authUpdateError } = await supabase.auth.updateUser({
       data: buildAuthMetadata({
         full_name: state.user.full_name,
-        username: state.user.username,
+        username: resolvedUsername,
         avatar_color: state.user.avatar_color,
         role,
       }),
     });
 
+    if (authUpdateError) {
+      throw new Error(formatSupabaseAuthError(authUpdateError.message));
+    }
+
     setState((s) => ({
       ...s,
-      user: s.user ? { ...s.user, role } as MockProfile : null,
+      user: s.user ? { ...s.user, role, username: resolvedUsername } as MockProfile : null,
       isAuthenticated: true,
     }));
   }, [state.user]);

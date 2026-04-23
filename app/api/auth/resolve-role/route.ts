@@ -22,9 +22,9 @@ export async function POST() {
     const serviceSupabase = createServiceClient();
 
     // Check if a profile exists — the trigger should have created one on signup
-    const { data: profile } = await serviceSupabase
+    let { data: profile } = await serviceSupabase
       .from("profiles")
-      .select("id, email, role")
+      .select("id, email, role, full_name, username, avatar_color")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -43,6 +43,32 @@ export async function POST() {
         username,
         avatar_initials: initials,
         avatar_color: "bg-violet-600",
+      });
+
+      const { data: insertedProfile } = await serviceSupabase
+        .from("profiles")
+        .select("id, email, role, full_name, username, avatar_color")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      profile = insertedProfile;
+    }
+
+    if (profile?.role === "fan" || profile?.role === "creator") {
+      await serviceSupabase.auth.admin.updateUserById(user.id, {
+        user_metadata: {
+          ...user.user_metadata,
+          full_name: profile.full_name ?? user.user_metadata?.full_name,
+          username: profile.username ?? user.user_metadata?.username,
+          avatar_color: profile.avatar_color ?? user.user_metadata?.avatar_color,
+          role: profile.role,
+        },
+      });
+
+      return NextResponse.json({
+        role: profile.role,
+        promoted: false,
+        existingRole: true,
       });
     }
 

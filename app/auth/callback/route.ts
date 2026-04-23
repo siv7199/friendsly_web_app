@@ -60,6 +60,11 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.redirect(`${origin}${next}`);
     }
+
+    const errorUrl = new URL(`${origin}/login`);
+    errorUrl.searchParams.set("tab", "signin");
+    errorUrl.searchParams.set("authCallbackError", error.message);
+    return NextResponse.redirect(errorUrl);
   }
 
   return NextResponse.redirect(`${origin}/login?tab=signin`);

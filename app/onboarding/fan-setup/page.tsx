@@ -2,7 +2,7 @@
 
 /**
  * Fan Setup  (route: /onboarding/fan-setup)
- * Confirm username + pick avatar color → /discover
+ * Confirm username + pick avatar color -> /discover
  */
 
 import { useEffect, useState } from "react";
@@ -15,18 +15,18 @@ import { cn } from "@/lib/utils";
 import { removeAvatarFile, uploadAvatarFile } from "@/lib/avatar-upload";
 
 const AVATAR_COLORS = [
-  { cls: "bg-violet-600",  hex: "#7c3aed" },
-  { cls: "bg-purple-600",  hex: "#9333ea" },
-  { cls: "bg-indigo-600",  hex: "#4f46e5" },
-  { cls: "bg-blue-600",    hex: "#2563eb" },
-  { cls: "bg-cyan-600",    hex: "#0891b2" },
-  { cls: "bg-teal-600",    hex: "#0d9488" },
-  { cls: "bg-green-600",   hex: "#16a34a" },
-  { cls: "bg-amber-500",   hex: "#f59e0b" },
-  { cls: "bg-orange-500",  hex: "#f97316" },
-  { cls: "bg-rose-600",    hex: "#e11d48" },
-  { cls: "bg-pink-600",    hex: "#db2777" },
-  { cls: "bg-red-600",     hex: "#dc2626" },
+  { cls: "bg-violet-600", hex: "#7c3aed" },
+  { cls: "bg-purple-600", hex: "#9333ea" },
+  { cls: "bg-indigo-600", hex: "#4f46e5" },
+  { cls: "bg-blue-600", hex: "#2563eb" },
+  { cls: "bg-cyan-600", hex: "#0891b2" },
+  { cls: "bg-teal-600", hex: "#0d9488" },
+  { cls: "bg-green-600", hex: "#16a34a" },
+  { cls: "bg-amber-500", hex: "#f59e0b" },
+  { cls: "bg-orange-500", hex: "#f97316" },
+  { cls: "bg-rose-600", hex: "#e11d48" },
+  { cls: "bg-pink-600", hex: "#db2777" },
+  { cls: "bg-red-600", hex: "#dc2626" },
 ];
 
 export default function FanSetupPage() {
@@ -41,46 +41,92 @@ export default function FanSetupPage() {
 
   const [username, setUsername] = useState(user?.username ?? "");
   const [avatarColor, setAvatarColor] = useState(user?.avatar_color ?? "bg-violet-600");
-  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url ?? "");
   const [avatarVersion, setAvatarVersion] = useState(() => Date.now());
   const [submitting, setSubmitting] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+  const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+
+    setUsername((current) => current || user.username || "");
+    setAvatarColor(user.avatar_color || "bg-violet-600");
+    setAvatarUrl((current) => current || user.avatar_url || "");
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || user.role) return;
+
+    let cancelled = false;
+
+    async function resolveExistingRole() {
+      try {
+        const res = await fetch("/api/auth/resolve-role", { method: "POST" });
+        const data = await res.json().catch(() => null);
+
+        if (cancelled) return;
+        if (data?.role === "creator") {
+          router.replace("/dashboard");
+        }
+      } catch {
+        // If role resolution fails, the page can still continue as fan setup.
+      }
+    }
+
+    void resolveExistingRole();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, router]);
 
   const initials = (user?.full_name ?? "")
     .split(" ")
-    .map((w) => w[0])
+    .map((word) => word[0])
     .join("")
     .toUpperCase()
     .slice(0, 2) || "?";
 
   async function handleSubmit() {
-    setSubmitting(true);
-
-    if (!user?.role) {
-      // Check if this user has an approved creator request before defaulting to fan
-      try {
-        const res = await fetch("/api/auth/resolve-role", { method: "POST" });
-        const data = await res.json();
-
-        if (data?.role === "creator" && data?.promoted) {
-          // User was promoted to creator — skip fan setup entirely
-          window.location.replace("/dashboard");
-          return;
-        }
-      } catch {
-        // If the check fails, fall through to fan assignment
-      }
-
-      await setRole("fan");
+    if (!user) {
+      setSubmitError("Your session expired. Please sign in again.");
+      return;
     }
 
-    await (updateProfile as (u: Parameters<typeof updateProfile>[0]) => Promise<void>)({
-      username,
-      avatar_color: avatarColor,
-      avatar_url: avatarUrl,
-    });
-    router.push(next || "/discover");
+    setSubmitting(true);
+    setSubmitError("");
+
+    try {
+      if (!user.role) {
+        try {
+          const res = await fetch("/api/auth/resolve-role", { method: "POST" });
+          const data = await res.json().catch(() => null);
+
+          if (data?.role === "creator") {
+            window.location.replace("/dashboard");
+            return;
+          }
+        } catch {
+          // If the check fails, fall through to fan assignment.
+        }
+
+        await setRole("fan");
+      }
+
+      await (updateProfile as (updates: Parameters<typeof updateProfile>[0]) => Promise<void>)({
+        username,
+        avatar_color: avatarColor,
+        avatar_url: avatarUrl,
+      });
+
+      router.push(next || "/discover");
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Could not finish setting up your account.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleAvatarSelected(file?: File | null) {
@@ -119,14 +165,13 @@ export default function FanSetupPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-brand-surface border border-brand-border">
             <Compass className="w-3.5 h-3.5 text-brand-primary-light" />
-            <span className="text-xs text-brand-ink-subtle font-medium">Fan Setup — Almost done!</span>
+            <span className="text-xs text-brand-ink-subtle font-medium">Fan Setup - Almost done!</span>
           </div>
           <h1 className="text-2xl font-serif font-normal text-brand-ink">One last thing</h1>
           <p className="text-brand-ink-subtle text-sm mt-1">Pick your avatar color and confirm your username.</p>
         </div>
 
         <div className="glass-card rounded-2xl p-6 space-y-5">
-          {/* Avatar preview */}
           <div className="flex flex-col items-center gap-3">
             <div className="relative">
               <Avatar
@@ -185,7 +230,6 @@ export default function FanSetupPage() {
             </div>
           </div>
 
-          {/* Username input */}
           <div>
             <label className="text-sm font-medium text-brand-ink-subtle mb-1.5 block">Your username</label>
             <div className="relative">
@@ -202,6 +246,12 @@ export default function FanSetupPage() {
               This is how you&apos;ll appear in chat and queues.
             </p>
           </div>
+
+          {submitError && (
+            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              {submitError}
+            </p>
+          )}
 
           <Button
             variant="primary"
