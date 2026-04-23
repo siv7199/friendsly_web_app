@@ -1161,7 +1161,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         {date.getDate()}
                       </p>
                       <p className={cn(
-                        "mt-1 block w-full text-center text-[8px] font-medium leading-[1.1]",
+                        "mt-1 flex w-full items-center justify-center text-center text-[8px] font-medium leading-[1.1]",
                         isScheduledLiveDay
                           ? "text-brand-live"
                           : canBookDate

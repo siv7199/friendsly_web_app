@@ -432,14 +432,18 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
 
 .scheduled-live-datetime::-webkit-datetime-edit-fields-wrapper {
   min-width: 0;
-  padding-left: 0.125rem;
-  padding-right: 0.5rem;
+  width: 100%;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .scheduled-live-datetime::-webkit-datetime-edit {
   min-width: 0;
-  padding-left: 0.125rem;
-  padding-right: 0.5rem;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .scheduled-live-datetime::-webkit-datetime-edit-text {
@@ -453,7 +457,12 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
 
 @media (max-width: 640px) {
   .scheduled-live-datetime::-webkit-date-and-time-value {
+    width: 100%;
     min-width: 0;
     font-size: 11px;
+  }
+
+  .scheduled-live-datetime::-webkit-datetime-edit {
+    justify-content: flex-start;
   }
 }
