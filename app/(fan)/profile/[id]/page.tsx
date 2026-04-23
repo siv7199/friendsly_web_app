@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import type { Creator, CallPackage } from "@/types";
 import { readJsonResponse } from "@/lib/http";
+import { MAX_ACTIVE_PACKAGES } from "@/lib/pricing-limits";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
   getAvailableStartTimesForViewerDate,
@@ -231,7 +232,8 @@ async function fetchCreatorData(creatorRef: string): Promise<{
       .select("id, name, duration, price, description, is_active, bookings_count")
       .eq("creator_id", profile.id)
       .eq("is_active", true)
-      .order("price"),
+      .order("price")
+      .limit(MAX_ACTIVE_PACKAGES),
     supabase
       .from("creator_availability")
       .select("id, day_of_week, start_time, end_time, package_id")
@@ -307,6 +309,10 @@ async function fetchCreatorData(creatorRef: string): Promise<{
     isActive: p.is_active,
     bookingsCount: p.bookings_count,
   }));
+  const visiblePackageIds = new Set(packages.map((pkg) => pkg.id));
+  const visibleAvailability = (avail ?? []).filter(
+    (slot) => !slot.package_id || visiblePackageIds.has(slot.package_id)
+  );
 
   const minPrice = packages.length
     ? Math.min(...packages.map((p) => p.price))
@@ -348,7 +354,7 @@ async function fetchCreatorData(creatorRef: string): Promise<{
   return {
     creator,
     packages,
-    availability: avail ?? [],
+    availability: visibleAvailability,
     reviewCount: reviewCount ?? 0,
     liveSessionLastHeartbeatAt: freshActiveSession?.last_heartbeat_at ?? null,
   };

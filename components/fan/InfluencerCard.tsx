@@ -5,6 +5,7 @@ import { Star, Video, Clock, Zap, Heart, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BookingModal } from "@/components/fan/BookingModal";
 import type { Creator, CallPackage } from "@/types";
+import { MAX_ACTIVE_PACKAGES } from "@/lib/pricing-limits";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
@@ -97,7 +98,9 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
           .from("call_packages")
           .select("id, name, duration, price, description, is_active, bookings_count")
           .eq("creator_id", creator.id)
-          .eq("is_active", true),
+          .eq("is_active", true)
+          .order("price")
+          .limit(MAX_ACTIVE_PACKAGES),
         supabase.from("creator_availability").select("day_of_week, start_time, end_time, package_id").eq("creator_id", creator.id).eq("is_active", true),
       ]);
       if (packageData) {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { MAX_ACTIVE_PACKAGES } from "@/lib/pricing-limits";
 import { createServiceClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +63,8 @@ export async function GET(
         .select("id, name, description, duration, price, is_active")
         .eq("creator_id", profile.id)
         .eq("is_active", true)
-        .order("price"),
+        .order("price")
+        .limit(MAX_ACTIVE_PACKAGES),
       supabase
         .from("creator_availability")
         .select("id, day_of_week, start_time, end_time, package_id")
@@ -86,6 +88,24 @@ export async function GET(
         !!s?.daily_room_url &&
         (!cp?.current_live_session_id || s.id === cp.current_live_session_id)
     ) ?? null;
+    const packages = (packagesRes.data ?? []).map((pkg: any) => ({
+      id: pkg.id,
+      name: pkg.name,
+      description: pkg.description ?? "",
+      duration: Number(pkg.duration),
+      price: Number(pkg.price),
+      isActive: Boolean(pkg.is_active),
+    }));
+    const visiblePackageIds = new Set(packages.map((pkg) => pkg.id));
+    const availability = (availabilityRes.data ?? [])
+      .filter((slot: any) => !slot.package_id || visiblePackageIds.has(String(slot.package_id)))
+      .map((slot: any) => ({
+        id: slot.id,
+        day_of_week: slot.day_of_week,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        package_id: slot.package_id ?? null,
+      }));
 
     return NextResponse.json({
       creator: {
@@ -104,21 +124,8 @@ export async function GET(
         isLive: Boolean(activeSession),
         currentLiveSessionId: activeSession?.id ?? null,
       },
-      packages: (packagesRes.data ?? []).map((pkg: any) => ({
-        id: pkg.id,
-        name: pkg.name,
-        description: pkg.description ?? "",
-        duration: Number(pkg.duration),
-        price: Number(pkg.price),
-        isActive: Boolean(pkg.is_active),
-      })),
-      availability: (availabilityRes.data ?? []).map((slot: any) => ({
-        id: slot.id,
-        day_of_week: slot.day_of_week,
-        start_time: slot.start_time,
-        end_time: slot.end_time,
-        package_id: slot.package_id ?? null,
-      })),
+      packages,
+      availability,
     }, {
       headers: {
         "Cache-Control": CREATOR_CACHE_CONTROL,
