@@ -93,11 +93,32 @@ export default function CreatorRequestPage() {
           throw new Error(formatSupabaseAuthError(signupError.message));
         }
 
-        if (data.user && !data.session) {
-          throw new Error(
-            "Check your email to confirm your account before submitting your creator request. If you already have a Friendsly account with this email, sign in instead."
-          );
-        }
+        // Submit the creator request NOW — before email confirmation.
+        // This ensures the review team is notified and the request is saved
+        // even though the user still needs to confirm their email.
+        const requestResponse = await fetch("/api/creator-signup-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullName: form.fullName,
+            email: normalizedEmail,
+            phone: form.phone,
+            instagramUrl: form.instagramUrl,
+            tiktokUrl: form.tiktokUrl,
+            xUrl: form.xUrl,
+            notes: form.notes,
+          }),
+        });
+
+        const requestData = await readJsonResponse<{ error?: string; emailNotificationConfigured?: boolean }>(requestResponse);
+
+        // Sign out since they haven't confirmed email yet
+        await logout();
+
+        setSubmitted(true);
+        setEmailConfigured(Boolean(requestData?.emailNotificationConfigured));
+        setSubmitting(false);
+        return;
       }
 
       const response = await fetch("/api/creator-signup-request", {
@@ -316,10 +337,11 @@ export default function CreatorRequestPage() {
               <CheckCircle2 className="h-7 w-7" />
             </div>
             <div className="rounded-2xl border border-brand-border bg-brand-surface px-4 py-4">
-              <p className="text-sm font-semibold text-brand-ink">Next step</p>
-              <p className="mt-1 text-sm leading-6 text-brand-ink-muted">
-                Your creator account has to be approved before you can sign in as a creator, accept bookings, or go live.
-              </p>
+              <p className="text-sm font-semibold text-brand-ink">Next steps</p>
+              <ol className="mt-2 list-decimal pl-4 text-sm leading-6 text-brand-ink-muted space-y-1">
+                <li>Check your email and <span className="font-semibold text-brand-ink">confirm your account</span> by clicking the link we sent.</li>
+                <li>Your creator request will be <span className="font-semibold text-brand-ink">reviewed and approved</span> before you can sign in as a creator.</li>
+              </ol>
             </div>
             {emailConfigured === false ? (
               <p className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-700">
