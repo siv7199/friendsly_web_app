@@ -31,7 +31,7 @@ const AVATAR_COLORS = [
 
 export default function FanSetupPage() {
   const router = useRouter();
-  const { user, updateProfile } = useAuthContext();
+  const { user, updateProfile, setRole } = useAuthContext();
   const [next, setNext] = useState<string | null>(null);
 
   useEffect(() => {
@@ -56,6 +56,10 @@ export default function FanSetupPage() {
 
   async function handleSubmit() {
     setSubmitting(true);
+    // Auto-assign fan role if not already set (skipping the role picker)
+    if (!user?.role) {
+      await setRole("fan");
+    }
     await (updateProfile as (u: Parameters<typeof updateProfile>[0]) => Promise<void>)({
       username,
       avatar_color: avatarColor,

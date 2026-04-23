@@ -63,7 +63,7 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (!isLoading && user && !user.role) {
-      router.replace(next ? `/onboarding/role?next=${encodeURIComponent(next)}` : "/onboarding/role");
+      router.replace(next ? `/onboarding/fan-setup?next=${encodeURIComponent(next)}` : "/onboarding/fan-setup");
     }
   }, [isLoading, user, next, router]);
 
@@ -118,7 +118,7 @@ export default function AuthPage() {
       ? "/dashboard"
       : result.user.role === "fan"
         ? (safeNext || "/discover")
-        : (safeNext ? `/onboarding/role?next=${encodeURIComponent(safeNext)}` : "/onboarding/role");
+        : (safeNext ? `/onboarding/fan-setup?next=${encodeURIComponent(safeNext)}` : "/onboarding/fan-setup");
 
     window.location.replace(destination);
   }
@@ -134,7 +134,7 @@ export default function AuthPage() {
       return;
     }
     if (result.signedIn) {
-      router.push(next ? `/onboarding/role?next=${encodeURIComponent(next)}` : "/onboarding/role");
+      router.push(next ? `/onboarding/fan-setup?next=${encodeURIComponent(next)}` : "/onboarding/fan-setup");
     }
   }
 

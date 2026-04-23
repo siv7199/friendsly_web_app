@@ -128,7 +128,7 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith(ONBOARDING_PREFIX) || isAuthRoute(pathname)) {
       return response;
     }
-    return NextResponse.redirect(new URL("/onboarding/role", request.url));
+    return NextResponse.redirect(new URL("/onboarding/fan-setup", request.url));
   }
 
   // 4. No session → allow auth page
