@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
   const postConfirm = searchParams.get("post_confirm");
-  let next = searchParams.get("next") ?? "/";
+  const isRecoveryFlow = type === "recovery";
+  let next = searchParams.get("next") ?? (isRecoveryFlow ? "/reset-password" : "/");
 
   if (!next.startsWith("/")) {
     next = "/";
