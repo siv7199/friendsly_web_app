@@ -3,7 +3,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-export {};
+export { };
 
 declare const Deno: {
   env: {
@@ -41,10 +41,11 @@ Deno.serve(async (request) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const fromEmail =
       Deno.env.get("SUPPORT_REQUEST_FROM_EMAIL") ||
-      Deno.env.get("CREATOR_REQUEST_FROM_EMAIL");
+      Deno.env.get("CREATOR_REQUEST_FROM_EMAIL") ||
+      "Friendsly Support <support@send.friendsly.app>";
     const notifyEmail =
       Deno.env.get("SUPPORT_REQUEST_NOTIFICATION_EMAIL") ||
-      "support@friendsly.app";
+      "matvey@friendsly.app";
 
     if (!resendApiKey || !fromEmail || !notifyEmail) {
       return jsonResponse({

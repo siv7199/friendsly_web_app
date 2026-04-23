@@ -14,6 +14,7 @@ export default function SupportPage() {
   const [error, setError] = useState<string | null>(null);
   const [emailConfigured, setEmailConfigured] = useState<boolean | null>(null);
   const [emailDelivered, setEmailDelivered] = useState<boolean | null>(null);
+
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -54,6 +55,7 @@ export default function SupportPage() {
       setSubmitted(true);
       setEmailConfigured(Boolean(data.emailNotificationConfigured));
       setEmailDelivered(data.emailNotificationSent === true);
+
       setForm({
         fullName: user?.full_name || "",
         email: user?.email || "",
@@ -102,6 +104,7 @@ export default function SupportPage() {
                 {emailConfigured !== false && emailDelivered === false ? (
                   <p className="mt-3 text-xs text-amber-700">
                     The request was saved, but the support email did not send successfully.
+
                   </p>
                 ) : null}
               </div>
