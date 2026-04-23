@@ -426,10 +426,6 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38);
 }
 
-.scheduled-live-datetime-wrap {
-  width: 100%;
-}
-
 .scheduled-live-datetime::-webkit-date-and-time-value {
   text-align: left;
 }
@@ -460,10 +456,6 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
 }
 
 @media (max-width: 640px) {
-  .scheduled-live-datetime-wrap {
-    width: calc(100% - 4px);
-  }
-
   .scheduled-live-datetime::-webkit-date-and-time-value {
     width: 100%;
     min-width: 0;

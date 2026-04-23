@@ -67,7 +67,7 @@ export function ScheduledLiveCard({
       </div>
 
       <div className="mt-4 min-w-0 space-y-3">
-        <div className="scheduled-live-datetime-wrap min-w-0 sm:pr-0">
+        <div className="min-w-0 w-[calc(100%-12px)] sm:w-full">
           <input
             type="datetime-local"
             value={scheduledLiveAt}
