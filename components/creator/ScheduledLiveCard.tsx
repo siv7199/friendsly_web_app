@@ -87,19 +87,29 @@ export function ScheduledLiveCard({
       <div className="mt-4 min-w-0 space-y-3">
         <div className="min-w-0 sm:hidden">
           <div className="grid grid-cols-1 gap-3">
-            <input
-              type="date"
-              value={scheduledLiveDatePart}
-              onChange={(event) => onChangeDateTime(combineDateTimeParts(event.target.value, scheduledLiveTimePart))}
-              className="mobile-native-field scheduled-live-field block h-12 w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[16px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none"
-            />
-            <input
-              type="time"
-              value={scheduledLiveTimePart}
-              onChange={(event) => onChangeDateTime(combineDateTimeParts(scheduledLiveDatePart, event.target.value))}
-              disabled={!scheduledLiveDatePart}
-              className="mobile-native-field scheduled-live-field block h-12 w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[16px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-            />
+            <div className="min-w-0">
+              <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
+                Date
+              </label>
+              <input
+                type="date"
+                value={scheduledLiveDatePart}
+                onChange={(event) => onChangeDateTime(combineDateTimeParts(event.target.value, scheduledLiveTimePart))}
+                className="mobile-native-field scheduled-live-field block h-12 w-full min-w-0 max-w-full rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[16px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none"
+              />
+            </div>
+            <div className="min-w-0">
+              <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
+                Time
+              </label>
+              <input
+                type="time"
+                value={scheduledLiveTimePart}
+                onChange={(event) => onChangeDateTime(combineDateTimeParts(scheduledLiveDatePart, event.target.value))}
+                disabled={!scheduledLiveDatePart}
+                className="mobile-native-field scheduled-live-field block h-12 w-full min-w-0 max-w-full rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[16px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
           </div>
         </div>
         <div className="hidden min-w-0 sm:block">
@@ -111,10 +121,13 @@ export function ScheduledLiveCard({
           />
         </div>
         <div className="min-w-0">
+          <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block sm:hidden">
+            Timezone
+          </label>
           <select
             value={scheduledLiveTimeZone}
             onChange={(event) => onChangeTimeZone(event.target.value)}
-            className="mobile-native-field scheduled-live-field block h-12 w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated pl-3 pr-9 text-[16px] leading-tight text-brand-ink focus:outline-none focus:border-brand-primary sm:h-11 sm:rounded-xl sm:pl-4 sm:pr-10 sm:text-sm"
+            className="mobile-native-field scheduled-live-field block h-12 w-full min-w-0 max-w-full rounded-2xl border border-brand-border bg-brand-elevated pl-3 pr-9 text-[16px] leading-tight text-brand-ink focus:outline-none focus:border-brand-primary sm:h-11 sm:rounded-xl sm:pl-4 sm:pr-10 sm:text-sm"
           >
             {COMMON_TIME_ZONES.map((timeZone) => (
               <option key={timeZone} value={timeZone}>

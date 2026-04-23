@@ -352,7 +352,7 @@ export function WeeklyAvailabilityEditor({
                         )}
                       >
                         <div className="grid grid-cols-1 gap-3 items-end lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
-                          <div className="min-w-0">
+                          <div className="min-w-0 max-w-full">
                             <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
                               Start
                             </label>
@@ -361,10 +361,11 @@ export function WeeklyAvailabilityEditor({
                               value={slot.start_time}
                               onChange={(e) => updateAvailabilitySlot(slot.id, "start_time", e.target.value)}
                               step={bookingIntervalMinutes * 60}
-                              className="mobile-native-field w-full h-10 min-w-0 overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-3 text-[16px] text-brand-ink focus:outline-none focus:border-brand-primary sm:text-sm"
+                              className="mobile-native-field w-full h-10 min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-elevated px-3 text-[16px] text-brand-ink focus:outline-none focus:border-brand-primary sm:text-sm"
+                              style={{ WebkitAppearance: "none" }}
                             />
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 max-w-full">
                             <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
                               End
                             </label>
@@ -373,17 +374,18 @@ export function WeeklyAvailabilityEditor({
                               value={slot.end_time}
                               onChange={(e) => updateAvailabilitySlot(slot.id, "end_time", e.target.value)}
                               step={bookingIntervalMinutes * 60}
-                              className="mobile-native-field w-full h-10 min-w-0 overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-3 text-[16px] text-brand-ink focus:outline-none focus:border-brand-primary sm:text-sm"
+                              className="mobile-native-field w-full h-10 min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-elevated px-3 text-[16px] text-brand-ink focus:outline-none focus:border-brand-primary sm:text-sm"
+                              style={{ WebkitAppearance: "none" }}
                             />
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 max-w-full">
                             <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
                               Offering
                             </label>
                             <select
                               value={slot.package_id ?? ""}
                               onChange={(e) => updateAvailabilitySlot(slot.id, "package_id", e.target.value)}
-                              className="mobile-native-field w-full h-10 min-w-0 overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-3 text-[16px] text-brand-ink focus:outline-none focus:border-brand-primary sm:text-sm"
+                              className="mobile-native-field w-full h-10 min-w-0 max-w-full rounded-xl border border-brand-border bg-brand-elevated px-3 text-[16px] text-brand-ink focus:outline-none focus:border-brand-primary sm:text-sm"
                             >
                               <option value="">All offerings</option>
                               {packages

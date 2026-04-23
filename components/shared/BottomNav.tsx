@@ -75,10 +75,13 @@ export function BottomNav({
   }
 
   return (
-    <nav className={cn(
-      "md:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-md",
-      "bg-white/95 border-t border-brand-border/70"
-    )}>
+    <nav
+      className={cn(
+        "md:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-md",
+        "bg-white/95 border-t border-brand-border/70"
+      )}
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
       <div className="flex items-center justify-around h-[60px] px-1">
         {items.map((item) => {
           const Icon = item.icon;
