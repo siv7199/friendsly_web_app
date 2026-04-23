@@ -32,6 +32,7 @@ export async function GET(
           price,
           topic,
           creator_present,
+          fan_present,
           creator_joined_at,
           late_fee_amount,
           late_fee_paid_at,
@@ -83,7 +84,14 @@ export async function GET(
           : null,
         joinOpensAt: window.joinOpensAt.toISOString(),
         endsAt: window.endsAt.toISOString(),
-        canJoinNow: isBookingJoinable(booking.status, booking.scheduled_at, Number(booking.duration ?? 0)),
+        canJoinNow: isBookingJoinable(
+          booking.status,
+          booking.scheduled_at,
+          Number(booking.duration ?? 0),
+          new Date(),
+          booking.creator_present,
+          booking.fan_present
+        ),
         canCancel: booking.status === "upcoming",
         refundAmount,
         lateFeeRequired,

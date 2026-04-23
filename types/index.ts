@@ -59,6 +59,8 @@ export interface Booking {
   duration: number;        // Minutes
   price: number;           // USD
   status: BookingStatus;
+  creatorPresent?: boolean;
+  fanPresent?: boolean;
   topic?: string;          // Optional topic the fan submitted
   rating?: number;         // Post-call rating from fan
 }

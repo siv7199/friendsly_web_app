@@ -40,12 +40,18 @@ export function isBookingJoinable(
   status: string,
   scheduledAt: string | Date,
   durationMinutes: number,
-  now: Date = new Date()
+  now: Date = new Date(),
+  creatorPresent?: boolean | null,
+  fanPresent?: boolean | null
 ) {
   if (status === "completed" || status === "cancelled") return false;
 
-  const { joinOpensAt, endsAt } = getBookingWindow(scheduledAt, durationMinutes);
+  const { joinOpensAt, noShowDeadline, endsAt } = getBookingWindow(scheduledAt, durationMinutes);
   const nowMs = now.getTime();
+
+  if (nowMs >= noShowDeadline.getTime() && !(Boolean(creatorPresent) && Boolean(fanPresent))) {
+    return false;
+  }
 
   return nowMs >= joinOpensAt.getTime() && nowMs <= endsAt.getTime();
 }

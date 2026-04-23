@@ -67,7 +67,14 @@ function BookingRow({
   const router = useRouter();
 
   const bookingStart = new Date(`${booking.date} ${booking.time}`);
-  const isJoinable = isBookingJoinable(booking.status, bookingStart, booking.duration);
+  const isJoinable = isBookingJoinable(
+    booking.status,
+    bookingStart,
+    booking.duration,
+    new Date(),
+    booking.creatorPresent,
+    booking.fanPresent
+  );
   const canCancel = booking.status === "upcoming";
 
   function handleJoin() {

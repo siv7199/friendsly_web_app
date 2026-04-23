@@ -64,7 +64,14 @@ export function FanBookingQuickJoinBanner() {
       const bookings = data ?? [];
       void scheduleAutoCancelCheck(bookings);
       const match = bookings.find((booking: any) =>
-        isBookingJoinable(booking.status, booking.scheduled_at, booking.duration)
+        isBookingJoinable(
+          booking.status,
+          booking.scheduled_at,
+          booking.duration,
+          new Date(),
+          booking.creator_present,
+          booking.fan_present
+        )
       );
 
       if (!match) {

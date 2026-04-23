@@ -376,6 +376,8 @@ export default function DashboardPage() {
           duration: b.duration,
           price: getCreatorRevenueShare(grossBookingAmount),
           status: normalizedStatus,
+          creatorPresent: Boolean(b.creator_present),
+          fanPresent: Boolean(b.fan_present),
           topic: b.topic || ""
         };
       });
@@ -389,7 +391,16 @@ export default function DashboardPage() {
       const upcoming = mappedBookings.filter((b: any) => b.status === "upcoming" || b.status === "live");
       setUpcomingBookings(upcoming);
       setNextJoinableBooking(
-        mappedBookings.find((b: any) => isBookingJoinable(b.status, b.scheduledAt, b.duration)) ?? null
+        mappedBookings.find((b: any) =>
+          isBookingJoinable(
+            b.status,
+            b.scheduledAt,
+            b.duration,
+            new Date(),
+            b.creatorPresent,
+            b.fanPresent
+          )
+        ) ?? null
       );
 
       const nextDelay = getNextBookingRefreshDelay(

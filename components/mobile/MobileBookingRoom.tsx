@@ -421,6 +421,33 @@ export function MobileBookingRoom() {
     await loadBooking(bookingId);
   }, [bookingId, loadBooking]);
 
+  const createLateFeeIntent = useCallback(async () => {
+    const response = await fetch(`/api/bookings/${bookingId}/late-fee`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "create" }),
+    });
+    const data = await readJsonResponse<{ clientSecret?: string; error?: string }>(response);
+    if (!response.ok || !data?.clientSecret) {
+      throw new Error(data?.error ?? "Could not initialise the late fee payment.");
+    }
+    return { clientSecret: data.clientSecret as string };
+  }, [bookingId]);
+
+  const confirmLateFeePayment = useCallback(async (paymentIntentId: string) => {
+    const response = await fetch(`/api/bookings/${bookingId}/late-fee`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "confirm", paymentIntentId }),
+    });
+    const data = await readJsonResponse<{ error?: string }>(response);
+    if (!response.ok) {
+      throw new Error(data?.error ?? "Could not confirm the late fee payment.");
+    }
+    setLoading(true);
+    await initCall();
+  }, [bookingId, initCall]);
+
   useEffect(() => {
     if (!user || !bookingId) return;
 
@@ -629,31 +656,8 @@ export function MobileBookingRoom() {
           description="The creator is already waiting and this booking is more than 5 minutes past its start time. Pay the 10% late fee to enter the room."
           backLabel="Back to bookings"
           onBack={() => router.push("/bookings")}
-          createIntent={async () => {
-            const response = await fetch(`/api/bookings/${bookingId}/late-fee`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ mode: "create" }),
-            });
-            const data = await readJsonResponse<{ clientSecret?: string; error?: string }>(response);
-            if (!response.ok || !data?.clientSecret) {
-              throw new Error(data?.error ?? "Could not initialise the late fee payment.");
-            }
-            return { clientSecret: data.clientSecret as string };
-          }}
-          confirmPayment={async (paymentIntentId) => {
-            const response = await fetch(`/api/bookings/${bookingId}/late-fee`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ mode: "confirm", paymentIntentId }),
-            });
-            const data = await readJsonResponse<{ error?: string }>(response);
-            if (!response.ok) {
-              throw new Error(data?.error ?? "Could not confirm the late fee payment.");
-            }
-            setLoading(true);
-            await initCall();
-          }}
+          createIntent={createLateFeeIntent}
+          confirmPayment={confirmLateFeePayment}
         />
       );
     }

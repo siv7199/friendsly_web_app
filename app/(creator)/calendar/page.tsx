@@ -162,6 +162,8 @@ export default function CalendarPage() {
           duration: booking.duration,
           price: getCreatorRevenueShare(grossBookingAmount),
           status: normalizedStatus,
+          creatorPresent: Boolean(booking.creator_present),
+          fanPresent: Boolean(booking.fan_present),
           topic: booking.topic || "",
         };
       });

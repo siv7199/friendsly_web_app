@@ -192,6 +192,34 @@ export default function GuestRoomPage() {
     });
   }, [rawToken]);
 
+  const createLateFeeIntent = useCallback(async () => {
+    const response = await fetch(`/api/public/booking-access/${rawToken}/late-fee`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "create" }),
+    });
+    const data = await readJsonResponse<{ clientSecret?: string; error?: string }>(response);
+    if (!response.ok || !data?.clientSecret) {
+      throw new Error(data?.error ?? "Could not initialise the late fee payment.");
+    }
+    return { clientSecret: data.clientSecret as string };
+  }, [rawToken]);
+
+  const confirmLateFeePayment = useCallback(async (paymentIntentId: string) => {
+    const response = await fetch(`/api/public/booking-access/${rawToken}/late-fee`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "confirm", paymentIntentId }),
+    });
+    const data = await readJsonResponse<{ error?: string }>(response);
+    if (!response.ok) {
+      throw new Error(data?.error ?? "Could not confirm the late fee payment.");
+    }
+    setLoading(true);
+    setError("");
+    window.location.reload();
+  }, [rawToken]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -293,32 +321,8 @@ export default function GuestRoomPage() {
           description="The creator is already waiting and this booking is more than 5 minutes past its start time. Pay the 10% late fee to enter the room."
           backLabel="Back to booking"
           onBack={() => router.push(`/booking-access/${rawToken}`)}
-          createIntent={async () => {
-            const response = await fetch(`/api/public/booking-access/${rawToken}/late-fee`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ mode: "create" }),
-            });
-            const data = await readJsonResponse<{ clientSecret?: string; error?: string }>(response);
-            if (!response.ok || !data?.clientSecret) {
-              throw new Error(data?.error ?? "Could not initialise the late fee payment.");
-            }
-            return { clientSecret: data.clientSecret as string };
-          }}
-          confirmPayment={async (paymentIntentId) => {
-            const response = await fetch(`/api/public/booking-access/${rawToken}/late-fee`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ mode: "confirm", paymentIntentId }),
-            });
-            const data = await readJsonResponse<{ error?: string }>(response);
-            if (!response.ok) {
-              throw new Error(data?.error ?? "Could not confirm the late fee payment.");
-            }
-            setLoading(true);
-            setError("");
-            window.location.reload();
-          }}
+          createIntent={createLateFeeIntent}
+          confirmPayment={confirmLateFeePayment}
         />
       );
     }

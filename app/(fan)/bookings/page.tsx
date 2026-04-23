@@ -36,6 +36,8 @@ interface FanBooking {
   duration: number;
   price: number;
   status: string;
+  creatorPresent?: boolean;
+  fanPresent?: boolean;
   topic?: string;
   packageName?: string;
 }
@@ -126,6 +128,8 @@ export default function BookingsPage() {
               duration: b.duration,
               price: Number(b.price),
               status: nextStatus,
+              creatorPresent: Boolean(b.creator_present),
+              fanPresent: Boolean(b.fan_present),
               topic: b.topic ?? undefined,
               packageName: (pkg as { name: string })?.name ?? undefined,
             };
@@ -224,7 +228,16 @@ export default function BookingsPage() {
 
     return b.status === activeTab;
   });
-  const nextJoinableBooking = bookings.find((b) => isBookingJoinable(b.status, b.scheduledAt, b.duration));
+  const nextJoinableBooking = bookings.find((b) =>
+    isBookingJoinable(
+      b.status,
+      b.scheduledAt,
+      b.duration,
+      new Date(),
+      b.creatorPresent,
+      b.fanPresent
+    )
+  );
 
   if (loading) {
     return (
@@ -337,7 +350,14 @@ export default function BookingsPage() {
               minute: "2-digit",
             });
 
-            const isJoinable = isBookingJoinable(booking.status, booking.scheduledAt, booking.duration);
+            const isJoinable = isBookingJoinable(
+              booking.status,
+              booking.scheduledAt,
+              booking.duration,
+              new Date(),
+              booking.creatorPresent,
+              booking.fanPresent
+            );
 
             return (
               <div
