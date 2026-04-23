@@ -44,7 +44,7 @@ Deno.serve(async (request) => {
     const fromEmail = Deno.env.get("CREATOR_REQUEST_FROM_EMAIL") ||
       "Friendsly <notifications@send.friendsly.app>";
     const notifyEmail = Deno.env.get("CREATOR_REQUEST_NOTIFICATION_EMAIL") ||
-      "matvey@friendsly.app";
+      "sid.vangara@gmail.com";
     const appBaseUrl = Deno.env.get("APP_BASE_URL");
 
     console.log("creator-signup-notify: Config loaded", {

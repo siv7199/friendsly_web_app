@@ -44,7 +44,7 @@ async function notifyCreatorRequest(details: {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
-  const url = `${functionsBaseUrl}/creator_signup_notify`;
+  const url = `${functionsBaseUrl}/super-worker`;
   console.log("creator-signup-request: Calling notification URL:", url);
 
   try {
