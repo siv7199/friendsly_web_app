@@ -783,6 +783,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       ? true
       : slot.package_id == null || slot.package_id === availabilityPackageId
   );
+  const scheduledLiveDateKey = creator.scheduledLiveAt
+    ? localDateKey(new Date(creator.scheduledLiveAt))
+    : null;
 
   const hasBookableLeadTimeSlot = (date: Date) => {
     const slots = getAvailableStartTimesForViewerDate({
@@ -1034,7 +1037,32 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             {/* Availability */}
             <div className="px-4 mb-6">
               <div className="rounded-2xl border border-brand-primary/15 bg-[linear-gradient(180deg,rgba(108,92,231,0.08),rgba(108,92,231,0.03))] p-4">
-              <h2 className="text-base font-bold text-brand-ink mb-3">Availability</h2>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="text-base font-bold text-brand-ink">Availability</h2>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
+                    disabled={weekOffset === 0}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-brand-border bg-white/90 text-brand-ink transition-colors disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label="Previous week"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-[78px] text-center text-[11px] font-semibold text-brand-primary-light">
+                    {weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : `${weekOffset} weeks out`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setWeekOffset((w) => Math.min(3, w + 1))}
+                    disabled={weekOffset >= 3}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-brand-border bg-white/90 text-brand-ink transition-colors disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label="Next week"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
 
             {activePackages.length > 1 && (
               <div className="flex flex-wrap gap-2 mb-3">
@@ -1089,6 +1117,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   const isPast = date < today && !isToday;
                   const hasAnySlots = slots.length > 0 && !isPast;
                   const canBookDate = hasAnySlots && hasBookableLeadTimeSlot(date);
+                  const isScheduledLiveDay = scheduledLiveDateKey === localDateKey(date);
                   return (
                     <button
                       type="button"
@@ -1106,8 +1135,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                             : `${formatShortDate(date)} has no availability`
                       }
                       className={cn(
-                        "rounded-xl border px-1.5 py-2 text-center transition-colors",
-                        isToday
+                        "flex min-h-[84px] flex-col items-center justify-center rounded-xl border px-1.5 py-2 text-center transition-colors",
+                        isScheduledLiveDay
+                          ? "border-brand-live/45 bg-brand-live/12 shadow-sm"
+                          : isToday
                           ? "border-brand-primary bg-brand-primary/20 shadow-sm"
                           : canBookDate
                           ? "border-brand-info/45 bg-white active:bg-brand-info/15"
@@ -1116,12 +1147,28 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                           : "border-brand-border bg-brand-elevated opacity-50"
                       )}
                     >
-                      <p className="text-[9px] uppercase text-brand-ink-subtle font-medium">{DAY_NAMES[dow]}</p>
-                      <p className={cn("text-sm font-bold mt-0.5", isToday ? "text-brand-primary-light" : canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
+                      <p className="text-[9px] font-medium uppercase text-brand-ink-subtle">{DAY_NAMES[dow]}</p>
+                      <p className={cn(
+                        "mt-0.5 text-sm font-bold",
+                        isScheduledLiveDay
+                          ? "text-brand-live"
+                          : isToday
+                          ? "text-brand-primary-light"
+                          : canBookDate
+                          ? "text-brand-info"
+                          : "text-brand-ink-subtle"
+                      )}>
                         {date.getDate()}
                       </p>
-                      <p className={cn("mt-1 w-full px-0.5 text-center text-[7px] font-medium leading-[1.05]", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
-                        {hasAnySlots ? "Available" : isPast ? "-" : "Off"}
+                      <p className={cn(
+                        "mt-1 block w-full text-center text-[8px] font-medium leading-[1.1]",
+                        isScheduledLiveDay
+                          ? "text-brand-live"
+                          : canBookDate
+                          ? "text-brand-info"
+                          : "text-brand-ink-subtle"
+                      )}>
+                        {isScheduledLiveDay ? "Live" : hasAnySlots ? "Available" : isPast ? "-" : "Off"}
                       </p>
                     </button>
                   );
@@ -1525,6 +1572,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     const isPast = date < today && !isToday;
                     const hasAnySlots = slots.length > 0 && !isPast;
                     const canBookDate = hasAnySlots && hasBookableLeadTimeSlot(date);
+                    const isScheduledLiveDay = scheduledLiveDateKey === localDateKey(date);
                     return (
                       <button
                         type="button"
@@ -1543,7 +1591,9 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         }
                         className={cn(
                           "rounded-xl border p-2 text-center transition-all",
-                          isToday
+                          isScheduledLiveDay
+                            ? "border-brand-live/45 bg-brand-live/12 hover:border-brand-live"
+                            : isToday
                             ? "border-brand-primary/50 bg-brand-primary/10 hover:border-brand-primary"
                             : canBookDate
                             ? "border-brand-info/35 bg-brand-info/10 hover:border-brand-info hover:bg-brand-info/15 cursor-pointer"
@@ -1553,11 +1603,27 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         )}
                       >
                         <p className="text-[10px] font-medium uppercase text-brand-ink-subtle">{DAY_NAMES[dow]}</p>
-                        <p className={cn("mt-0.5 text-base font-bold", isToday ? "text-brand-primary-light" : canBookDate ? "text-brand-ink" : "text-brand-ink-subtle")}>
+                        <p className={cn(
+                          "mt-0.5 text-base font-bold",
+                          isScheduledLiveDay
+                            ? "text-brand-live"
+                            : isToday
+                            ? "text-brand-primary-light"
+                            : canBookDate
+                            ? "text-brand-ink"
+                            : "text-brand-ink-subtle"
+                        )}>
                           {date.getDate()}
                         </p>
-                        <p className={cn("mt-1 w-full px-0.5 text-center text-[7px] font-medium leading-[1.05] sm:text-[8px]", canBookDate ? "text-brand-info" : "text-brand-ink-subtle")}>
-                          {hasAnySlots ? "Available" : isPast ? "-" : "Off"}
+                        <p className={cn(
+                          "mt-1 block w-full text-center text-[7px] font-medium leading-[1.05] sm:text-[8px]",
+                          isScheduledLiveDay
+                            ? "text-brand-live"
+                            : canBookDate
+                            ? "text-brand-info"
+                            : "text-brand-ink-subtle"
+                        )}>
+                          {isScheduledLiveDay ? "Live" : hasAnySlots ? "Available" : isPast ? "-" : "Off"}
                         </p>
                       </button>
                     );

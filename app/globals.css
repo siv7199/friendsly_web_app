@@ -432,14 +432,14 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
 
 .scheduled-live-datetime::-webkit-datetime-edit-fields-wrapper {
   min-width: 0;
-  padding-left: 0.375rem;
-  padding-right: 0.875rem;
+  padding-left: 0.125rem;
+  padding-right: 0.5rem;
 }
 
 .scheduled-live-datetime::-webkit-datetime-edit {
   min-width: 0;
-  padding-left: 0.375rem;
-  padding-right: 0.875rem;
+  padding-left: 0.125rem;
+  padding-right: 0.5rem;
 }
 
 .scheduled-live-datetime::-webkit-datetime-edit-text {
@@ -449,4 +449,11 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
 .scheduled-live-datetime::-webkit-calendar-picker-indicator {
   margin-right: 0.125rem;
   padding: 0.125rem;
+}
+
+@media (max-width: 640px) {
+  .scheduled-live-datetime::-webkit-date-and-time-value {
+    min-width: 0;
+    font-size: 11px;
+  }
 }

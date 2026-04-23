@@ -478,7 +478,7 @@ profiles ───────────────────────�
 1. Creator visits `/earnings`
 2. Page calls `GET /api/creator-payouts/status`
 3. Server calculates:
-   - **Total earnings** = 85% of completed booking prices + 85% of live queue charges
+   - **Total earnings** = 70% of completed booking charges + 70% of live queue charges
    - **Already withdrawn** = sum of completed `payouts` rows
    - **Available** = total earnings − already withdrawn − pending payouts
    - **Withdrawable** = min(available, Stripe's actual available platform balance)
@@ -488,7 +488,7 @@ profiles ───────────────────────�
 7. Server calls Stripe to transfer money from Friendsly's Stripe account to the creator's connected bank
 8. A `payouts` row is created with status `completed`
 
-**The 85/15 split:** Creators keep 85% of every transaction. Friendsly keeps 15%. Fans also pay a 2.5% platform fee on top of the booking price. This is enforced in `lib/server/payouts.ts`.
+**The 70/30 split:** Creators keep 70% of the final charged amount. Friendsly keeps 30%. This is enforced through the shared revenue helpers.
 
 ---
 
@@ -642,8 +642,8 @@ Supabase Realtime is similar to a Kafka consumer or streaming data subscription.
 ### State Management Is Just In-Memory Variables
 When you build a pandas pipeline, you hold DataFrames in memory as you transform them. A React component's "state" is the same idea — data held in memory that drives what the user sees. When state changes, the UI re-renders. It's transient (lost on refresh), just like in-memory variables.
 
-### The 85/15 Take Rate
-Creators earn 85% of every transaction. The platform retains 15%. Fans also pay a 2.5% fee on top of the booking price (so a $100 package costs the fan $102.50, of which $85 goes to the creator and $17.50 stays with Friendsly). This is enforced in `lib/server/payouts.ts` — not in the UI.
+### The 70/30 Take Rate
+Creators earn 70% of the final charged amount. The platform retains 30%. For example, a $100 package charged at $102.50 results in $71.75 to the creator and $30.75 to the platform. This is enforced server-side, not in the UI.
 
 ---
 
@@ -789,7 +789,7 @@ UI re-renders with new data
 
 7. **Middleware is the bouncer.** `middleware.ts` runs before every page request and redirects users who aren't logged in or don't have the right role.
 
-8. **Creators earn 85%, the platform keeps 15%.** Fans also pay a 2.5% fee on top of the booking price. This is enforced server-side, not client-side.
+8. **Creators earn 70%, the platform keeps 30% of the final charged amount.** This is enforced server-side, not client-side.
 
 9. **Guest checkout is retired.** All fans must have a Friendsly account to book. Old guest-checkout endpoints return 410 (Gone).
 
@@ -830,7 +830,7 @@ UI re-renders with new data
 
 ### About the Business
 - What is the target creator category for launch (fitness, entertainment, business)?
-- Is the 85/15 revenue split final, or will it adjust by creator tier?
+- Is the 70/30 revenue split final, or will it adjust by creator tier?
 - What happens to the platform fee if a creator cancels — does Friendsly still keep the 2.5%?
 - Is there a plan for creator verification beyond manual review?
 

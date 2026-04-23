@@ -73,10 +73,10 @@ export function getLiveFanChargedAmountCents(params: {
   return Math.round(getLiveFanChargedAmount(params) * 100);
 }
 
-export function getLiveCreatorRevenueBaseFromChargedAmount(value: number | string | null | undefined) {
+export function getLiveRevenueShareableAmountFromChargedAmount(value: number | string | null | undefined) {
   const chargedCents = Math.round(Number(value ?? 0) * 100);
   if (!Number.isFinite(chargedCents) || chargedCents <= 0) return 0;
-  return Math.round(chargedCents / (1 + LIVE_PROCESSING_FEE_RATE)) / 100;
+  return chargedCents / 100;
 }
 
 export function getLiveStageElapsedSeconds(startedAt?: string | null, nowMs = Date.now()) {

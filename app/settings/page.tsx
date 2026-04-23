@@ -32,7 +32,7 @@ import { AVATAR_COLORS, CREATOR_CATEGORIES } from "@/lib/mock-auth";
 import { cn, formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { deriveBookingStatus, getBookingGrossAmount, hasBookingEnded, shouldAutoCancelBooking } from "@/lib/bookings";
-import { getLiveCreatorRevenueBaseFromChargedAmount } from "@/lib/live";
+import { getLiveRevenueShareableAmountFromChargedAmount } from "@/lib/live";
 import { sanitizeSocialUrl } from "@/lib/social";
 import { removeAvatarFile, uploadAvatarFile } from "@/lib/avatar-upload";
 import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
@@ -246,7 +246,7 @@ export default function SettingsPage() {
         (session.live_queue_entries || []).forEach((entry: any) => {
           if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {
             const cut = getCreatorRevenueShare(
-              getLiveCreatorRevenueBaseFromChargedAmount(entry.amount_charged)
+              getLiveRevenueShareableAmountFromChargedAmount(entry.amount_charged)
             );
             totalEarned += cut;
 
