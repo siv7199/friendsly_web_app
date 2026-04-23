@@ -884,7 +884,7 @@ export default function DashboardPage() {
             <h3 className="text-sm font-semibold text-brand-ink-muted mb-3">Quick Actions</h3>
             <div className="space-y-2">
               {[
-                { label: "Bookings / Offerings", href: "/management", icon: "⚙️" },
+                { label: "Offerings", href: "/management", icon: "⚙️" },
                 { label: "View Calendar", href: "/calendar", icon: "📅" },
                 { label: "Update Availability", href: "/calendar", icon: "🕐" },
               ].map((action) => (

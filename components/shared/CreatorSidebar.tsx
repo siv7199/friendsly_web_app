@@ -30,7 +30,7 @@ export function CreatorSidebar() {
     { label: "Dashboard",        href: "/dashboard",  icon: LayoutDashboard, highlight: false },
     { label: "Analytics",        href: "/analytics",  icon: BarChart3,       highlight: false },
     { label: "Earnings",         href: "/earnings",   icon: DollarSign,      highlight: false },
-    { label: "Bookings / Offerings", href: "/management", icon: Settings2,       highlight: false },
+    { label: "Offerings", href: "/management", icon: Settings2,       highlight: false },
     { label: "Calendar",         href: "/calendar",   icon: CalendarDays,    highlight: false },
     { label: "Go Live",          href: liveHref,      icon: Radio,           highlight: true  },
   ];

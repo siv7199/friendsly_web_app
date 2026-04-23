@@ -206,7 +206,7 @@ export default function ManagementPage() {
         const activeCount = prev.filter((p) => p.isActive).length;
         if (activeCount >= MAX_ACTIVE_PACKAGES) {
           setToggleWarning(
-            `You can only have ${MAX_ACTIVE_PACKAGES} active packages at a time. Disable another first.`
+            `You can only have ${MAX_ACTIVE_PACKAGES} active bookings at a time. Disable another first.`
           );
           setTimeout(() => setToggleWarning(null), 3500);
           return prev;
@@ -227,7 +227,7 @@ export default function ManagementPage() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">Manage Offerings</h1>
-            <p className="text-brand-ink-subtle mt-1">Set your call packages, pricing, and availability.</p>
+            <p className="text-brand-ink-subtle mt-1">Set your bookings, pricing, and availability.</p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <Button
@@ -237,10 +237,10 @@ export default function ManagementPage() {
               className="gap-2"
             >
               <Plus className="w-4 h-4" />
-              New Package
+              New Booking
             </Button>
             <p className="text-xs text-brand-ink-subtle">
-              Up to {MAX_ACTIVE_PACKAGES} active packages.
+              Up to {MAX_ACTIVE_PACKAGES} active bookings.
             </p>
           </div>
         </div>
@@ -253,7 +253,7 @@ export default function ManagementPage() {
 
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: "Active Packages", value: packages.filter((p) => p.isActive).length, icon: CheckCircle2 },
+            { label: "Active Bookings", value: packages.filter((p) => p.isActive).length, icon: CheckCircle2 },
             { label: "Total Bookings", value: packages.reduce((s, p) => s + p.bookingsCount, 0), icon: DollarSign },
             { label: "Price Range", value: packages.length ? `$${Math.min(...packages.map((p) => p.price))}–$${Math.max(...packages.map((p) => p.price))}` : "—", icon: Clock },
           ].map((s) => {
@@ -269,12 +269,12 @@ export default function ManagementPage() {
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-brand-ink">Your Packages</h2>
+          <h2 className="text-lg font-bold text-brand-ink">Your Bookings</h2>
           {packages.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-brand-border bg-brand-surface p-10 text-center">
               <DollarSign className="w-8 h-8 text-brand-ink-subtle mx-auto mb-3" />
-              <p className="text-brand-ink-subtle font-medium">No packages yet</p>
-              <p className="text-brand-ink-subtle text-sm mt-1">Create your first call package to start accepting bookings.</p>
+              <p className="text-brand-ink-subtle font-medium">No bookings yet</p>
+              <p className="text-brand-ink-subtle text-sm mt-1">Create your first booking to start accepting bookings.</p>
             </div>
           ) : (
             packages.map((pkg) => (
@@ -293,7 +293,7 @@ export default function ManagementPage() {
         <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
           <div className="flex items-center gap-2 mb-1">
             <Zap className="w-5 h-5 text-brand-live" />
-            <h2 className="text-lg font-bold text-brand-ink">Amount Per Minute</h2>
+            <h2 className="text-lg font-bold text-brand-ink">Friendsly Live rate</h2>
           </div>
           <p className="text-sm text-brand-ink-subtle mb-5">
             Fans can watch and chat for free. Set the amount charged per minute when a fan is brought on stage during your live.
@@ -301,7 +301,7 @@ export default function ManagementPage() {
           <div className="flex items-end gap-4">
             <div className="flex-1 max-w-xs">
               <label className="text-sm font-medium text-brand-ink-muted mb-2 block">
-                Amount per minute (USD)
+                Friendsly Live rate (USD)
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink-subtle text-sm">$</span>
@@ -355,12 +355,12 @@ export default function ManagementPage() {
 
       <Dialog open={showForm} onClose={() => setShowForm(false)}>
         <DialogContent
-          title={editingPackage ? "Edit Package" : "Create Package"}
+          title={editingPackage ? "Edit Booking" : "Create Booking"}
           description="Define what fans are booking when they choose this option."
         >
           <div className="space-y-4">
             <Input
-              label="Package Name"
+              label="Booking Name"
               placeholder="e.g. Quick Chat, Deep Dive, VIP Hour"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -411,7 +411,7 @@ export default function ManagementPage() {
                 disabled={!form.name || !form.duration || !isFormPriceValid}
                 onClick={handleSave}
               >
-                {editingPackage ? "Save Changes" : "Create Package"}
+                {editingPackage ? "Save Changes" : "Create Booking"}
               </Button>
             </div>
           </div>

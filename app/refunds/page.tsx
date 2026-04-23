@@ -102,7 +102,7 @@ function MetaBox() {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 20, padding: "18px 22px", background: BG2, border: `1px solid ${BORDER}`, borderRadius: 14, marginBottom: 36, fontSize: 13, color: MUTED }}>
       <span><strong style={{ color: TEXT }}>Effective date:</strong> June 1, 2026</span>
-      <span><strong style={{ color: TEXT }}>Business:</strong> Friendsly, operated by Matvey Kolmakov, sole proprietor, North Carolina, USA</span>
+      <span><strong style={{ color: TEXT }}>Business:</strong> Friendsly</span>
       <span><strong style={{ color: TEXT }}>Contact:</strong> <a href="mailto:matvey@friendsly.app" style={{ color: PURPLE, textDecoration: "none" }}>matvey@friendsly.app</a></span>
     </div>
   );

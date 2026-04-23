@@ -772,7 +772,7 @@ export function LiveConsole() {
     setCreatorJoined(false);
     const latestSettings = await fetchLatestLiveSettings(user.id);
     if (!hasConfiguredLiveRate(latestSettings.liveRate)) {
-      setStartError("Set an amount per minute in Management before going live.");
+      setStartError("Set a Friendsly Live rate in Management before going live.");
       return;
     }
     if (previewStreamRef.current) {
@@ -979,7 +979,7 @@ export function LiveConsole() {
             </div>
             {!hasConfiguredLiveRate(liveRate) ? (
               <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium leading-5 text-amber-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-                Set an amount per minute in Management before going live.
+                Set a Friendsly Live rate in Management before going live.
               </div>
             ) : null}
             <Button variant="live" size="xl" onClick={startSession} className="shadow-glow-live w-full">Start Live Session</Button>
