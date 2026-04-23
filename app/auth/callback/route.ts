@@ -11,6 +11,18 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 
+function isRecoverableManualSigninPkceError(error: { message?: string } | null): boolean {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return (
+    message.includes("pkce code verifier not found in storage") ||
+    message.includes("flow_state_not_found") ||
+    message.includes("flow state not found") ||
+    message.includes("flow_state_expired") ||
+    message.includes("flow state expired")
+  );
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
@@ -59,6 +71,15 @@ export async function GET(request: NextRequest) {
       }
 
       return NextResponse.redirect(`${origin}${next}`);
+    }
+
+    // Email-confirmation links in the PKCE flow can still successfully verify
+    // the user's email before the final code exchange fails if the link is
+    // opened outside the original browser context. In our manual-sign-in flow,
+    // we don't need to keep the session from this callback, so treat this case
+    // as a successful confirmation and send the user to sign in normally.
+    if (postConfirm === "signin" && code && isRecoverableManualSigninPkceError(error)) {
+      return NextResponse.redirect(`${origin}/login?tab=signin&emailConfirmed=1`);
     }
 
     const errorUrl = new URL(`${origin}/login`);
