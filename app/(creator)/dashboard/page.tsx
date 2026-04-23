@@ -704,7 +704,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Main Grid ── */}
-      <div className="grid min-w-0 grid-cols-1 gap-6 overflow-hidden lg:grid-cols-3">
+      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Upcoming bookings */}
         <div className="lg:col-span-2">
           {showLiveRequests && (

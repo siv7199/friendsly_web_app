@@ -427,7 +427,8 @@ input[type="password"]::-webkit-credentials-auto-fill-button { display: none !im
 }
 
 .mobile-native-field {
-  min-width: 0;
+  box-sizing: border-box;
+  min-width: 0 !important;
   width: 100%;
   max-width: 100%;
   overflow: hidden;

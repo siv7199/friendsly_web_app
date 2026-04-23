@@ -18,10 +18,10 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
         className={
           isImmersiveLiveRoute
             ? "flex-1 overflow-hidden"
-            : "flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain pb-36 md:pb-24"
+            : "flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain bg-brand-bg pb-36 pt-24 md:pb-24 md:pt-0"
         }
       >
-        {!isImmersiveLiveRoute ? <MobileAccountBar floating={false} /> : null}
+        {!isImmersiveLiveRoute ? <MobileAccountBar /> : null}
         {children}
       </main>
       {!isImmersiveLiveRoute ? <BottomNav type="creator" /> : null}
