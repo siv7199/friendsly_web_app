@@ -67,12 +67,12 @@ export function ScheduledLiveCard({
       </div>
 
       <div className="mt-4 min-w-0 space-y-3">
-        <div className="min-w-0">
+        <div className="min-w-0 pr-1 sm:pr-0">
           <input
             type="datetime-local"
             value={scheduledLiveAt}
             onChange={(event) => onChangeDateTime(event.target.value)}
-            className="scheduled-live-datetime scheduled-live-field block h-12 w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated px-3 pr-11 text-[11px] leading-tight text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary sm:h-11 sm:rounded-xl sm:px-4 sm:pr-5 sm:text-sm"
+            className="scheduled-live-datetime scheduled-live-field block h-12 w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated px-3 pr-10 text-[11px] leading-tight text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary sm:h-11 sm:rounded-xl sm:px-4 sm:pr-5 sm:text-sm"
           />
         </div>
         <div className="min-w-0">
