@@ -4,6 +4,7 @@ import { ensureStripeCustomer, stripe } from "@/lib/server/stripe";
 import { getLateFeeAmountForPrice, isLateFeeRequired } from "@/lib/server/bookings";
 import {
   checkRateLimit,
+  isPaymentMethodId,
   isPaymentIntentId,
   isUuid,
   readJsonBody,
@@ -40,6 +41,7 @@ export async function POST(
     const body = await readJsonBody(request);
     const mode = body?.mode === "confirm" ? "confirm" : "create";
     const paymentIntentId = stringField(body, "paymentIntentId", 120) || null;
+    const paymentMethodId = stringField(body, "paymentMethodId", 120) || null;
 
     const { data: booking, error } = await serviceSupabase
       .from("bookings")
@@ -68,8 +70,28 @@ export async function POST(
       return NextResponse.json({ error: "A late fee is not required for this booking." }, { status: 400 });
     }
 
-    const lateFeeAmount = getLateFeeAmountForPrice(Number(booking.price));
+    const currentBooking = booking;
+    const lateFeeAmount = getLateFeeAmountForPrice(Number(currentBooking.price));
     const lateFeeAmountCents = Math.round(lateFeeAmount * 100);
+
+    const recordLateFeePayment = async (nextPaymentIntentId: string) => {
+      const { data: updatedBooking, error: updateError } = await serviceSupabase
+        .from("bookings")
+        .update({
+          late_fee_amount: lateFeeAmount,
+          late_fee_payment_intent_id: nextPaymentIntentId,
+          late_fee_paid_at: currentBooking.late_fee_paid_at ?? new Date().toISOString(),
+        })
+        .eq("id", bookingId)
+        .select("id, late_fee_amount, late_fee_paid_at")
+        .single();
+
+      if (updateError || !updatedBooking) {
+        return NextResponse.json({ error: "Could not record the late fee payment." }, { status: 400 });
+      }
+
+      return NextResponse.json({ booking: updatedBooking });
+    };
 
     if (mode === "confirm") {
       if (!paymentIntentId || !isPaymentIntentId(paymentIntentId)) {
@@ -87,22 +109,42 @@ export async function POST(
         return NextResponse.json({ error: "This payment does not belong to the booking late fee." }, { status: 400 });
       }
 
-      const { data: updatedBooking, error: updateError } = await serviceSupabase
-        .from("bookings")
-        .update({
-          late_fee_amount: lateFeeAmount,
-          late_fee_payment_intent_id: paymentIntentId,
-          late_fee_paid_at: booking.late_fee_paid_at ?? new Date().toISOString(),
-        })
-        .eq("id", bookingId)
-        .select("id, late_fee_amount, late_fee_paid_at")
-        .single();
+      return recordLateFeePayment(paymentIntentId);
+    }
 
-      if (updateError || !updatedBooking) {
-        return NextResponse.json({ error: "Could not record the late fee payment." }, { status: 400 });
+    if (paymentMethodId) {
+      if (!isPaymentMethodId(paymentMethodId)) {
+        return NextResponse.json({ error: "Invalid payment method." }, { status: 400 });
       }
 
-      return NextResponse.json({ booking: updatedBooking });
+      const customerId = await ensureStripeCustomer({
+        userId: user.id,
+        email: user.email,
+        fullName: user.user_metadata?.full_name ?? null,
+      });
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: lateFeeAmountCents,
+        currency: "usd",
+        customer: customerId,
+        receipt_email: user.email ?? undefined,
+        payment_method: paymentMethodId,
+        off_session: true,
+        confirm: true,
+        description: "Friendsly booking late fee",
+        metadata: {
+          paymentType: "booking_late_fee",
+          bookingId,
+          userId: user.id,
+          userEmail: user.email ?? "",
+        },
+      });
+
+      if (paymentIntent.status !== "succeeded") {
+        return NextResponse.json({ error: "Late fee payment has not completed yet." }, { status: 400 });
+      }
+
+      return recordLateFeePayment(paymentIntent.id);
     }
 
     const customerId = await ensureStripeCustomer({

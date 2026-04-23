@@ -437,6 +437,20 @@ export default function RoomPage() {
     await initCall();
   }, [bookingId, initCall]);
 
+  const chargeSavedLateFeePaymentMethod = useCallback(async (paymentMethodId: string) => {
+    const response = await fetch(`/api/bookings/${bookingId}/late-fee`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "create", paymentMethodId }),
+    });
+    const data = await readJsonResponse<{ error?: string }>(response);
+    if (!response.ok) {
+      throw new Error(data?.error ?? "Could not charge saved payment method.");
+    }
+    setLoading(true);
+    await initCall();
+  }, [bookingId, initCall]);
+
   useEffect(() => {
     if (!user || !bookingId) return;
 
@@ -625,6 +639,7 @@ export default function RoomPage() {
           onBack={() => router.push("/bookings")}
           createIntent={createLateFeeIntent}
           confirmPayment={confirmLateFeePayment}
+          chargeSavedPaymentMethod={chargeSavedLateFeePaymentMethod}
         />
       );
     }

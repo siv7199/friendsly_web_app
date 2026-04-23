@@ -5,10 +5,20 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuthContext } from "@/lib/context/AuthContext";
+import { readJsonResponse } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
 import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+
+type SavedPaymentMethod = {
+  id: string;
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+};
 
 function LateFeePaymentForm({
   onBack,
@@ -91,6 +101,7 @@ export function LateFeeGate({
   onBack,
   createIntent,
   confirmPayment,
+  chargeSavedPaymentMethod,
 }: {
   amount: number;
   title: string;
@@ -99,13 +110,66 @@ export function LateFeeGate({
   onBack: () => void;
   createIntent: () => Promise<{ clientSecret: string }>;
   confirmPayment: (paymentIntentId: string) => Promise<void>;
+  chargeSavedPaymentMethod?: (paymentMethodId: string) => Promise<void>;
 }) {
+  const { user } = useAuthContext();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loadingIntent, setLoadingIntent] = useState(true);
+  const [loadingSavedPaymentMethods, setLoadingSavedPaymentMethods] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<SavedPaymentMethod[]>([]);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!user || !chargeSavedPaymentMethod) {
+      setSavedPaymentMethods([]);
+      setSelectedPaymentMethodId(null);
+      setLoadingSavedPaymentMethods(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSavedPaymentMethods() {
+      try {
+        setLoadingSavedPaymentMethods(true);
+        const response = await fetch("/api/payment-methods");
+        const data = await readJsonResponse<{ paymentMethods?: SavedPaymentMethod[]; error?: string }>(response);
+        if (!response.ok) {
+          throw new Error(data?.error ?? "Could not load saved payment methods.");
+        }
+
+        if (!cancelled) {
+          const methods = data?.paymentMethods ?? [];
+          setSavedPaymentMethods(methods);
+          setSelectedPaymentMethodId(methods[0]?.id ?? null);
+        }
+      } catch {
+        if (!cancelled) {
+          setSavedPaymentMethods([]);
+          setSelectedPaymentMethodId(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingSavedPaymentMethods(false);
+        }
+      }
+    }
+
+    void loadSavedPaymentMethods();
+    return () => {
+      cancelled = true;
+    };
+  }, [chargeSavedPaymentMethod, user]);
+
+  useEffect(() => {
+    if (loadingSavedPaymentMethods) return;
+    if (selectedPaymentMethodId) {
+      setLoadingIntent(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function initIntent() {
@@ -129,7 +193,20 @@ export function LateFeeGate({
     return () => {
       cancelled = true;
     };
-  }, [createIntent]);
+  }, [createIntent, loadingSavedPaymentMethods, selectedPaymentMethodId]);
+
+  async function handleSavedPaymentSubmit() {
+    if (!selectedPaymentMethodId || !chargeSavedPaymentMethod) return;
+
+    try {
+      setIsSubmitting(true);
+      setError("");
+      await chargeSavedPaymentMethod(selectedPaymentMethodId);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Could not charge saved payment method.");
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-brand-bg px-4 py-8">
@@ -155,7 +232,59 @@ export function LateFeeGate({
             </div>
           )}
 
-          {loadingIntent ? (
+          {loadingSavedPaymentMethods ? (
+            <div className="flex items-center justify-center gap-3 py-8 text-brand-ink-subtle">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">Loading saved payments...</span>
+            </div>
+          ) : selectedPaymentMethodId && savedPaymentMethods.length > 0 ? (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-ink-muted">Saved Payments</p>
+              <div className="space-y-2">
+                {savedPaymentMethods.map((paymentMethod) => (
+                  <label
+                    key={paymentMethod.id}
+                    className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
+                      selectedPaymentMethodId === paymentMethod.id
+                        ? "border-brand-primary bg-brand-primary/10"
+                        : "border-brand-border bg-brand-elevated"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="saved-late-fee-payment"
+                      checked={selectedPaymentMethodId === paymentMethod.id}
+                      onChange={() => setSelectedPaymentMethodId(paymentMethod.id)}
+                    />
+                    <div className="text-sm text-brand-ink capitalize">
+                      {paymentMethod.brand} ending in {paymentMethod.last4}
+                    </div>
+                    <div className="ml-auto text-xs text-brand-ink-muted">
+                      {String(paymentMethod.expMonth).padStart(2, "0")}/{paymentMethod.expYear}
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <button
+                onClick={() => setSelectedPaymentMethodId(null)}
+                className="text-xs text-brand-primary-light hover:underline"
+              >
+                Use a new card instead
+              </button>
+              <Button
+                variant="gold"
+                className="w-full gap-2"
+                onClick={handleSavedPaymentSubmit}
+                disabled={isSubmitting || !selectedPaymentMethodId}
+              >
+                {isSubmitting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                ) : (
+                  "Pay with Saved Card"
+                )}
+              </Button>
+            </div>
+          ) : loadingIntent ? (
             <div className="flex items-center justify-center gap-3 py-8 text-brand-ink-subtle">
               <Loader2 className="h-5 w-5 animate-spin" />
               <span className="text-sm">Loading payment form...</span>
@@ -189,13 +318,13 @@ export function LateFeeGate({
           )}
         </div>
 
-        {clientSecret && (
+        {clientSecret || selectedPaymentMethodId ? (
           <div className="mt-4">
             <Button variant="outline" className="w-full" onClick={onBack} disabled={isSubmitting}>
               {backLabel}
             </Button>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
