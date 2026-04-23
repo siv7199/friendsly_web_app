@@ -18,10 +18,10 @@ export function MobileAccountBar({ floating = true }: { floating?: boolean }) {
   return (
     <div
       className={cn(
-        "border-b border-brand-border/70 bg-white/95 px-4 shadow-[0_10px_30px_rgba(26,22,40,0.06)] backdrop-blur supports-[backdrop-filter]:bg-white/88 md:hidden",
+        "bg-white/95 px-4 shadow-[0_10px_30px_rgba(26,22,40,0.06)] backdrop-blur supports-[backdrop-filter]:bg-white/88",
         floating
-          ? "fixed inset-x-0 top-0 z-50 pb-3"
-          : "relative z-10 mb-4 pb-3"
+          ? "fixed inset-x-0 top-0 z-50 border-b border-brand-border/70 md:bottom-0 md:top-auto md:border-b-0 md:border-t md:border-brand-border/70 md:shadow-[0_-10px_30px_rgba(26,22,40,0.06)]"
+          : "relative z-10 mb-4 border-b border-brand-border/70"
       )}
       style={{
         paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",

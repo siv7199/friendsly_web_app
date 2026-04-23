@@ -51,7 +51,7 @@ body {
 @media (min-width: 768px) {
   .creator-main-scroll {
     padding-top: 0;
-    padding-bottom: 0;
+    padding-bottom: 60px; /* account bar at bottom on desktop */
   }
 }
 
