@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Radio, Search, Sparkles, Users } from "lucide-react";
 import { InfluencerCard } from "@/components/fan/InfluencerCard";
 import { BrandLogo } from "@/components/shared/BrandLogo";
+import { fetchLiveAudienceCounts } from "@/lib/live-audience";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { isNewCreator } from "@/lib/creators";
@@ -144,26 +145,19 @@ async function fetchCreators(): Promise<{
   });
 
   const queueCountByCreator: Record<string, number> = {};
-  const audienceCountByCreator: Record<string, number> = {};
-  Object.keys(activeSessionByCreator).forEach((creatorId) => {
-    audienceCountByCreator[creatorId] = 1;
-  });
   if (activeSessionIds.length > 0) {
     const { data: queueEntries } = await supabase
       .from("live_queue_entries")
-      .select("session_id, status")
+      .select("session_id")
       .in("session_id", activeSessionIds)
-      .in("status", ["waiting", "active"]);
+      .eq("status", "waiting");
 
-    (queueEntries ?? []).forEach((entry: { session_id: string; status: string }) => {
+    (queueEntries ?? []).forEach((entry: { session_id: string }) => {
       const creatorId = sessionToCreator[entry.session_id];
-      if (!creatorId) return;
-      audienceCountByCreator[creatorId] = (audienceCountByCreator[creatorId] ?? 1) + 1;
-      if (entry.status === "waiting") {
-        queueCountByCreator[creatorId] = (queueCountByCreator[creatorId] ?? 0) + 1;
-      }
+      if (creatorId) queueCountByCreator[creatorId] = (queueCountByCreator[creatorId] ?? 0) + 1;
     });
   }
+  const audienceCountBySession = await fetchLiveAudienceCounts(activeSessionIds);
 
   return {
     creators: profiles.map((profile: any) => {
@@ -192,7 +186,7 @@ async function fetchCreators(): Promise<{
       isLive: Boolean(activeSession),
       currentLiveSessionId: activeSession?.id ?? undefined,
       queueCount: queueCountByCreator[profile.id] ?? 0,
-      audienceCount: activeSession ? (audienceCountByCreator[profile.id] ?? 1) : 0,
+      audienceCount: activeSession ? (audienceCountBySession[activeSession.id] ?? (queueCountByCreator[profile.id] ?? 0) + 1) : 0,
       callPrice: minPrice,
       callDuration: minDuration,
       nextAvailable: minPrice > 0 ? "Available this week" : "No packages yet",
@@ -261,6 +255,7 @@ export default function DiscoverPage() {
     }
 
     load();
+    const pollId = window.setInterval(load, 15000);
 
     const supabase = createClient();
     const channel = supabase
@@ -309,6 +304,7 @@ export default function DiscoverPage() {
     return () => {
       refreshTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
       Object.values(liveExpiryTimeoutsRef.current).forEach((id) => window.clearTimeout(id));
+      window.clearInterval(pollId);
       window.removeEventListener("focus", refreshIfStale);
       document.removeEventListener("visibilitychange", handleVisibility);
       supabase.removeChannel(channel);

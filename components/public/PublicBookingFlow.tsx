@@ -156,6 +156,9 @@ function PaymentForm({
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       redirect: "if_required",
+      confirmParams: {
+        return_url: `${window.location.origin}${window.location.pathname}`,
+      },
     });
 
     if (error) {
@@ -247,6 +250,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const [awaitingEmailVerification, setAwaitingEmailVerification] = useState(false);
   const paymentInitKeyRef = useRef<string | null>(null);
   const hasHandledLiveIntentRef = useRef(false);
+  const hasHandledRedirectRef = useRef(false);
   const authCardRef = useRef<HTMLDivElement | null>(null);
 
   const draftKey = getDraftKey(creatorSlug);
@@ -383,7 +387,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     setPaymentError("");
     setFetchingIntent(false);
     paymentInitKeyRef.current = null;
-  }, [selectedPackage?.id, selectedDate?.toISOString(), selectedTime, topic, user?.id]);
+  }, [selectedPackage?.id, selectedDate?.toISOString(), selectedTime, user?.id]);
 
   const availableDateKeys = new Set(
     availableDates
@@ -444,7 +448,6 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
     window.sessionStorage.removeItem(draftKey);
     setSuccessMessage(`Your call with ${creator.name} is confirmed.`);
-    setShowRefundPolicyOnSuccess(true);
     setStep("success");
   }
 
@@ -568,7 +571,6 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     selectedPackage,
     selectedTime,
     step,
-    topic,
     totalCents,
     user?.role,
   ]);
@@ -652,6 +654,63 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
       router.replace(liveHref);
     }
   }, [authLoading, creator?.currentLiveSessionId, creator?.id, creator?.isLive, creator?.slug, creator?.username, liveIntentRequested, router, user?.role]);
+
+  // Handle return from a Stripe redirect (e.g. Link authentication or bank redirect).
+  // Stripe appends ?payment_intent=...&redirect_status=succeeded to the return_url.
+  useEffect(() => {
+    if (loading || !creator || authLoading || user?.role !== "fan") return;
+    if (hasHandledRedirectRef.current) return;
+
+    const paymentIntentId = searchParams.get("payment_intent");
+    const redirectStatus = searchParams.get("redirect_status");
+    if (!paymentIntentId || redirectStatus !== "succeeded") return;
+
+    hasHandledRedirectRef.current = true;
+    router.replace(`/book/${creatorSlug}`, { scroll: false });
+
+    const rawDraft = window.sessionStorage.getItem(draftKey);
+    let draft: DraftState | null = null;
+    if (rawDraft) {
+      try { draft = JSON.parse(rawDraft) as DraftState; } catch { /* ignore */ }
+    }
+
+    if (!draft?.packageId || !draft?.selectedDateIso || !draft?.selectedTime) return;
+
+    const scheduledAt = parseSlotToIso(new Date(draft.selectedDateIso), draft.selectedTime);
+
+    async function finalizeRedirectBooking() {
+      try {
+        setIsSubmitting(true);
+        const response = await fetch("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            creatorId: creator!.id,
+            packageId: draft!.packageId,
+            scheduledAt,
+            topic: draft!.topic ?? "",
+            paymentIntentId,
+          }),
+        });
+        const data = await readJsonResponse<{ error?: string }>(response);
+        if (!response.ok) {
+          setPaymentError(data?.error ?? "Could not complete booking after payment. Please contact support.");
+          setStep("payment");
+          return;
+        }
+        window.sessionStorage.removeItem(draftKey);
+        setSuccessMessage(`Your call with ${creator!.name} is confirmed.`);
+        setStep("success");
+      } catch {
+        setPaymentError("Could not complete booking after payment. Please contact support.");
+        setStep("payment");
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+
+    void finalizeRedirectBooking();
+  }, [authLoading, creator, creatorSlug, draftKey, loading, router, searchParams, user?.role]);
 
   if (loading) {
     return (

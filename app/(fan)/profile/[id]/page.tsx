@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import type { Creator, CallPackage } from "@/types";
 import { readJsonResponse } from "@/lib/http";
+import { fetchLiveAudienceCounts } from "@/lib/live-audience";
 import { MAX_ACTIVE_PACKAGES } from "@/lib/pricing-limits";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
@@ -298,7 +299,8 @@ async function fetchCreatorData(creatorRef: string): Promise<{
       .eq("session_id", activeSession.id)
       .in("status", ["waiting", "active"]);
     queueCount = (liveEntries ?? []).filter((entry: any) => entry.status === "waiting").length;
-    audienceCount = 1 + (liveEntries?.length ?? 0);
+    const liveAudienceCounts = await fetchLiveAudienceCounts([String(activeSession.id)]);
+    audienceCount = liveAudienceCounts[String(activeSession.id)] ?? (1 + (liveEntries?.length ?? 0));
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -511,10 +513,14 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     }
 
     loadCreatorData(supabase, !creator?.id);
+    const pollId = window.setInterval(() => {
+      loadCreatorData(supabase);
+    }, 15000);
 
     if (!creator?.id) {
       return () => {
         refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+        window.clearInterval(pollId);
       };
     }
 
@@ -643,6 +649,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
 
     return () => {
       refreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      window.clearInterval(pollId);
       window.removeEventListener("focus", refreshIfStale);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(realtimeChannel);

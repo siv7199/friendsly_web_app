@@ -49,10 +49,10 @@ Definition of done:
 - [x] Creator can start a live reliably more than once
 - [x] Fan live join flow works repeatedly
 - [x] Queue updates remain correct under repeated joins/leaves
-- [ ] Admit flow still works under churn
-- [ ] End-live cleanup completes without stale live state
-- [ ] Reconnect behavior is acceptable for creator and fan
-- [ ] No obvious duplicate charges or broken queue states appear during live testing
+- [x] Admit flow still works under churn
+- [x] End-live cleanup completes without stale live state
+- [x] Reconnect behavior is acceptable for creator and fan
+- [x] No obvious duplicate charges or broken queue states appear during live testing
 
 Definition of done:
 

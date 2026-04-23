@@ -13,6 +13,7 @@ import { Heart, Loader2, Compass, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfluencerCard } from "@/components/fan/InfluencerCard";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { fetchLiveAudienceCounts } from "@/lib/live-audience";
 import { createClient } from "@/lib/supabase/client";
 import type { Creator } from "@/types";
 import { isNewCreator } from "@/lib/creators";
@@ -42,6 +43,10 @@ export default function SavedPage() {
   useEffect(() => {
     if (!user) return;
     loadSaved();
+    const pollId = window.setInterval(() => {
+      void loadSaved();
+    }, 15000);
+    return () => window.clearInterval(pollId);
   }, [user]);
 
   async function loadSaved() {
@@ -118,26 +123,21 @@ export default function SavedPage() {
       sessionToCreator[session.id] = creatorId;
     });
     const queueCountByCreator: Record<string, number> = {};
-    const audienceCountByCreator: Record<string, number> = {};
-    Object.keys(activeSessionByCreator).forEach((creatorId) => {
-      audienceCountByCreator[creatorId] = 1;
-    });
     if (activeSessionIds.length > 0) {
       const { data: queueEntries } = await supabase
         .from("live_queue_entries")
-        .select("session_id, status")
+        .select("session_id")
         .in("session_id", activeSessionIds)
-        .in("status", ["waiting", "active"]);
+        .eq("status", "waiting");
 
-      (queueEntries ?? []).forEach((entry: { session_id: string; status: string }) => {
+      (queueEntries ?? []).forEach((entry: { session_id: string }) => {
         const creatorId = sessionToCreator[entry.session_id];
-        if (!creatorId) return;
-        audienceCountByCreator[creatorId] = (audienceCountByCreator[creatorId] ?? 1) + 1;
-        if (entry.status === "waiting") {
+        if (creatorId) {
           queueCountByCreator[creatorId] = (queueCountByCreator[creatorId] ?? 0) + 1;
         }
       });
     }
+    const audienceCountBySession = await fetchLiveAudienceCounts(activeSessionIds);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const creators: Creator[] = saved.map((s: any) => {
@@ -202,7 +202,7 @@ export default function SavedPage() {
         isLive: Boolean(activeSession),
         currentLiveSessionId: activeSession?.id ?? undefined,
         queueCount: queueCountByCreator[p.id] ?? 0,
-        audienceCount: activeSession ? (audienceCountByCreator[p.id] ?? 1) : 0,
+        audienceCount: activeSession ? (audienceCountBySession[activeSession.id] ?? (queueCountByCreator[p.id] ?? 0) + 1) : 0,
         callPrice: minPrice,
         callDuration: packages[0]?.duration ?? 15,
         nextAvailable: minPrice > 0 ? (cp?.next_available ?? "Available this week") : "No packages yet",
