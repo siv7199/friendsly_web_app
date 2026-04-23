@@ -127,7 +127,7 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
 
   const hasLiveRate = Boolean(creator.liveJoinFee && creator.liveJoinFee > 0);
   const hasPackages  = creator.callPrice > 0 || packages.length > 0;
-  const liveAudienceCount = creator.isLive ? creator.queueCount + 1 : creator.queueCount;
+  const liveAudienceCount = creator.audienceCount ?? (creator.isLive ? creator.queueCount + 1 : creator.queueCount);
   const profileHref = getCreatorProfilePath({ id: creator.id, username: creator.username });
   const liveHref = getLiveSessionPath({
     creatorId: creator.id,

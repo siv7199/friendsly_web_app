@@ -25,6 +25,7 @@ export interface Creator {
   isLive: boolean;
   currentLiveSessionId?: string; // ID of active studio session
   queueCount: number;           // People currently in queue
+  audienceCount?: number;       // Fan-facing live audience count
   callPrice: number;            // USD — cheapest active booking package
   callDuration: number;         // Minutes per session
   nextAvailable: string;        // Human-readable — "Today, 3:00 PM"

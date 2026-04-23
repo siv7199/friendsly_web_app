@@ -290,13 +290,15 @@ async function fetchCreatorData(creatorRef: string): Promise<{
 
   // Get queue count for active session
   let queueCount = 0;
+  let audienceCount = 0;
   if (activeSession) {
-    const { count } = await supabase
+    const { data: liveEntries } = await supabase
       .from("live_queue_entries")
-      .select("*", { count: "exact", head: true })
+      .select("status")
       .eq("session_id", activeSession.id)
-      .eq("status", "waiting");
-    queueCount = count ?? 0;
+      .in("status", ["waiting", "active"]);
+    queueCount = (liveEntries ?? []).filter((entry: any) => entry.status === "waiting").length;
+    audienceCount = 1 + (liveEntries?.length ?? 0);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -335,6 +337,7 @@ async function fetchCreatorData(creatorRef: string): Promise<{
     isLive: isActuallyLive,
     currentLiveSessionId: activeSession?.id ?? undefined,
     queueCount,
+    audienceCount,
     callPrice: minPrice,
     callDuration: packages[0]?.duration ?? 15,
     nextAvailable: minPrice > 0 ? "Available this week" : "No packages yet",
@@ -593,6 +596,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         isLive: payload.new?.current_live_session_id ? prev.isLive : false,
                         currentLiveSessionId: payload.new?.current_live_session_id ?? undefined,
                         queueCount: payload.new?.current_live_session_id ? prev.queueCount : 0,
+                        audienceCount: payload.new?.current_live_session_id ? prev.audienceCount : 0,
                         scheduledLiveAt: payload.new?.scheduled_live_at ?? undefined,
                         scheduledLiveTimeZone: payload.new?.scheduled_live_timezone ?? prev.scheduledLiveTimeZone,
                         liveJoinFee: payload.new?.live_join_fee != null
@@ -601,6 +605,22 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 }
               : prev
           );
+          scheduleRefreshes();
+        }
+      )
+      .on(
+        "postgres_changes",
+        creator.currentLiveSessionId
+          ? { event: "*", schema: "public", table: "live_queue_entries", filter: `session_id=eq.${creator.currentLiveSessionId}` }
+          : { event: "*", schema: "public", table: "live_queue_entries" },
+        () => {
+          scheduleRefreshes();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "live_sessions", filter: `creator_id=eq.${creator.id}` },
+        () => {
           scheduleRefreshes();
         }
       )
@@ -627,7 +647,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(realtimeChannel);
     };
-  }, [creator?.id, loadCreatorData, user?.id, user?.role]);
+  }, [creator?.id, creator?.currentLiveSessionId, loadCreatorData, user?.id, user?.role]);
 
   // â”€â”€ Review submission â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function handleSubmitReview() {

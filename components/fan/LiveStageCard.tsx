@@ -12,7 +12,7 @@ interface LiveStageCardProps {
 
 export function LiveStageCard({ creator }: LiveStageCardProps) {
   const hasLiveRate = Boolean(creator.liveJoinFee && creator.liveJoinFee > 0);
-  const liveAudienceCount = creator.queueCount + 1;
+  const liveAudienceCount = creator.audienceCount ?? (creator.queueCount + 1);
   const liveHref = getLiveSessionPath({
     creatorId: creator.id,
     creatorUsername: creator.username,

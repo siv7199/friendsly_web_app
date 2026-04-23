@@ -144,16 +144,24 @@ async function fetchCreators(): Promise<{
   });
 
   const queueCountByCreator: Record<string, number> = {};
+  const audienceCountByCreator: Record<string, number> = {};
+  Object.keys(activeSessionByCreator).forEach((creatorId) => {
+    audienceCountByCreator[creatorId] = 1;
+  });
   if (activeSessionIds.length > 0) {
     const { data: queueEntries } = await supabase
       .from("live_queue_entries")
-      .select("session_id")
+      .select("session_id, status")
       .in("session_id", activeSessionIds)
-      .eq("status", "waiting");
+      .in("status", ["waiting", "active"]);
 
-    (queueEntries ?? []).forEach((entry: { session_id: string }) => {
+    (queueEntries ?? []).forEach((entry: { session_id: string; status: string }) => {
       const creatorId = sessionToCreator[entry.session_id];
-      if (creatorId) queueCountByCreator[creatorId] = (queueCountByCreator[creatorId] ?? 0) + 1;
+      if (!creatorId) return;
+      audienceCountByCreator[creatorId] = (audienceCountByCreator[creatorId] ?? 1) + 1;
+      if (entry.status === "waiting") {
+        queueCountByCreator[creatorId] = (queueCountByCreator[creatorId] ?? 0) + 1;
+      }
     });
   }
 
@@ -184,6 +192,7 @@ async function fetchCreators(): Promise<{
       isLive: Boolean(activeSession),
       currentLiveSessionId: activeSession?.id ?? undefined,
       queueCount: queueCountByCreator[profile.id] ?? 0,
+      audienceCount: activeSession ? (audienceCountByCreator[profile.id] ?? 1) : 0,
       callPrice: minPrice,
       callDuration: minDuration,
       nextAvailable: minPrice > 0 ? "Available this week" : "No packages yet",
@@ -267,6 +276,7 @@ export default function DiscoverPage() {
                     isLive: payload.new.current_live_session_id ? creator.isLive : false,
                     currentLiveSessionId: payload.new.current_live_session_id ?? undefined,
                     queueCount: payload.new.current_live_session_id ? creator.queueCount : 0,
+                    audienceCount: payload.new.current_live_session_id ? creator.audienceCount : 0,
                     scheduledLiveAt: payload.new.scheduled_live_at ?? undefined,
                     scheduledLiveTimeZone: payload.new.scheduled_live_timezone ?? creator.scheduledLiveTimeZone,
                     liveJoinFee: payload.new.live_join_fee != null ? Number(payload.new.live_join_fee) : creator.liveJoinFee,
@@ -276,6 +286,12 @@ export default function DiscoverPage() {
           );
         }
         if (shouldRefreshFromCreatorProfileChange(payload)) scheduleRefreshes();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_queue_entries" }, () => {
+        scheduleRefreshes();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions" }, () => {
+        scheduleRefreshes();
       })
       .subscribe();
 

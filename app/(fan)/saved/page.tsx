@@ -112,6 +112,32 @@ export default function SavedPage() {
       if (!isSessionFresh(session)) return;
       activeSessionByCreator[session.creator_id] = session;
     });
+    const activeSessionIds = Object.values(activeSessionByCreator).map((session) => session.id);
+    const sessionToCreator: Record<string, string> = {};
+    Object.entries(activeSessionByCreator).forEach(([creatorId, session]) => {
+      sessionToCreator[session.id] = creatorId;
+    });
+    const queueCountByCreator: Record<string, number> = {};
+    const audienceCountByCreator: Record<string, number> = {};
+    Object.keys(activeSessionByCreator).forEach((creatorId) => {
+      audienceCountByCreator[creatorId] = 1;
+    });
+    if (activeSessionIds.length > 0) {
+      const { data: queueEntries } = await supabase
+        .from("live_queue_entries")
+        .select("session_id, status")
+        .in("session_id", activeSessionIds)
+        .in("status", ["waiting", "active"]);
+
+      (queueEntries ?? []).forEach((entry: { session_id: string; status: string }) => {
+        const creatorId = sessionToCreator[entry.session_id];
+        if (!creatorId) return;
+        audienceCountByCreator[creatorId] = (audienceCountByCreator[creatorId] ?? 1) + 1;
+        if (entry.status === "waiting") {
+          queueCountByCreator[creatorId] = (queueCountByCreator[creatorId] ?? 0) + 1;
+        }
+      });
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const creators: Creator[] = saved.map((s: any) => {
@@ -175,7 +201,8 @@ export default function SavedPage() {
         avatarUrl: p.avatar_url ?? undefined,
         isLive: Boolean(activeSession),
         currentLiveSessionId: activeSession?.id ?? undefined,
-        queueCount: 0,
+        queueCount: queueCountByCreator[p.id] ?? 0,
+        audienceCount: activeSession ? (audienceCountByCreator[p.id] ?? 1) : 0,
         callPrice: minPrice,
         callDuration: packages[0]?.duration ?? 15,
         nextAvailable: minPrice > 0 ? (cp?.next_available ?? "Available this week") : "No packages yet",
