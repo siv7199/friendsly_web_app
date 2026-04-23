@@ -56,10 +56,25 @@ export default function FanSetupPage() {
 
   async function handleSubmit() {
     setSubmitting(true);
-    // Auto-assign fan role if not already set (skipping the role picker)
+
     if (!user?.role) {
+      // Check if this user has an approved creator request before defaulting to fan
+      try {
+        const res = await fetch("/api/auth/resolve-role", { method: "POST" });
+        const data = await res.json();
+
+        if (data?.role === "creator" && data?.promoted) {
+          // User was promoted to creator — skip fan setup entirely
+          window.location.replace("/dashboard");
+          return;
+        }
+      } catch {
+        // If the check fails, fall through to fan assignment
+      }
+
       await setRole("fan");
     }
+
     await (updateProfile as (u: Parameters<typeof updateProfile>[0]) => Promise<void>)({
       username,
       avatar_color: avatarColor,

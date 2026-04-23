@@ -114,11 +114,29 @@ export default function AuthPage() {
 
     const safeNext = sanitizeNextPath(next, result.user.role);
 
-    const destination = result.user.role === "creator"
-      ? "/dashboard"
-      : result.user.role === "fan"
-        ? (safeNext || "/discover")
-        : (safeNext ? `/onboarding/fan-setup?next=${encodeURIComponent(safeNext)}` : "/onboarding/fan-setup");
+    let destination: string;
+    if (result.user.role === "creator") {
+      destination = "/dashboard";
+    } else if (result.user.role === "fan") {
+      destination = safeNext || "/discover";
+    } else {
+      // No role — check if there's an approved creator request
+      try {
+        const res = await fetch("/api/auth/resolve-role", { method: "POST" });
+        const data = await res.json();
+        if (data?.role === "creator" && data?.promoted) {
+          destination = "/dashboard";
+        } else {
+          destination = safeNext
+            ? `/onboarding/fan-setup?next=${encodeURIComponent(safeNext)}`
+            : "/onboarding/fan-setup";
+        }
+      } catch {
+        destination = safeNext
+          ? `/onboarding/fan-setup?next=${encodeURIComponent(safeNext)}`
+          : "/onboarding/fan-setup";
+      }
+    }
 
     window.location.replace(destination);
   }
