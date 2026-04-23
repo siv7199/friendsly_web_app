@@ -75,7 +75,7 @@ function BookingRow({
   }
 
   return (
-    <div className="px-5 py-4 flex items-center gap-4 hover:bg-brand-elevated/50 transition-colors">
+    <div className="flex min-w-0 flex-col gap-3 px-4 py-4 transition-colors hover:bg-brand-elevated/50 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
       <Avatar initials={initials} color={color} imageUrl={booking.fanAvatarUrl} size="sm" />
 
       <div className="flex-1 min-w-0">
@@ -105,7 +105,7 @@ function BookingRow({
         </div>
       </div>
 
-      <div className="flex flex-col items-end gap-1.5 shrink-0">
+      <div className="flex w-full min-w-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end shrink-0">
         <span className="text-sm font-bold text-brand-ink">{formatCurrency(booking.price)}</span>
         <span
           className={cn(
@@ -119,7 +119,7 @@ function BookingRow({
           <Button
             variant="outline"
             size="sm"
-            className="mt-1 h-7 text-[10px] gap-1 px-3 text-red-400 border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40"
+            className="mt-1 h-7 w-full gap-1 border-red-500/20 px-3 text-[10px] text-red-400 hover:border-red-500/40 hover:bg-red-500/10 sm:w-auto"
             onClick={onClickCancel}
             disabled={cancelling}
           >
@@ -131,7 +131,7 @@ function BookingRow({
           <Button
             variant="live"
             size="sm"
-            className="mt-1 h-7 text-[10px] gap-1 px-3 shadow-glow-live"
+            className="mt-1 h-7 w-full gap-1 px-3 text-[10px] shadow-glow-live sm:w-auto"
             onClick={onClickJoin || handleJoin}
           >
             <Video className="w-3 h-3" />

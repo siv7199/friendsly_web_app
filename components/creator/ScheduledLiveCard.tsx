@@ -85,20 +85,20 @@ export function ScheduledLiveCard({
       </div>
 
       <div className="mt-4 min-w-0 space-y-3">
-        <div className="min-w-0 sm:hidden">
-          <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_120px]">
+        <div className="min-w-0 px-1 sm:hidden">
+          <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-[minmax(0,1fr)_132px]">
             <input
               type="date"
               value={scheduledLiveDatePart}
               onChange={(event) => onChangeDateTime(combineDateTimeParts(event.target.value, scheduledLiveTimePart))}
-              className="scheduled-live-field block h-12 w-full min-w-0 rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[11px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none"
+              className="scheduled-live-field block h-12 w-full min-w-0 max-w-full rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[11px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none"
             />
             <input
               type="time"
               value={scheduledLiveTimePart}
               onChange={(event) => onChangeDateTime(combineDateTimeParts(scheduledLiveDatePart, event.target.value))}
               disabled={!scheduledLiveDatePart}
-              className="scheduled-live-field block h-12 w-full min-w-0 rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[11px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="scheduled-live-field block h-12 w-full min-w-0 max-w-full rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[11px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
         </div>

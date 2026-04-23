@@ -227,7 +227,7 @@ export default function CalendarPage() {
   const totalCompletedEarnings = completed.reduce((sum, booking) => sum + booking.price, 0);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 overflow-x-hidden px-4 py-3 md:px-8">
+    <div className="mx-auto max-w-4xl min-w-0 space-y-5 overflow-x-hidden px-4 py-3 md:px-8">
       <div>
         <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">Calendar</h1>
         <p className="text-brand-ink-subtle mt-1">Your availability plus upcoming and completed sessions.</p>
@@ -240,7 +240,7 @@ export default function CalendarPage() {
         />
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 sm:grid-cols-4">
         {[
           { label: "Upcoming Calls", value: upcoming.length, icon: CalendarDays },
           { label: "Expected Earnings", value: formatCurrency(totalUpcomingEarnings), icon: Clock },
@@ -258,8 +258,8 @@ export default function CalendarPage() {
         })}
       </div>
 
-      <section>
-        <div className="flex items-center gap-2 mb-4">
+      <section className="min-w-0">
+        <div className="mb-4 flex min-w-0 items-center gap-2">
           <CalendarDays className="w-5 h-5 text-brand-info" />
           <h2 className="text-lg font-bold text-brand-ink">Upcoming</h2>
           <Badge variant="info">{upcoming.length}</Badge>
@@ -281,12 +281,12 @@ export default function CalendarPage() {
           Object.entries(groupedUpcoming)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([date, bookings]) => (
-              <div key={date} className="mb-6">
-                <div className="flex items-center gap-3 mb-3">
+              <div key={date} className="mb-6 min-w-0">
+                <div className="mb-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                   <span className="text-sm font-semibold text-brand-ink-muted">
                     {formatGroupDate(date)}
                   </span>
-                  <div className="flex-1 h-px bg-brand-border" />
+                  <div className="h-px bg-brand-border sm:flex-1" />
                   <span className="text-xs text-brand-ink-subtle">
                     {formatCurrency(bookings.reduce((sum, booking) => sum + booking.price, 0))} expected
                   </span>
@@ -301,8 +301,8 @@ export default function CalendarPage() {
         )}
       </section>
 
-      <section>
-        <div className="flex items-center gap-2 mb-4">
+      <section className="min-w-0">
+        <div className="mb-4 flex min-w-0 items-center gap-2">
           <CheckCircle2 className="w-5 h-5 text-brand-live" />
           <h2 className="text-lg font-bold text-brand-ink">Completed</h2>
           <Badge variant="live">{completed.length}</Badge>
