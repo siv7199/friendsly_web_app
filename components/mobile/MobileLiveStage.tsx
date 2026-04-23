@@ -321,7 +321,7 @@ function MobileLiveInner({
         body: JSON.stringify({
           fullName: user.full_name,
           email: user.email,
-          subject: `Live call report - ${creatorName}`,
+          subject: "Live call report",
           description: reportDescription.trim(),
         }),
       });
@@ -408,7 +408,7 @@ function MobileLiveInner({
         <div className="mx-4 mb-2 rounded-2xl bg-[#1a1a3e] px-4 py-4 text-white shrink-0">
           <p className="text-sm font-semibold">Report this live call</p>
           <p className="mt-1 text-xs leading-5 text-white/65">
-            This sends a support request with the subject Live call report - {creatorName}.
+            This sends a support request with the subject Live call report.
           </p>
           <textarea
             value={reportDescription}

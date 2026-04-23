@@ -303,7 +303,7 @@ function LiveStage({
         body: JSON.stringify({
           fullName: user.full_name,
           email: user.email,
-          subject: `Live call report - ${creatorName}`,
+          subject: "Live call report",
           description: reportDescription.trim(),
         }),
       });
@@ -351,12 +351,16 @@ function LiveStage({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 self-start md:self-auto">
-          {isAdmitted || isQueued ? null : (
+          {isQueued && onLeaveQueue ? (
+            <Button variant="outline" className="gap-2 shrink-0" onClick={onLeaveQueue}>
+              Leave Queue
+            </Button>
+          ) : !isAdmitted && !isQueued ? (
             <Button variant="live" className="gap-2 shrink-0" onClick={onJoinQueue} disabled={joinDisabled}>
               <Zap className="w-4 h-4" />
               Join Live
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -392,7 +396,7 @@ function LiveStage({
                 <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-black/75 p-4 text-left text-white shadow-xl backdrop-blur">
                   <p className="text-sm font-semibold">Report this live call</p>
                   <p className="mt-1 text-xs leading-5 text-white/70">
-                    This sends a support request with the subject Live call report - {creatorName}.
+                    This sends a support request with the subject Live call report.
                   </p>
                   <textarea
                     value={reportDescription}
