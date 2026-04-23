@@ -24,6 +24,21 @@ function formatScheduledLiveLabel(value: string | null, timeZone: string) {
   })} ${getTimeZoneAbbreviation(scheduledDate, timeZone)}`;
 }
 
+function getDatePart(value: string) {
+  const [datePart] = value.split("T");
+  return datePart ?? "";
+}
+
+function getTimePart(value: string) {
+  const [, timePart] = value.split("T");
+  return timePart?.slice(0, 5) ?? "";
+}
+
+function combineDateTimeParts(datePart: string, timePart: string) {
+  if (!datePart) return "";
+  return `${datePart}T${timePart || "12:00"}`;
+}
+
 interface ScheduledLiveCardProps {
   scheduledLiveAt: string;
   scheduledLiveTimeZone: string;
@@ -49,6 +64,9 @@ export function ScheduledLiveCard({
   onClear,
   openStudioHref,
 }: ScheduledLiveCardProps) {
+  const scheduledLiveDatePart = getDatePart(scheduledLiveAt);
+  const scheduledLiveTimePart = getTimePart(scheduledLiveAt);
+
   return (
     <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface p-5 sm:p-6">
       <div className="flex items-start gap-3">
@@ -67,12 +85,29 @@ export function ScheduledLiveCard({
       </div>
 
       <div className="mt-4 min-w-0 space-y-3">
-        <div className="min-w-0 w-[calc(100%-12px)] sm:w-full">
+        <div className="min-w-0 sm:hidden">
+          <div className="grid grid-cols-[minmax(0,1fr)_108px] gap-3">
+            <input
+              type="date"
+              value={scheduledLiveDatePart}
+              onChange={(event) => onChangeDateTime(combineDateTimeParts(event.target.value, scheduledLiveTimePart))}
+              className="scheduled-live-field block h-12 w-full min-w-0 rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[11px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none"
+            />
+            <input
+              type="time"
+              value={scheduledLiveTimePart}
+              onChange={(event) => onChangeDateTime(combineDateTimeParts(scheduledLiveDatePart, event.target.value))}
+              disabled={!scheduledLiveDatePart}
+              className="scheduled-live-field block h-12 w-full min-w-0 rounded-2xl border border-brand-border bg-brand-elevated px-3 text-[11px] leading-tight text-brand-ink [color-scheme:light] focus:border-brand-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+        </div>
+        <div className="hidden min-w-0 sm:block">
           <input
             type="datetime-local"
             value={scheduledLiveAt}
             onChange={(event) => onChangeDateTime(event.target.value)}
-            className="scheduled-live-datetime scheduled-live-field block h-12 w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated px-3 pr-9 text-[11px] leading-tight text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary sm:h-11 sm:rounded-xl sm:px-4 sm:pr-5 sm:text-sm"
+            className="scheduled-live-datetime scheduled-live-field block h-11 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-brand-border bg-brand-elevated px-4 pr-5 text-sm leading-tight text-brand-ink [color-scheme:light] focus:outline-none focus:border-brand-primary"
           />
         </div>
         <div className="min-w-0">
