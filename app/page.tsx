@@ -53,7 +53,16 @@ export default function LandingPage() {
         height: 64,
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
-        <Link href="/" style={{ fontFamily: "var(--font-pacifico, cursive)", fontSize: 22, color: PURPLE, textDecoration: "none" }}>
+        <Link
+          href="/"
+          style={{
+            fontFamily: 'var(--font-brand, "Times New Roman", serif)',
+            fontSize: 22,
+            lineHeight: 1,
+            color: PURPLE,
+            textDecoration: "none",
+          }}
+        >
           friendsly
         </Link>
         <nav style={{ display: "flex", alignItems: "center", gap: 28 }}>
@@ -206,7 +215,7 @@ export default function LandingPage() {
                 {/* Stage header */}
                 <div style={{ padding: "20px 24px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontFamily: "var(--font-pacifico, cursive)", fontSize: 16, color: PURPLE_MUTED }}>friendsly</span>
+                    <span style={{ fontFamily: 'var(--font-brand, "Times New Roman", serif)', fontSize: 16, lineHeight: 1, color: PURPLE_MUTED }}>friendsly</span>
                     <span style={{ background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 100, letterSpacing: 1, display: "flex", alignItems: "center", gap: 4 }}>
                       <span className="lp-blink-fast" style={{ width: 5, height: 5, borderRadius: "50%", background: "#fff", display: "inline-block" }} />
                       LIVE
@@ -411,7 +420,16 @@ export default function LandingPage() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
         gap: 24, flexWrap: "wrap",
       }}>
-        <Link href="/" style={{ fontFamily: "var(--font-pacifico, cursive)", fontSize: 22, color: PURPLE, textDecoration: "none" }}>
+        <Link
+          href="/"
+          style={{
+            fontFamily: 'var(--font-brand, "Times New Roman", serif)',
+            fontSize: 22,
+            lineHeight: 1,
+            color: PURPLE,
+            textDecoration: "none",
+          }}
+        >
           friendsly
         </Link>
         <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
