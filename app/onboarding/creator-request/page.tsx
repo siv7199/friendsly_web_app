@@ -342,6 +342,9 @@ export default function CreatorRequestPage() {
                 <li>Check your email and <span className="font-semibold text-brand-ink">confirm your account</span> by clicking the link we sent.</li>
                 <li>Your creator request will be <span className="font-semibold text-brand-ink">reviewed and approved</span> before you can sign in as a creator.</li>
               </ol>
+              <p className="mt-3 text-xs text-brand-ink-subtle">
+                Don&apos;t see the email? Check your <span className="font-semibold text-brand-ink-muted">junk or spam</span> folder.
+              </p>
             </div>
             {emailConfigured === false ? (
               <p className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-700">
