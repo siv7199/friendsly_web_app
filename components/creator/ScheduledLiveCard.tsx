@@ -86,7 +86,7 @@ export function ScheduledLiveCard({
 
       <div className="mt-4 min-w-0 space-y-3">
         <div className="min-w-0 sm:hidden">
-          <div className="grid grid-cols-[minmax(0,1fr)_108px] gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_120px]">
             <input
               type="date"
               value={scheduledLiveDatePart}

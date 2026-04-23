@@ -227,7 +227,7 @@ export default function CalendarPage() {
   const totalCompletedEarnings = completed.reduce((sum, booking) => sum + booking.price, 0);
 
   return (
-    <div className="px-4 md:px-8 py-3 max-w-4xl mx-auto space-y-5">
+    <div className="mx-auto max-w-4xl space-y-5 overflow-x-hidden px-4 py-3 md:px-8">
       <div>
         <h1 className="text-[1.65rem] font-serif font-normal text-brand-ink tracking-tight">Calendar</h1>
         <p className="text-brand-ink-subtle mt-1">Your availability plus upcoming and completed sessions.</p>

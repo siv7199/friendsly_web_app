@@ -225,9 +225,9 @@ export function WeeklyAvailabilityEditor({
   const scheduledLiveDayOfWeek = getScheduledLiveDayOfWeek(scheduledLiveAt, creatorTimeZone);
 
   return (
-    <div className="rounded-2xl border border-brand-border bg-brand-surface p-6">
+    <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-lg font-bold text-brand-ink">Weekly Availability</h2>
           <p className="text-sm text-brand-ink-subtle mt-1">
             Set the recurring times fans can book you for 1-on-1 calls each week.
@@ -237,6 +237,7 @@ export function WeeklyAvailabilityEditor({
           variant={availabilitySaved ? "surface" : "primary"}
           onClick={saveAvailability}
           disabled={availabilitySaving || hasInvalidAvailability}
+          className="w-full sm:w-auto"
         >
           {availabilitySaving ? "Saving..." : availabilitySaved ? "Saved" : "Save Availability"}
         </Button>
@@ -304,8 +305,8 @@ export function WeeklyAvailabilityEditor({
                   : "border-brand-border bg-brand-elevated/40"
               )}
             >
-              <div className="flex items-center justify-between gap-3">
-                <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold text-brand-ink">{dayLabel}</h3>
                     {scheduledLiveDayOfWeek === dayIndex ? (
@@ -323,7 +324,7 @@ export function WeeklyAvailabilityEditor({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5"
+                  className="w-full gap-1.5 sm:w-auto"
                   onClick={() => addAvailabilitySlot(dayIndex)}
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -351,7 +352,7 @@ export function WeeklyAvailabilityEditor({
                         )}
                       >
                         <div className="grid grid-cols-1 gap-3 items-end lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
-                          <div>
+                          <div className="min-w-0">
                             <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
                               Start
                             </label>
@@ -363,7 +364,7 @@ export function WeeklyAvailabilityEditor({
                               className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
                             />
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
                               End
                             </label>
@@ -375,7 +376,7 @@ export function WeeklyAvailabilityEditor({
                               className="w-full h-10 rounded-xl border border-brand-border bg-brand-elevated px-3 text-sm text-brand-ink focus:outline-none focus:border-brand-primary"
                             />
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <label className="text-xs font-medium text-brand-ink-subtle mb-1.5 block">
                               Offering
                             </label>
