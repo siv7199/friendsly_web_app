@@ -42,6 +42,19 @@ body {
   height: 100%;
 }
 
+/* Mobile padding for creator layout — matches the fixed header + fixed bottom nav */
+.creator-main-scroll {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 60px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 60px);
+}
+
+@media (min-width: 768px) {
+  .creator-main-scroll {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
 .app-root-shell {
   width: 100%;
   height: 100dvh;

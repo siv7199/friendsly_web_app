@@ -24,10 +24,8 @@ export function MobileAccountBar({ floating = true }: { floating?: boolean }) {
           : "relative z-10 mb-4 pb-3"
       )}
       style={{
-        paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)",
-        paddingBottom: floating
-          ? "calc(env(safe-area-inset-bottom) + 0.75rem)"
-          : "0.75rem",
+        paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)",
+        paddingBottom: "0.75rem",
       }}
     >
       <div className="flex w-full items-center gap-3">
