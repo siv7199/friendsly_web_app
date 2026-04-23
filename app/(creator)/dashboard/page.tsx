@@ -154,6 +154,7 @@ export default function DashboardPage() {
   const [scheduledLiveAtIso, setScheduledLiveAtIso] = useState<string | null>(null);
   const [savingScheduledLive, setSavingScheduledLive] = useState(false);
   const scheduledLiveDraftDirtyRef = useRef(false);
+  const liveRequestsPanelRef = useRef<HTMLDivElement | null>(null);
 
   function hasConfiguredLiveRate(value: number | null | undefined) {
     return typeof value === "number" && !Number.isNaN(value) && value > 0;
@@ -596,6 +597,18 @@ export default function DashboardPage() {
     setScheduledLiveTimeZone(value);
   }
 
+  useEffect(() => {
+    if (!showLiveRequests) return;
+    if (typeof window === "undefined") return;
+    if (window.innerWidth >= 1024) return;
+    const panel = liveRequestsPanelRef.current;
+    if (!panel) return;
+
+    window.setTimeout(() => {
+      panel.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  }, [showLiveRequests]);
+
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-4 py-4 md:px-8">
       {/* ── Quick Join banner — top of page so creator sees it immediately ── */}
@@ -695,7 +708,7 @@ export default function DashboardPage() {
         {/* Upcoming bookings */}
         <div className="lg:col-span-2">
           {showLiveRequests && (
-            <div className="mb-4 rounded-2xl border border-brand-border bg-brand-surface p-5">
+            <div ref={liveRequestsPanelRef} className="mb-4 rounded-2xl border border-brand-border bg-brand-surface p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-live">Live Requests</p>
