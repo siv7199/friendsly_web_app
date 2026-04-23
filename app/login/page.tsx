@@ -10,7 +10,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { getSiteUrl } from "@/lib/site-url";
+import { getAuthRedirectBaseUrl } from "@/lib/site-url";
 import { cn } from "@/lib/utils";
 import { formatSupabaseAuthError } from "@/lib/supabase/auth-errors";
 
@@ -18,6 +18,9 @@ type Tab = "signin" | "signup";
 
 function sanitizeNextPath(nextPath: string | null, role?: string | null) {
   if (!nextPath || !nextPath.startsWith("/")) return null;
+  // Reject protocol-relative or backslash-prefixed paths to avoid
+  // redirecting off-origin after sign-in.
+  if (nextPath.startsWith("//") || nextPath.startsWith("/\\")) return null;
 
   const creatorOnlyPrefixes = ["/dashboard", "/management", "/calendar", "/live", "/earnings", "/m/live"];
   const fanOnlyPrefixes = ["/discover", "/profile", "/bookings", "/payments", "/saved", "/m/waiting-room"];
@@ -167,7 +170,7 @@ export default function AuthPage() {
 
     try {
       const supabase = createClient();
-      const redirectTo = `${getSiteUrl()}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
+      const redirectTo = `${getAuthRedirectBaseUrl()}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
       const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
       if (error) throw error;
 

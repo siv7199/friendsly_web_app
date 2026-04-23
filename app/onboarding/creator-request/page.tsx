@@ -10,7 +10,7 @@ import { useAuthContext } from "@/lib/context/AuthContext";
 import { readJsonResponse } from "@/lib/http";
 import { formatSupabaseAuthError } from "@/lib/supabase/auth-errors";
 import { createClient } from "@/lib/supabase/client";
-import { getSiteUrl } from "@/lib/site-url";
+import { getAuthRedirectBaseUrl } from "@/lib/site-url";
 
 export default function CreatorRequestPage() {
   const router = useRouter();
@@ -77,7 +77,7 @@ export default function CreatorRequestPage() {
         }
 
         const supabase = createClient();
-        const redirectUrl = `${getSiteUrl()}/auth/callback?next=${encodeURIComponent("/login?tab=signin")}&post_confirm=signin`;
+        const redirectUrl = `${getAuthRedirectBaseUrl()}/auth/callback?next=${encodeURIComponent("/login?tab=signin")}&post_confirm=signin`;
         const { data, error: signupError } = await supabase.auth.signUp({
           email: normalizedEmail,
           password: form.password,

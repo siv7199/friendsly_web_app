@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatSupabaseAuthError } from "@/lib/supabase/auth-errors";
 import type { MockProfile, UserRole } from "@/types";
 import { sanitizeSocialUrl } from "@/lib/social";
-import { getSiteUrl } from "@/lib/site-url";
+import { getAuthRedirectBaseUrl } from "@/lib/site-url";
 
 export interface AuthState {
   user: MockProfile | null;
@@ -415,7 +415,7 @@ export function useAuth() {
     try {
       const supabase = createClient();
       const normalizedEmail = email.trim().toLowerCase();
-      const redirectUrl = `${getSiteUrl()}/auth/callback?next=${encodeURIComponent("/login?tab=signin")}&post_confirm=signin`;
+      const redirectUrl = `${getAuthRedirectBaseUrl()}/auth/callback?next=${encodeURIComponent("/login?tab=signin")}&post_confirm=signin`;
       const { data, error } = await Promise.race([
         supabase.auth.signUp({
           email: normalizedEmail,
@@ -455,7 +455,7 @@ export function useAuth() {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
       const supabase = createClient();
-      const redirectTo = `${getSiteUrl()}/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`;
+      const redirectTo = `${getAuthRedirectBaseUrl()}/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,

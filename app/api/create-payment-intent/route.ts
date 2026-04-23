@@ -38,19 +38,32 @@ export async function POST(request: Request) {
     const saveForFuture = booleanField(body, "saveForFuture");
     const paymentMethodId = stringField(body, "paymentMethodId", 120);
 
-    // If the caller provides a packageId, derive the amount server-side from the
-    // real package price so the client cannot submit an incorrect charge amount.
-    if (packageId && isUuid(packageId)) {
-      const { data: pkg } = await supabase
-        .from("call_packages")
-        .select("price")
-        .eq("id", packageId)
-        .maybeSingle();
-
-      if (pkg?.price) {
-        amount = Math.round(Number(pkg.price) * 1.025 * 100);
-      }
+    // Require a valid packageId. This is the only trusted source of truth for
+    // the charge amount; accepting a raw client `amount` would let a caller
+    // pick arbitrary prices within the safe-money band (e.g. $0.50 to
+    // $5,000) and charge saved cards via off_session=true without ever
+    // completing a booking.
+    if (!packageId || !isUuid(packageId)) {
+      return NextResponse.json(
+        { error: "packageId is required." },
+        { status: 400 }
+      );
     }
+
+    const { data: pkg } = await supabase
+      .from("call_packages")
+      .select("price")
+      .eq("id", packageId)
+      .maybeSingle();
+
+    if (!pkg?.price) {
+      return NextResponse.json(
+        { error: "Package not found." },
+        { status: 400 }
+      );
+    }
+
+    amount = Math.round(Number(pkg.price) * 1.025 * 100);
 
     if (!isSafeMoneyCents(amount, 500_000)) {
       return NextResponse.json(

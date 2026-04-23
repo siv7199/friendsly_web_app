@@ -111,7 +111,11 @@ export async function POST(request: Request) {
       .eq("id", user.id);
 
     const oldPath = extractStoragePathFromUrl(currentProfile?.avatar_url);
-    if (oldPath) {
+    // Only remove the previous file if it lives under this user's own prefix.
+    // avatar_url is client-writable via RLS, so without this scope check a
+    // caller could point their own avatar_url at another user's object and
+    // have the service client delete it on the next upload.
+    if (oldPath && oldPath.startsWith(`${user.id}/`)) {
       await serviceSupabase.storage.from(AVATAR_BUCKET).remove([oldPath]);
     }
 
@@ -144,7 +148,7 @@ export async function DELETE() {
       .eq("id", user.id);
 
     const oldPath = extractStoragePathFromUrl(currentProfile?.avatar_url);
-    if (oldPath) {
+    if (oldPath && oldPath.startsWith(`${user.id}/`)) {
       await serviceSupabase.storage.from(AVATAR_BUCKET).remove([oldPath]);
     }
 

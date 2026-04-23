@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
   const isRecoveryFlow = type === "recovery";
   let next = searchParams.get("next") ?? (isRecoveryFlow ? "/reset-password" : "/");
 
-  if (!next.startsWith("/")) {
+  // Reject absolute, protocol-relative, and backslash-prefixed paths to
+  // prevent open-redirect abuse of the OAuth/verification callback.
+  if (!next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) {
     next = "/";
   }
 

@@ -76,11 +76,14 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
 
   const { pathname } = request.nextUrl;
-  let role = session?.user?.user_metadata?.role as string | undefined;
 
-  // Fallback for older accounts whose DB profile role exists but JWT metadata
-  // has not been synced yet. This prevents login/redirect loops on protected routes.
-  if (!role && session?.user?.id) {
+  // Role must come from the DB, not from user_metadata. user_metadata is
+  // client-writable via supabase.auth.updateUser({data:{role:'creator'}}),
+  // so trusting it here would let a fan flip a flag in their browser and
+  // reach creator-only pages even though migration 046 blocks the actual
+  // privileged actions on the backend.
+  let role: string | undefined;
+  if (session?.user?.id) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
