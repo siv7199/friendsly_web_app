@@ -12,6 +12,7 @@ import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteUrl } from "@/lib/site-url";
 import { cn } from "@/lib/utils";
+import { formatSupabaseAuthError } from "@/lib/supabase/auth-errors";
 
 type Tab = "signin" | "signup";
 
@@ -172,7 +173,8 @@ export default function AuthPage() {
 
       setResetSuccess("Check your email for a password reset link.");
     } catch (err) {
-      setResetError(err instanceof Error ? err.message : "Could not send reset email.");
+      const raw = err instanceof Error ? err.message : "Could not send reset email.";
+      setResetError(formatSupabaseAuthError(raw));
     } finally {
       setResetSending(false);
     }

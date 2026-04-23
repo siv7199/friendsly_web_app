@@ -8,7 +8,7 @@ export function formatSupabaseAuthError(message: string): string {
     normalized.includes("rate limit reached") ||
     normalized.includes("over_email_send_rate_limit")
   ) {
-    return "We hit the email sending limit for signup confirmations. Please wait a bit before trying again, or raise the Auth email rate limit in Supabase.";
+    return "Too many emails sent. Please wait up to an hour before requesting another email.";
   }
 
   return message;
