@@ -848,7 +848,7 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <h3 className="text-sm font-semibold text-brand-ink">Withdraw Funds</h3>
-                    <p className="text-xs text-brand-ink-muted mt-0.5">Transfer your available balance to your connected account</p>
+                    <p className="text-xs text-brand-ink-muted mt-0.5">Request review for your available balance</p>
                   </div>
                 </div>
                 <Button 

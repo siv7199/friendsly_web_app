@@ -137,7 +137,7 @@ export function ScheduledLiveCard({
 
       {!liveRateConfigured ? (
         <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium leading-5 text-amber-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-          Set a Friendsly Live rate in Management before going live.
+          Set a Friendsly Live rate in Offerings before going live.
         </div>
       ) : null}
 

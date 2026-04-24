@@ -258,7 +258,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const liveIntentRequested = searchParams.get("intent") === "live";
 
   const selectedPackage = useMemo(
-    () => packages.find((pkg) => pkg.id === selectedPackageId) ?? (packages.length === 1 ? packages[0] : null),
+    () => packages.find((pkg) => pkg.id === selectedPackageId) ?? null,
     [packages, selectedPackageId]
   );
 
@@ -269,8 +269,17 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const platformFeeAmount = sessionGrossPrice - sessionPrice;
   const availableDates = getAvailableDates(weekOffset);
   const canReviewAndPay = Boolean(selectedPackage && selectedDate && selectedTime);
-  const needsPackageSelection = packages.length > 1 && !selectedPackage;
-  const currentStepLabel = step === "success" ? "Done" : step === "payment" ? "3" : step === "identity" ? "2" : "1";
+  const needsPackageSelection = !selectedPackage;
+  const currentStepLabel =
+    step === "success"
+      ? "Done"
+      : step === "payment" || step === "identity"
+      ? "3"
+      : !selectedPackage
+      ? "1"
+      : selectedDate && selectedTime
+      ? "3"
+      : "2";
   const packageAvailability = availability.filter((slot) =>
     !selectedPackage?.id ? slot.package_id == null : slot.package_id == null || slot.package_id === selectedPackage.id
   );
@@ -333,7 +342,6 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         setCreator(creatorData.creator);
         setPackages(creatorData.packages ?? []);
         setAvailability(creatorData.availability ?? []);
-        setSelectedPackageId((current) => current ?? (creatorData.packages?.length === 1 ? creatorData.packages[0].id : null));
 
         const bookedRes = await fetch(
           `/api/public/bookings/availability?creatorId=${encodeURIComponent(creatorData.creator.id)}`
@@ -782,10 +790,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
               </span>
             </div>
 
-            {packages.length > 1 && (
+            {packages.length > 0 && (
               <div
                 className={cn(
                   "mt-5 grid gap-2",
+                  packages.length === 1 && "grid-cols-1",
                   packages.length === 2 && "grid-cols-2",
                   packages.length >= 3 && "grid-cols-3",
                 )}
@@ -820,9 +829,13 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
             {needsPackageSelection && (
               <div className="mt-6 rounded-2xl border border-dashed border-brand-primary/35 bg-brand-primary/5 p-4">
-                <p className="text-sm font-semibold text-brand-ink">Choose a booking type first</p>
+                <p className="text-sm font-semibold text-brand-ink">
+                  {packages.length > 1 ? "Choose a booking type first" : "Select your session to get started"}
+                </p>
                 <p className="mt-1 text-sm leading-relaxed text-brand-ink-subtle">
-                  Pick the kind of session you want, then we&apos;ll show the available dates and times for that option.
+                  {packages.length > 1
+                    ? "Pick the kind of session you want, then we'll show the available dates and times."
+                    : "Tap the session above to see available dates and times."}
                 </p>
               </div>
             )}
@@ -832,11 +845,6 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                 {selectedPackage && (
                   <>
                     <div className="min-w-0">
-                      {selectedPackage.description && (
-                        <p className="mb-3 rounded-2xl border border-brand-border bg-brand-elevated px-4 py-3 text-sm leading-relaxed text-brand-ink-subtle">
-                          {selectedPackage.description}
-                        </p>
-                      )}
                       <p className="mb-2 text-xs text-brand-ink-muted">
                         Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}).
                       </p>

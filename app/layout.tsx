@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Barlow, Cormorant_Garamond, Nunito_Sans, Pacifico } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -72,6 +74,8 @@ export default function RootLayout({
             {children}
           </div>
         </AuthProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

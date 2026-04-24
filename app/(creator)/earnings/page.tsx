@@ -166,16 +166,25 @@ export default function EarningsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: earnings.withdrawable }),
       });
-      const data = await readJsonResponse<{ payout?: any; error?: string }>(res);
+      const data = await readJsonResponse<{
+        payout?: any;
+        error?: string;
+        emailNotificationConfigured?: boolean;
+        emailNotificationSent?: boolean;
+      }>(res);
 
       if (!res.ok) {
-        throw new Error(data?.error ?? "Could not send payout.");
+        throw new Error(data?.error ?? "Could not submit withdrawal request.");
       }
 
       if (data?.payout) {
         setPayouts((prev) => [data.payout, ...prev.filter((item) => item.id !== data.payout?.id)]);
       }
-      setNotice("Withdrawal submitted to Stripe.");
+      setNotice(
+        data?.emailNotificationConfigured === false || data?.emailNotificationSent === false
+          ? "Withdrawal request submitted. Admin email was not delivered, so the team may need to review it from Supabase."
+          : "Withdrawal request submitted for review."
+      );
 
       const statusRes = await fetch("/api/creator-payouts/status");
       const statusData = await readJsonResponse<{
@@ -189,7 +198,7 @@ export default function EarningsPage() {
         setConnectState(statusData?.account ?? EMPTY_CONNECT_STATE);
       }
     } catch (error) {
-      setPayoutError(error instanceof Error ? error.message : "Could not send payout.");
+      setPayoutError(error instanceof Error ? error.message : "Could not submit withdrawal request.");
     } finally {
       setIsWithdrawing(false);
     }
@@ -300,7 +309,7 @@ export default function EarningsPage() {
             </div>
                   <div>
                     <h3 className="text-sm font-semibold text-brand-ink">Withdraw Funds</h3>
-                    <p className="text-xs text-brand-ink-subtle mt-0.5">Transfer your currently withdrawable balance to your connected account</p>
+                    <p className="text-xs text-brand-ink-subtle mt-0.5">Request review for your currently withdrawable balance</p>
                     {earnings.pendingPayouts > 0.009 && (
                       <p className="text-[11px] text-brand-ink-subtle mt-1">
                         {formatCurrency(earnings.pendingPayouts)} is already being transferred out.
