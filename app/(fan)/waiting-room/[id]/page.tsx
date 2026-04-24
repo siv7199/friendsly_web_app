@@ -69,6 +69,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
   const waitingEntryIdRef = useRef<string | null>(null);
   const activeEntryIdRef = useRef<string | null>(null);
   const previousActiveEntryIdRef = useRef<string | null>(null);
+  const finalizedReceiptEntryIdRef = useRef<string | null>(null);
   const hasSeenActiveSessionRef = useRef(false);
 
   const loadLiveState = useCallback(async () => {
@@ -209,13 +210,41 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
       });
 
       setQueue(nextQueue);
+
+      const hasOpenEntryForCurrentUser = Boolean(
+        user?.id && (entries ?? []).some((entry: any) => entry.fan_id === user.id)
+      );
+      if (user?.id && !hasOpenEntryForCurrentUser) {
+        const { data: finalizedEntry } = await supabase
+          .from("live_queue_entries")
+          .select("id, ended_at")
+          .eq("session_id", session.id)
+          .eq("fan_id", user.id)
+          .in("status", ["completed", "skipped"])
+          .not("ended_at", "is", null)
+          .order("ended_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const endedAtMs = finalizedEntry?.ended_at ? new Date(finalizedEntry.ended_at).getTime() : 0;
+        const finalizedRecently = endedAtMs > 0 && Date.now() - endedAtMs <= 10 * 60 * 1000;
+        if (
+          finalizedEntry?.id &&
+          finalizedRecently &&
+          finalizedReceiptEntryIdRef.current !== finalizedEntry.id
+        ) {
+          finalizedReceiptEntryIdRef.current = finalizedEntry.id;
+          setShowPostCallModal(true);
+        }
+      }
+
       setLoading(false);
     } catch (error) {
       console.error("Failed to load live waiting room", error);
       setLoadError("We couldn't load this live room right now. Please try again.");
       setLoading(false);
     }
-  }, [routeTarget.creatorRef, routeTarget.sessionId]);
+  }, [routeTarget.creatorRef, routeTarget.sessionId, user?.id]);
 
   useEffect(() => {
     void loadLiveState();

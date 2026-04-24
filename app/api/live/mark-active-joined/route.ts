@@ -22,15 +22,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
     }
 
-    const joinedAt = new Date().toISOString();
+    const { data: existingEntry, error: existingError } = await serviceSupabase
+      .from("live_queue_entries")
+      .select("id, admitted_at")
+      .eq("session_id", sessionId)
+      .eq("fan_id", user.id)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (existingError) {
+      return NextResponse.json({ error: "Could not mark live join." }, { status: 400 });
+    }
+
+    if (!existingEntry) {
+      return NextResponse.json({ error: "Active live turn not found." }, { status: 404 });
+    }
+
+    const admittedAt = existingEntry.admitted_at ?? new Date().toISOString();
     const { data: entry, error } = await serviceSupabase
       .from("live_queue_entries")
       .update({
-        admitted_at: joinedAt,
+        admitted_at: admittedAt,
         admitted_daily_session_id: dailySessionId ?? null,
       })
-      .eq("session_id", sessionId)
-      .eq("fan_id", user.id)
+      .eq("id", existingEntry.id)
       .eq("status", "active")
       .select("id, admitted_at, admitted_daily_session_id")
       .maybeSingle();
@@ -41,7 +56,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      admittedAt: entry?.admitted_at ?? joinedAt,
+      admittedAt: entry?.admitted_at ?? admittedAt,
       admittedDailySessionId: entry?.admitted_daily_session_id ?? dailySessionId ?? null,
     });
   } catch (error) {
