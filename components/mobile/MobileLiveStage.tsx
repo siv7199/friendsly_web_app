@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, Flag, Loader2, Mic, MicOff, Send, Users, Video,
 import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
 import { RemoteAudioTracks } from "@/components/video/RemoteAudioTracks";
+import { useDailyLocalMediaState } from "@/components/video/useDailyLocalMediaState";
 import { cn } from "@/lib/utils";
 import { LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
 import {
@@ -193,6 +194,15 @@ function MobileLiveInner({
   const [messages, setMessages] = useState<
     { id: string; senderName: string; message: string; isMe: boolean }[]
   >([]);
+
+  useDailyLocalMediaState({
+    daily,
+    enabled: isAdmitted,
+    micOn,
+    camOn,
+    setMicOn,
+    setCamOn,
+  });
 
   // ── sync Daily participants ──────────────────────────────────────────────
   useEffect(() => {

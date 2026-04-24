@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { DailyAudioTrack, DailyVideo, useDaily, useLocalSessionId, useParticipantIds, useParticipantProperty } from "@daily-co/daily-react";
 import { Loader2, Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
 import { CallContainer } from "@/components/video/CallContainer";
+import { useDailyLocalMediaState } from "@/components/video/useDailyLocalMediaState";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,15 @@ function GuestVideoStage({
   const remoteVideoOn = remoteVideoState === "playable" || remoteVideoState === "loading";
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+
+  useDailyLocalMediaState({
+    daily,
+    enabled: true,
+    micOn,
+    camOn,
+    setMicOn,
+    setCamOn,
+  });
 
   useEffect(() => {
     if (!daily || typeof daily.meetingState !== "function") return;

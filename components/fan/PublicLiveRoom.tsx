@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
 import { RemoteAudioTracks } from "@/components/video/RemoteAudioTracks";
+import { useDailyLocalMediaState } from "@/components/video/useDailyLocalMediaState";
 import { cn } from "@/lib/utils";
 import { LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
 import { DailyVideo, useDaily, useLocalSessionId } from "@daily-co/daily-react";
@@ -150,6 +151,15 @@ function LiveStage({
   const audibleSessionIds = Array.from(new Set(
     [creatorSessionId, !isAdmitted ? activeFanSessionId : null].filter((value): value is string => Boolean(value))
   ));
+
+  useDailyLocalMediaState({
+    daily,
+    enabled: isAdmitted,
+    micOn,
+    camOn,
+    setMicOn,
+    setCamOn,
+  });
 
   const dailyVideoFillStyles = {
     __html: `

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { CallContainer } from "@/components/video/CallContainer";
 import { RemoteAudioTracks } from "@/components/video/RemoteAudioTracks";
+import { useDailyLocalMediaState } from "@/components/video/useDailyLocalMediaState";
 import { useLocalSessionId, useParticipantIds, DailyVideo, useDaily } from "@daily-co/daily-react";
 
 function FanVideoStage({
@@ -25,6 +26,15 @@ function FanVideoStage({
   // Start false — CallContainer joins with startVideo/startAudio both off
   const [micOn, setMicOn] = useState(false);
   const [camOn, setCamOn] = useState(false);
+
+  useDailyLocalMediaState({
+    daily,
+    enabled: true,
+    micOn,
+    camOn,
+    setMicOn,
+    setCamOn,
+  });
 
   const toggleMic = () => {
     const next = !micOn;

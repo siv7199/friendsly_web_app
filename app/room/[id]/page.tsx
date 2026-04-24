@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { CallContainer } from "@/components/video/CallContainer";
+import { useDailyLocalMediaState } from "@/components/video/useDailyLocalMediaState";
 import { LateFeeGate } from "@/components/booking/LateFeeGate";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
@@ -62,6 +63,15 @@ function BookingVideoStage({
   const remoteVideoOn = remoteVideoState === "playable" || remoteVideoState === "loading";
   const [micOn, setMicOn] = useState(canUseMedia);
   const [camOn, setCamOn] = useState(canUseMedia);
+
+  useDailyLocalMediaState({
+    daily,
+    enabled: canUseMedia,
+    micOn,
+    camOn,
+    setMicOn,
+    setCamOn,
+  });
 
   const localName = isCreator ? booking?.creator?.full_name ?? "You" : booking?.fan?.full_name ?? "You";
   const remoteName = isCreator ? booking?.fan?.full_name ?? "Fan" : booking?.creator?.full_name ?? "Creator";
