@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { CalendarClock, Radio } from "lucide-react";
+import { CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   COMMON_TIME_ZONES,
@@ -49,7 +48,6 @@ interface ScheduledLiveCardProps {
   onChangeTimeZone: (value: string) => void;
   onSave: () => void;
   onClear: () => void;
-  openStudioHref: string;
 }
 
 export function ScheduledLiveCard({
@@ -62,7 +60,6 @@ export function ScheduledLiveCard({
   onChangeTimeZone,
   onSave,
   onClear,
-  openStudioHref,
 }: ScheduledLiveCardProps) {
   const scheduledLiveDatePart = getDatePart(scheduledLiveAt);
   const scheduledLiveTimePart = getTimePart(scheduledLiveAt);
@@ -153,13 +150,6 @@ export function ScheduledLiveCard({
         </Button>
       </div>
 
-      <Link
-        href={openStudioHref}
-        className="mt-4 inline-flex max-w-full items-center gap-1 break-words text-sm font-medium text-brand-primary-light hover:underline"
-      >
-        <Radio className="h-4 w-4" />
-        Open live studio
-      </Link>
     </div>
   );
 }

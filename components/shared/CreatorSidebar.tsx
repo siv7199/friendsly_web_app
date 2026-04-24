@@ -7,7 +7,6 @@ import {
   BarChart3,
   DollarSign,
   Settings2,
-  CalendarDays,
   Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,11 +27,10 @@ export function CreatorSidebar() {
 
   const NAV_ITEMS = [
     { label: "Dashboard",        href: "/dashboard",  icon: LayoutDashboard, highlight: false },
+    { label: "Go Live",          href: liveHref,      icon: Radio,           highlight: true  },
     { label: "Analytics",        href: "/analytics",  icon: BarChart3,       highlight: false },
     { label: "Earnings",         href: "/earnings",   icon: DollarSign,      highlight: false },
     { label: "Offerings", href: "/management", icon: Settings2,       highlight: false },
-    { label: "Calendar",         href: "/calendar",   icon: CalendarDays,    highlight: false },
-    { label: "Go Live",          href: liveHref,      icon: Radio,           highlight: true  },
   ];
 
   return (

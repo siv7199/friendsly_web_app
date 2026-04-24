@@ -42,10 +42,10 @@ Deno.serve(async (request) => {
   try {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const fromEmail = Deno.env.get("CREATOR_REQUEST_FROM_EMAIL") ||
-      "Friendsly <notifications@send.friendsly.app>";
+      "Friendsly Support <support@send.friendsly.app>";
     const notifyEmail = Deno.env.get("CREATOR_REQUEST_NOTIFICATION_EMAIL") ||
       "sid.vangara@gmail.com";
-    const appBaseUrl = Deno.env.get("APP_BASE_URL");
+    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://friendsly.app";
 
     console.log("creator-signup-notify: Config loaded", {
       hasKey: !!resendApiKey,

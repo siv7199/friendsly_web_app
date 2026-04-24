@@ -12,6 +12,7 @@ const BOOKING_UI_RELEVANT_COLUMNS = [
   "fan_present",
   "scheduled_at",
   "duration",
+  "topic",
   "late_fee_paid_at",
 ] as const;
 

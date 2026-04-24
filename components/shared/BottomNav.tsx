@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Compass, BookOpen, Heart, CreditCard,
-  LayoutDashboard, Settings2, CalendarDays, Radio, DollarSign,
+  LayoutDashboard, Settings2, Radio, DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
@@ -34,10 +34,9 @@ export function BottomNav({
 
   const CREATOR_ITEMS = [
     { label: "Dashboard", href: "/dashboard",  icon: LayoutDashboard },
+    { label: "Go Live",   href: liveHref,      icon: Radio, highlight: true },
     { label: "Earnings",  href: "/earnings",   icon: DollarSign },
     { label: "Offerings", href: "/management", icon: Settings2 },
-    { label: "Calendar",  href: "/calendar",   icon: CalendarDays },
-    { label: "Go Live",   href: liveHref,      icon: Radio, highlight: true },
   ];
 
   const items = type === "fan" ? FAN_ITEMS : CREATOR_ITEMS;
@@ -45,7 +44,7 @@ export function BottomNav({
   if (!floating) {
     return (
       <nav className="md:hidden rounded-2xl border border-brand-border/70 bg-white/95 p-2 shadow-[0_16px_36px_rgba(26,22,40,0.08)] backdrop-blur-md">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {items.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;

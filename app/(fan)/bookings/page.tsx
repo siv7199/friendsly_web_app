@@ -11,11 +11,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays, Clock, Video, XCircle,
-  Loader2, Compass, MessageSquare,
+  Loader2, Compass, MessageSquare, Edit2,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -42,12 +43,29 @@ interface FanBooking {
   packageName?: string;
 }
 
+function toDateTimeLocalValue(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
+  return offsetDate.toISOString().slice(0, 16);
+}
+
+function dateTimeLocalToIso(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
 export default function BookingsPage() {
   const { user } = useAuthContext();
   const [bookings, setBookings] = useState<FanBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("upcoming");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [editingBooking, setEditingBooking] = useState<FanBooking | null>(null);
+  const [editScheduledAt, setEditScheduledAt] = useState("");
+  const [editTopic, setEditTopic] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -213,6 +231,51 @@ export default function BookingsPage() {
       );
     }
     setCancellingId(null);
+  }
+
+  function openEditBooking(booking: FanBooking) {
+    setEditingBooking(booking);
+    setEditScheduledAt(toDateTimeLocalValue(booking.scheduledAt));
+    setEditTopic(booking.topic ?? "");
+    setEditError("");
+  }
+
+  async function handleSaveEdit() {
+    if (!editingBooking || !editScheduledAt) return;
+    setEditSaving(true);
+    setEditError("");
+
+    const res = await fetch(`/api/bookings/${editingBooking.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scheduledAt: dateTimeLocalToIso(editScheduledAt),
+        topic: editTopic,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      setEditError(data?.error ?? "Could not update booking.");
+      setEditSaving(false);
+      return;
+    }
+
+    const updated = data?.booking;
+    setBookings((prev) =>
+      prev.map((booking) =>
+        booking.id === editingBooking.id
+          ? {
+              ...booking,
+              scheduledAt: updated?.scheduled_at ?? dateTimeLocalToIso(editScheduledAt),
+              duration: Number(updated?.duration ?? booking.duration),
+              topic: updated?.topic ?? undefined,
+            }
+          : booking
+      )
+    );
+    setEditSaving(false);
+    setEditingBooking(null);
   }
 
   const tabs: { key: Tab; label: string; count: number }[] = [
@@ -436,8 +499,18 @@ export default function BookingsPage() {
 
                     {/* Actions */}
                     {(booking.status === "upcoming" || booking.status === "live") && (
-                      <div className="flex gap-2 mt-3">
+                      <div className="flex flex-wrap gap-2 mt-3">
                         {booking.status === "upcoming" && (
+                          <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditBooking(booking)}
+                            className="gap-1.5"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            Edit
+                          </Button>
                           <div className="flex flex-col gap-1.5">
                             <Button
                               variant="outline"
@@ -451,6 +524,7 @@ export default function BookingsPage() {
                             </Button>
                             <RefundPolicyModal trigger="link" />
                           </div>
+                          </>
                         )}
                         {isJoinable && (
                           <Link href={`/room/${booking.id}`}>
@@ -473,6 +547,68 @@ export default function BookingsPage() {
           })}
         </div>
       )}
+
+      <Dialog open={Boolean(editingBooking)} onClose={() => setEditingBooking(null)}>
+        <DialogContent
+          title="Edit Booking"
+          description="Update the time or prep note for this upcoming booking."
+          onClose={() => setEditingBooking(null)}
+          className="max-w-md"
+        >
+          <div className="space-y-4">
+            <div className="rounded-xl border border-brand-border bg-brand-surface p-3 text-sm">
+              <p className="font-semibold text-brand-ink">{editingBooking?.packageName ?? "Booking"}</p>
+              <p className="mt-1 text-brand-ink-subtle">
+                with {editingBooking?.creatorName}
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-brand-ink-muted">
+                Date and time
+              </label>
+              <input
+                type="datetime-local"
+                value={editScheduledAt}
+                onChange={(event) => setEditScheduledAt(event.target.value)}
+                className="mobile-native-field h-11 w-full rounded-xl border border-brand-border bg-brand-elevated px-3 text-[16px] text-brand-ink focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary sm:text-sm"
+              />
+              <p className="mt-1.5 text-xs text-brand-ink-subtle">
+                New times must match the creator&apos;s availability.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-brand-ink-muted">
+                Prep note
+              </label>
+              <textarea
+                value={editTopic}
+                onChange={(event) => setEditTopic(event.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="What do you want to cover?"
+                className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-muted resize-none focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+              />
+            </div>
+
+            {editError && (
+              <div className="rounded-xl border border-red-300/40 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {editError}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3 min-[420px]:flex-row">
+              <Button variant="outline" className="flex-1" onClick={() => setEditingBooking(null)} disabled={editSaving}>
+                Cancel
+              </Button>
+              <Button variant="primary" className="flex-1" onClick={handleSaveEdit} disabled={editSaving || !editScheduledAt}>
+                {editSaving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

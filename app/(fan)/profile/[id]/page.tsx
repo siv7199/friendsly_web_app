@@ -1045,6 +1045,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                     onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
                   >
                     <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
+                    {pkg.description && (
+                      <p className="line-clamp-2 w-full text-xs leading-relaxed text-brand-ink-subtle">
+                        {pkg.description}
+                      </p>
+                    )}
                     <span className="inline-flex items-center gap-1 text-[11px] text-brand-ink-subtle">
                       <Clock className="h-3 w-3" />
                       {pkg.duration} min
@@ -1514,6 +1519,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                         className={cn("flex w-full min-w-0 flex-col items-start gap-1 rounded-2xl border p-3 text-left transition-colors", accent.card)}
                       >
                         <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
+                        {pkg.description && (
+                          <p className="line-clamp-2 w-full text-xs leading-relaxed text-brand-ink-subtle">
+                            {pkg.description}
+                          </p>
+                        )}
                         <span className="inline-flex items-center gap-1 text-xs text-brand-ink-subtle">
                           <Clock className="h-3 w-3" />
                           {pkg.duration} min

@@ -45,10 +45,10 @@ export function getCreatorInsights({
   if (availabilitySlotCount === 0) {
     insights.push({
       id: "availability",
-      title: "Open your calendar",
-      description: "Set weekly availability so fans can see real times and convert faster.",
+      title: "Open booking availability",
+      description: "Add availability inside an offering so fans can see real times and convert faster.",
       ctaLabel: "Update Availability",
-      ctaHref: "/calendar",
+      ctaHref: "/management",
       tone: "action",
     });
   }
@@ -89,8 +89,8 @@ export function getCreatorInsights({
       id: "reviews",
       title: "Turn completed calls into social proof",
       description: "You already have completed sessions. A few reviews will make your profile much easier to trust.",
-      ctaLabel: "View Calendar",
-      ctaHref: "/calendar",
+      ctaLabel: "View Bookings",
+      ctaHref: "/dashboard",
       tone: "momentum",
     });
   }
@@ -110,7 +110,7 @@ export function getCreatorInsights({
     insights.push({
       id: "momentum",
       title: "Your profile is in a strong place",
-      description: "Keep your calendar updated and go live regularly to turn profile traffic into repeat bookings.",
+      description: "Keep your offering availability updated and go live regularly to turn profile traffic into repeat bookings.",
       ctaLabel: "Go Live",
       ctaHref: getCreatorLiveConsolePath({ id: user.id, username: user.username }),
       tone: "momentum",

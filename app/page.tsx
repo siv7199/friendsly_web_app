@@ -7,6 +7,7 @@ const BORDER = "#cec6e5";
 const MUTED = "#6b7280";
 const BG2 = "#f8f7ff";
 const TEXT = "#0f0a1e";
+const WORDMARK_FONT = 'var(--font-brand, "Times New Roman", serif)';
 
 const creatorCards = [
   { color: "linear-gradient(135deg,#a855f7,#ec4899)", name: "Lexi Monroe", cat: "Fitness & Nutrition", price: "$12/min", followers: "4.2M", live: true },
@@ -56,7 +57,7 @@ export default function LandingPage() {
         <Link
           href="/"
           style={{
-            fontFamily: 'var(--font-brand, "Times New Roman", serif)',
+            fontFamily: WORDMARK_FONT,
             fontSize: 22,
             lineHeight: 1,
             color: PURPLE,
@@ -132,8 +133,7 @@ export default function LandingPage() {
           </p>
 
           <div className="lp-fadeup-4 lp-hero-actions" style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 72, position: "relative", zIndex: 1 }}>
-            <Link href="/login?tab=signup" className="lp-btn-primary">Join the Waitlist</Link>
-            <Link href="/discover" className="lp-btn-outline">Browse Creators</Link>
+            <Link href="/discover" className="lp-btn-primary">Browse Creators</Link>
           </div>
 
           <div className="lp-fadeup-5 lp-hero-art" style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 1000, margin: "0 auto" }}>
@@ -384,18 +384,17 @@ export default function LandingPage() {
               Your creator is<br />waiting to meet you
             </h2>
             <p style={{ fontSize: 17, color: "rgba(255,255,255,0.75)", lineHeight: 1.65, marginBottom: 36 }}>
-              Join the waitlist and get first access when Friendsly launches. Be part of a new era of creator–fan connection.
+              Browse creators and find the conversation you want to book next.
             </p>
-            <Link href="/login?tab=signup" style={{
+            <Link href="/discover" style={{
               background: "#fff", color: PURPLE,
               padding: "16px 40px", borderRadius: 100,
               fontSize: 15, fontWeight: 700,
               textDecoration: "none", display: "inline-block",
               boxShadow: "0 6px 24px rgba(0,0,0,0.15)",
             }}>
-              Join the Waitlist
+              Browse Creators
             </Link>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 16 }}>No credit card required · Free to join</p>
           </div>
         </section>
 
@@ -423,7 +422,7 @@ export default function LandingPage() {
         <Link
           href="/"
           style={{
-            fontFamily: 'var(--font-brand, "Times New Roman", serif)',
+            fontFamily: WORDMARK_FONT,
             fontSize: 22,
             lineHeight: 1,
             color: PURPLE,

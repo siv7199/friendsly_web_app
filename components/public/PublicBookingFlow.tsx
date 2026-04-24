@@ -806,6 +806,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                     )}
                   >
                     <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
+                    {pkg.description && (
+                      <p className="line-clamp-2 w-full text-xs leading-relaxed text-brand-ink-subtle">
+                        {pkg.description}
+                      </p>
+                    )}
                     <p className="text-[11px] text-brand-ink-muted">{pkg.duration} min</p>
                     <p className="mt-1 text-base font-bold text-amber-600">{formatCurrency(pkg.price)}</p>
                   </button>
@@ -827,6 +832,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                 {selectedPackage && (
                   <>
                     <div className="min-w-0">
+                      {selectedPackage.description && (
+                        <p className="mb-3 rounded-2xl border border-brand-border bg-brand-elevated px-4 py-3 text-sm leading-relaxed text-brand-ink-subtle">
+                          {selectedPackage.description}
+                        </p>
+                      )}
                       <p className="mb-2 text-xs text-brand-ink-muted">
                         Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}).
                       </p>
@@ -986,6 +996,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                   <span className="text-brand-ink-muted">Session</span>
                   <span className="font-medium text-brand-ink">{selectedPackage?.name ?? "Choose a package"}</span>
                 </div>
+                {selectedPackage?.description && (
+                  <p className="mt-2 text-xs leading-relaxed text-brand-ink-subtle">
+                    {selectedPackage.description}
+                  </p>
+                )}
                 <div className="mt-2 flex justify-between">
                   <span className="text-brand-ink-muted">When</span>
                   <span className="font-medium text-brand-ink">

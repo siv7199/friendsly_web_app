@@ -17,6 +17,7 @@ import { BookingList } from "@/components/creator/BookingList";
 import { ScheduledLiveCard } from "@/components/creator/ScheduledLiveCard";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { MOCK_CREATOR_STATS, MOCK_BOOKINGS } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
@@ -32,6 +33,9 @@ import { getLiveRevenueShareableAmountFromChargedAmount } from "@/lib/live";
 import { formatDateTimeLocalInTimeZone, getBrowserTimeZone, localDateKey, zonedTimeToUtc } from "@/lib/timezones";
 import { getCreatorLiveConsolePath } from "@/lib/routes";
 import { getCreatorRevenueShare } from "@/lib/revenue";
+
+const DASHBOARD_BOOKING_PREVIEW_LIMIT = 5;
+const DASHBOARD_BOOKING_EXPANDED_LIMIT = 50;
 
 interface LiveRequestRow {
   id: string;
@@ -137,6 +141,7 @@ export default function DashboardPage() {
 
   const [stats, setStats] = useState<CreatorStats>(EMPTY_STATS);
   const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
+  const [showUpcomingBookings, setShowUpcomingBookings] = useState(false);
   const [nextJoinableBooking, setNextJoinableBooking] = useState<any | null>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
@@ -388,7 +393,9 @@ export default function DashboardPage() {
           .update({ status: "completed" })
           .in("id", expiredBookingIds);
       }
-      const upcoming = mappedBookings.filter((b: any) => b.status === "upcoming" || b.status === "live");
+      const upcoming = mappedBookings
+        .filter((b: any) => b.status === "upcoming" || b.status === "live")
+        .slice(0, DASHBOARD_BOOKING_EXPANDED_LIMIT);
       setUpcomingBookings(upcoming);
       setNextJoinableBooking(
         mappedBookings.find((b: any) =>
@@ -560,6 +567,8 @@ export default function DashboardPage() {
   const avatarUrl = user?.avatar_url ?? undefined;
   const liveRequestCount = liveRequests.length;
   const hasLiveRequests = liveRequestCount > 0;
+  const visibleUpcomingBookings = upcomingBookings.slice(0, DASHBOARD_BOOKING_PREVIEW_LIMIT);
+  const hasMoreUpcomingBookings = upcomingBookings.length > visibleUpcomingBookings.length;
 
   const profileStrength = calculateProfileStrength(
     user,
@@ -762,11 +771,25 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-brand-ink">Upcoming Bookings</h2>
-            <Link href="/calendar" className="text-sm text-brand-primary-light hover:underline flex items-center gap-1">
-              View all <ArrowRight className="w-3 h-3" />
-            </Link>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-brand-ink">Upcoming Bookings</h2>
+              {upcomingBookings.length > 0 && (
+                <p className="mt-0.5 text-xs text-brand-ink-subtle">
+                  Showing {visibleUpcomingBookings.length} of {upcomingBookings.length}
+                </p>
+              )}
+            </div>
+            {hasMoreUpcomingBookings && (
+              <Button
+                variant="surface"
+                size="sm"
+                className="min-h-11 shrink-0 px-4"
+                onClick={() => setShowUpcomingBookings(true)}
+              >
+                View all
+              </Button>
+            )}
           </div>
           {loadingDashboard ? (
             <div className="rounded-2xl border border-brand-border bg-brand-surface p-8 flex justify-center text-brand-ink-subtle min-h-[200px] items-center">
@@ -774,7 +797,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <BookingList
-              bookings={upcomingBookings}
+              bookings={visibleUpcomingBookings}
               onClickCancel={handleCancelBooking}
               cancellingId={cancellingBookingId}
             />
@@ -808,7 +831,6 @@ export default function DashboardPage() {
             onChangeTimeZone={handleScheduledLiveTimeZoneChange}
             onSave={() => void saveScheduledLive(scheduledLiveAt)}
             onClear={() => void saveScheduledLive("")}
-            openStudioHref={user ? getCreatorLiveConsolePath({ id: user.id, username: user.username }) : "/live"}
           />
 
           {/* Profile card */}
@@ -879,29 +901,25 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="rounded-2xl border border-brand-border bg-brand-surface p-5">
-            <h3 className="text-sm font-semibold text-brand-ink-muted mb-3">Quick Actions</h3>
-            <div className="space-y-2">
-              {[
-                { label: "Offerings", href: "/management", icon: "⚙️" },
-                { label: "View Calendar", href: "/calendar", icon: "📅" },
-                { label: "Update Availability", href: "/calendar", icon: "🕐" },
-              ].map((action) => (
-                <Link
-                  key={action.href + action.label}
-                  href={action.href}
-                  className="flex items-center gap-3 p-2.5 rounded-xl bg-brand-elevated border border-brand-border hover:border-brand-primary/40 transition-colors text-sm text-brand-ink-muted hover:text-brand-ink"
-                >
-                  <span>{action.icon}</span>
-                  <span>{action.label}</span>
-                  <ArrowRight className="w-3.5 h-3.5 ml-auto text-brand-ink-subtle" />
-                </Link>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
+
+      <Dialog open={showUpcomingBookings} onClose={() => setShowUpcomingBookings(false)}>
+        <DialogContent
+          title="Upcoming Bookings"
+          description={`Your next ${upcomingBookings.length} upcoming booking${upcomingBookings.length === 1 ? "" : "s"}.`}
+          onClose={() => setShowUpcomingBookings(false)}
+          className="max-w-3xl sm:w-[min(44rem,calc(100vw-2rem))]"
+        >
+          <div className="max-h-[min(68dvh,34rem)] overflow-y-auto overscroll-contain pr-1">
+            <BookingList
+              bookings={upcomingBookings}
+              onClickCancel={handleCancelBooking}
+              cancellingId={cancellingBookingId}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Recent Reviews ── */}
       <div>

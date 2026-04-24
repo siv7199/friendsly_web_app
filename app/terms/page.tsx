@@ -4,15 +4,13 @@ const PURPLE = "#6d28d9";
 const BORDER = "#cec6e5";
 const MUTED = "#6b7280";
 const TEXT = "#0f0a1e";
-const BG2 = "#f8f7ff";
+const WORDMARK_FONT = 'var(--font-brand, "Times New Roman", serif)';
 
 export const metadata = { title: "Terms of Service — Friendsly" };
 
 export default function TermsPage() {
   return (
     <CompliancePage title="Terms of Service" section="Legal">
-      <MetaBox />
-
       <PolicySection title="Acceptance of Terms">
         <p>By accessing or using Friendsly, you agree to these Terms of Service. If you do not agree, do not use the platform. You must be at least 18 years old to create an account or make purchases on Friendsly.</p>
       </PolicySection>
@@ -110,7 +108,7 @@ function CompliancePage({ title, section, children }: { title: string; section: 
 function ComplianceHeader() {
   return (
     <header style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(255,255,255,0.94)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${BORDER}`, padding: "0 48px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <Link href="/" style={{ fontFamily: "var(--font-pacifico, cursive)", fontSize: 22, color: PURPLE, textDecoration: "none" }}>friendsly</Link>
+      <Link href="/" style={{ fontFamily: WORDMARK_FONT, fontSize: 22, lineHeight: 1, color: PURPLE, textDecoration: "none" }}>friendsly</Link>
       <Link href="/login" style={{ background: PURPLE, color: "#fff", padding: "8px 20px", borderRadius: 100, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>Sign In</Link>
     </header>
   );
@@ -133,12 +131,3 @@ function PolicySection({ title, children }: { title: string; children: React.Rea
   );
 }
 
-function MetaBox() {
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 20, padding: "18px 22px", background: BG2, border: `1px solid ${BORDER}`, borderRadius: 14, marginBottom: 36, fontSize: 13, color: MUTED }}>
-      <span><strong style={{ color: TEXT }}>Effective date:</strong> June 1, 2026</span>
-      <span><strong style={{ color: TEXT }}>Business:</strong> Friendsly</span>
-      <span><strong style={{ color: TEXT }}>Contact:</strong> <a href="mailto:matvey@friendsly.app" style={{ color: PURPLE, textDecoration: "none" }}>matvey@friendsly.app</a></span>
-    </div>
-  );
-}

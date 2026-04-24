@@ -6,6 +6,7 @@ const BORDER = "#cec6e5";
 const MUTED = "#6b7280";
 const TEXT = "#0f0a1e";
 const BG2 = "#f8f7ff";
+const WORDMARK_FONT = 'var(--font-brand, "Times New Roman", serif)';
 
 export const metadata = { title: "Pricing — Friendsly" };
 
@@ -71,7 +72,7 @@ function CompliancePage({ title, section, children }: { title: string; section: 
 function ComplianceHeader() {
   return (
     <header style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(255,255,255,0.94)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${BORDER}`, padding: "0 48px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <Link href="/" style={{ fontFamily: "var(--font-pacifico, cursive)", fontSize: 22, color: PURPLE, textDecoration: "none" }}>friendsly</Link>
+      <Link href="/" style={{ fontFamily: WORDMARK_FONT, fontSize: 22, lineHeight: 1, color: PURPLE, textDecoration: "none" }}>friendsly</Link>
       <Link href="/login" style={{ background: PURPLE, color: "#fff", padding: "8px 20px", borderRadius: 100, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>Sign In</Link>
     </header>
   );

@@ -1,7 +1,7 @@
 
 
 async function testEdgeFunction() {
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/creator_signup_notify`;
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/super-worker`;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   console.log("Calling", url);

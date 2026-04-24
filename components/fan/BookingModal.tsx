@@ -531,6 +531,11 @@ export function BookingModal({
                   {selectedPackage ? `${selectedPackage.name} · ` : ""}
                   {sessionDuration} min · {formatCurrency(sessionPrice)}
                 </p>
+                {selectedPackage?.description && (
+                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-brand-ink-subtle">
+                    {selectedPackage.description}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -709,6 +714,12 @@ export function BookingModal({
                     <p className="text-sm text-brand-ink font-medium mt-0.5 truncate">{v}</p>
                   </div>
                 ))}
+                {selectedPackage?.description && (
+                  <div className="col-span-2">
+                    <p className="text-[11px] text-brand-ink-muted uppercase tracking-wider">Description</p>
+                    <p className="mt-0.5 text-sm leading-relaxed text-brand-ink-subtle">{selectedPackage.description}</p>
+                  </div>
+                )}
                 <div className="col-span-2 rounded-lg bg-brand-elevated px-3 py-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-brand-ink-subtle">Session fee</span>

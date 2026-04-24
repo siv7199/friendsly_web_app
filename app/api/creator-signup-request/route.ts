@@ -62,10 +62,19 @@ async function notifyCreatorRequest(details: {
     const responseJson = await response.json().catch(() => null);
     clearTimeout(timeoutId);
 
-    return {
+    const result = {
       attempted: true,
-      delivered: Boolean(response.ok && responseJson?.delivered),
+      delivered: Boolean(response.ok && (responseJson?.delivered || responseJson?.ok)),
     };
+
+    if (!result.delivered) {
+      console.warn("creator-signup-request: Notification failed", {
+        status: response.status,
+        response: responseJson,
+      });
+    }
+
+    return result;
   } catch (error) {
     console.warn("creator-signup-request: Notification fetch error or timeout", error);
     return { attempted: true, delivered: false };
