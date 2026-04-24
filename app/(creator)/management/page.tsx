@@ -101,6 +101,7 @@ export default function ManagementPage() {
   const [availabilityByPackage, setAvailabilityByPackage] = useState<Record<string, PackageAvailabilitySummary>>({});
   const [formPackageId, setFormPackageId] = useState<string | null>(null);
   const [formSaving, setFormSaving] = useState(false);
+  const [deletingPackageId, setDeletingPackageId] = useState<string | null>(null);
   const [creatorTimeZone, setCreatorTimeZone] = useState(getBrowserTimeZone());
 
   // Live rate state
@@ -492,8 +493,41 @@ export default function ManagementPage() {
   }
 
   async function deletePackage(id: string) {
+    if (!user) return;
+    setToggleWarning(null);
+    setDeletingPackageId(id);
+
+    const { error: bookingDetachError } = await supabase
+      .from("bookings")
+      .update({ package_id: null })
+      .eq("creator_id", user.id)
+      .eq("package_id", id);
+
+    if (bookingDetachError) {
+      setToggleWarning("Could not delete this booking yet. Please try again.");
+      setDeletingPackageId(null);
+      return;
+    }
+
+    const { error: deleteError } = await supabase
+      .from("call_packages")
+      .delete()
+      .eq("creator_id", user.id)
+      .eq("id", id);
+
+    if (deleteError) {
+      setToggleWarning("Could not delete this booking yet. Please try again.");
+      setDeletingPackageId(null);
+      return;
+    }
+
     setPackages((prev) => prev.filter((p) => p.id !== id));
-    await supabase.from("call_packages").delete().eq("id", id);
+    setAvailabilityByPackage((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setDeletingPackageId(null);
   }
 
   return (
@@ -557,6 +591,7 @@ export default function ManagementPage() {
                 key={pkg.id}
                 pkg={pkg}
                 availability={availabilityByPackage[pkg.id]}
+                deleting={deletingPackageId === pkg.id}
                 onEdit={() => openEdit(pkg)}
                 onToggle={() => toggleActive(pkg.id)}
                 onDelete={() => deletePackage(pkg.id)}
@@ -767,9 +802,10 @@ export default function ManagementPage() {
   );
 }
 
-function PackageCard({ pkg, availability, onEdit, onToggle, onDelete }: {
+function PackageCard({ pkg, availability, deleting, onEdit, onToggle, onDelete }: {
   pkg: CallPackage;
   availability?: PackageAvailabilitySummary;
+  deleting: boolean;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
@@ -784,9 +820,9 @@ function PackageCard({ pkg, availability, onEdit, onToggle, onDelete }: {
 
   return (
     <div className={cn("rounded-2xl border bg-brand-surface p-5 transition-all", pkg.isActive ? "border-brand-border hover:border-brand-primary/30" : "border-brand-border opacity-60")}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex min-w-0 flex-wrap items-center gap-3">
             <h3 className="text-base font-bold text-brand-ink">{pkg.name}</h3>
             <Badge variant={pkg.isActive ? "live" : "default"} className="text-[11px]">
               {pkg.isActive ? "Active" : "Inactive"}
@@ -800,15 +836,37 @@ function PackageCard({ pkg, availability, onEdit, onToggle, onDelete }: {
             <span>{pkg.bookingsCount} bookings</span>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button onClick={onToggle} className="p-2 rounded-lg text-brand-ink-subtle hover:text-brand-primary-light hover:bg-brand-elevated transition-colors" title={pkg.isActive ? "Deactivate" : "Activate"}>
+        <div className="grid shrink-0 grid-cols-3 gap-2 sm:flex sm:items-center sm:gap-1.5">
+          <button
+            type="button"
+            onClick={onToggle}
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-elevated px-2 text-xs font-semibold text-brand-ink-subtle transition-colors hover:border-brand-primary/40 hover:text-brand-primary-light sm:h-10 sm:w-10 sm:p-0"
+            title={pkg.isActive ? "Deactivate" : "Activate"}
+            aria-label={pkg.isActive ? "Deactivate booking" : "Activate booking"}
+          >
             {pkg.isActive ? <ToggleRight className="w-5 h-5 text-brand-live" /> : <ToggleLeft className="w-5 h-5" />}
+            <span className="sm:sr-only">{pkg.isActive ? "Disable" : "Enable"}</span>
           </button>
-          <button onClick={onEdit} className="p-2 rounded-lg text-brand-ink-subtle hover:text-brand-ink hover:bg-brand-elevated transition-colors">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-elevated px-2 text-xs font-semibold text-brand-ink-subtle transition-colors hover:border-brand-primary/40 hover:text-brand-ink sm:h-10 sm:w-10 sm:p-0"
+            title="Edit booking"
+            aria-label="Edit booking"
+          >
             <Edit2 className="w-4 h-4" />
+            <span className="sm:sr-only">Edit</span>
           </button>
-          <button onClick={onDelete} className="p-2 rounded-lg text-brand-ink-subtle hover:text-red-400 hover:bg-red-500/10 transition-colors">
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={deleting}
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-elevated px-2 text-xs font-semibold text-brand-ink-subtle transition-colors hover:border-red-300 hover:text-red-500 disabled:cursor-wait disabled:opacity-60 sm:h-10 sm:w-10 sm:p-0"
+            title="Delete booking"
+            aria-label="Delete booking"
+          >
             <Trash2 className="w-4 h-4" />
+            <span className="sm:sr-only">{deleting ? "Deleting" : "Delete"}</span>
           </button>
         </div>
       </div>
