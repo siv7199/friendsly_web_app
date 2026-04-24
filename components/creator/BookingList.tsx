@@ -75,7 +75,7 @@ function BookingRow({
     booking.creatorPresent,
     booking.fanPresent
   );
-  const canCancel = booking.status === "upcoming";
+  const canCancel = booking.status === "upcoming" || booking.status === "live";
 
   function handleJoin() {
     router.push(`/room/${booking.id}`);

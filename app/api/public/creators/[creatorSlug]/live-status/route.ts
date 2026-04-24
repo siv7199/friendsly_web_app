@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const LIVE_SESSION_STALE_MS = 45000;
-const LIVE_STATUS_CACHE_CONTROL = "public, max-age=30, s-maxage=30, stale-while-revalidate=120";
+const LIVE_STATUS_CACHE_CONTROL = "no-store";
 
 export async function GET(
   _request: Request,
@@ -22,7 +22,7 @@ export async function GET(
       .from("profiles")
       .select(`
         id, username,
-        creator_profiles(live_join_fee, current_live_session_id)
+        creator_profiles(live_join_fee, current_live_session_id, scheduled_live_at, scheduled_live_timezone, timezone)
       `)
       .eq("role", "creator")
       .eq("username", creatorSlug)
@@ -77,6 +77,8 @@ export async function GET(
           isLive: Boolean(activeSession),
           currentLiveSessionId: activeSession?.id ?? null,
           liveJoinFee: cp?.live_join_fee ? Number(cp.live_join_fee) : null,
+          scheduledLiveAt: cp?.scheduled_live_at ?? null,
+          scheduledLiveTimeZone: cp?.scheduled_live_timezone ?? cp?.timezone ?? null,
         },
       },
       {

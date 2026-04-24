@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   COMMON_TIME_ZONES,
@@ -44,6 +44,7 @@ interface ScheduledLiveCardProps {
   scheduledLiveAtIso?: string | null;
   liveRateConfigured: boolean;
   saving: boolean;
+  saved?: boolean;
   onChangeDateTime: (value: string) => void;
   onChangeTimeZone: (value: string) => void;
   onSave: () => void;
@@ -56,6 +57,7 @@ export function ScheduledLiveCard({
   scheduledLiveAtIso = null,
   liveRateConfigured,
   saving,
+  saved = false,
   onChangeDateTime,
   onChangeTimeZone,
   onSave,
@@ -138,6 +140,17 @@ export function ScheduledLiveCard({
       {!liveRateConfigured ? (
         <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium leading-5 text-amber-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
           Set a Friendsly Live rate in Offerings before going live.
+        </div>
+      ) : null}
+
+      {saved ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mt-3 flex items-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold leading-5 text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]"
+        >
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          Saved!
         </div>
       ) : null}
 

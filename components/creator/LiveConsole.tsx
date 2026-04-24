@@ -16,7 +16,8 @@ import { readJsonResponse } from "@/lib/http";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { CallContainer } from "@/components/video/CallContainer";
-import { useLocalSessionId, DailyAudioTrack, DailyVideo, useDaily } from "@daily-co/daily-react";
+import { RemoteAudioTracks } from "@/components/video/RemoteAudioTracks";
+import { useLocalSessionId, DailyVideo, useDaily } from "@daily-co/daily-react";
 import {
   COMMON_TIME_ZONES,
   formatDateTimeLocalInTimeZone,
@@ -245,9 +246,7 @@ function LiveVideoStage({
   return (
     <div className="grid w-full grid-cols-1 gap-4 lg:h-full lg:min-h-0 lg:overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="rounded-[28px] border border-brand-border bg-brand-surface p-3 flex flex-col gap-3 overflow-hidden lg:h-full lg:min-h-0">
-        {audibleSessionIds.map((sessionId) => (
-          <DailyAudioTrack key={sessionId} sessionId={sessionId} />
-        ))}
+        <RemoteAudioTracks sessionIds={audibleSessionIds} />
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <Badge variant="live">

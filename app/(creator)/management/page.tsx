@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Plus, Edit2, Trash2, DollarSign,
   Clock, CheckCircle2, ToggleLeft, ToggleRight, Zap, CalendarDays,
@@ -111,6 +111,8 @@ export default function ManagementPage() {
   const [scheduledLiveTimeZone, setScheduledLiveTimeZone] = useState(getBrowserTimeZone());
   const [scheduledLiveAtIso, setScheduledLiveAtIso] = useState<string | null>(null);
   const [savingScheduledLive, setSavingScheduledLive] = useState(false);
+  const [scheduledLiveSaved, setScheduledLiveSaved] = useState(false);
+  const scheduledLiveSavedTimerRef = useRef<number | null>(null);
   const parsedLiveRate = parseFloat(liveRate);
   const isLiveRateFilled = liveRate.trim().length > 0;
   const isLiveRateValid =
@@ -137,6 +139,14 @@ export default function ManagementPage() {
     availabilityForm.endTime > availabilityForm.startTime;
 
   const supabase = createClient();
+
+  useEffect(() => {
+    return () => {
+      if (scheduledLiveSavedTimerRef.current) {
+        window.clearTimeout(scheduledLiveSavedTimerRef.current);
+      }
+    };
+  }, []);
 
   // Load packages + live join fee from Supabase on mount
   useEffect(() => {
@@ -288,6 +298,11 @@ export default function ManagementPage() {
 
   async function saveScheduledLive(nextValue?: string) {
     if (!user) return;
+    if (scheduledLiveSavedTimerRef.current) {
+      window.clearTimeout(scheduledLiveSavedTimerRef.current);
+      scheduledLiveSavedTimerRef.current = null;
+    }
+    setScheduledLiveSaved(false);
     setSavingScheduledLive(true);
     let scheduledLiveIso: string | null = null;
 
@@ -303,7 +318,7 @@ export default function ManagementPage() {
       }
     }
 
-    await supabase
+    const { error } = await supabase
       .from("creator_profiles")
       .update({
         scheduled_live_at: scheduledLiveIso,
@@ -311,9 +326,30 @@ export default function ManagementPage() {
       })
       .eq("id", user.id);
 
+    if (error) {
+      console.error("Failed to save scheduled live time", error);
+      setSavingScheduledLive(false);
+      return;
+    }
+
     setScheduledLiveAt(nextValue ?? "");
     setScheduledLiveAtIso(scheduledLiveIso);
     setSavingScheduledLive(false);
+    setScheduledLiveSaved(true);
+    scheduledLiveSavedTimerRef.current = window.setTimeout(() => {
+      setScheduledLiveSaved(false);
+      scheduledLiveSavedTimerRef.current = null;
+    }, 2200);
+  }
+
+  function handleScheduledLiveDateTimeChange(value: string) {
+    setScheduledLiveSaved(false);
+    setScheduledLiveAt(value);
+  }
+
+  function handleScheduledLiveTimeZoneChange(value: string) {
+    setScheduledLiveSaved(false);
+    setScheduledLiveTimeZone(value);
   }
 
   function openNew() {
@@ -536,8 +572,9 @@ export default function ManagementPage() {
           scheduledLiveAtIso={scheduledLiveAtIso}
           liveRateConfigured={hasConfiguredLiveRate(liveRate)}
           saving={savingScheduledLive}
-          onChangeDateTime={setScheduledLiveAt}
-          onChangeTimeZone={setScheduledLiveTimeZone}
+          saved={scheduledLiveSaved}
+          onChangeDateTime={handleScheduledLiveDateTimeChange}
+          onChangeTimeZone={handleScheduledLiveTimeZoneChange}
           onSave={() => void saveScheduledLive(scheduledLiveAt)}
           onClear={() => void saveScheduledLive("")}
         />

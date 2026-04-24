@@ -158,7 +158,9 @@ export default function DashboardPage() {
   const [scheduledLiveTimeZone, setScheduledLiveTimeZone] = useState(getBrowserTimeZone());
   const [scheduledLiveAtIso, setScheduledLiveAtIso] = useState<string | null>(null);
   const [savingScheduledLive, setSavingScheduledLive] = useState(false);
+  const [scheduledLiveSaved, setScheduledLiveSaved] = useState(false);
   const scheduledLiveDraftDirtyRef = useRef(false);
+  const scheduledLiveSavedTimerRef = useRef<number | null>(null);
   const liveRequestsPanelRef = useRef<HTMLDivElement | null>(null);
 
   function hasConfiguredLiveRate(value: number | null | undefined) {
@@ -553,6 +555,7 @@ export default function DashboardPage() {
     return () => {
       if (refreshTimer) window.clearTimeout(refreshTimer);
       if (autoCancelTimer) window.clearTimeout(autoCancelTimer);
+      if (scheduledLiveSavedTimerRef.current) window.clearTimeout(scheduledLiveSavedTimerRef.current);
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
       supabase.removeChannel(channel);
@@ -577,6 +580,11 @@ export default function DashboardPage() {
 
   async function saveScheduledLive(nextValue?: string) {
     if (!user) return;
+    if (scheduledLiveSavedTimerRef.current) {
+      window.clearTimeout(scheduledLiveSavedTimerRef.current);
+      scheduledLiveSavedTimerRef.current = null;
+    }
+    setScheduledLiveSaved(false);
     setSavingScheduledLive(true);
     const supabase = createClient();
     let scheduledLiveIso: string | null = null;
@@ -593,7 +601,7 @@ export default function DashboardPage() {
       }
     }
 
-    await supabase
+    const { error } = await supabase
       .from("creator_profiles")
       .update({
         scheduled_live_at: scheduledLiveIso,
@@ -601,19 +609,32 @@ export default function DashboardPage() {
       })
       .eq("id", user.id);
 
+    if (error) {
+      console.error("Failed to save scheduled live time", error);
+      setSavingScheduledLive(false);
+      return;
+    }
+
     scheduledLiveDraftDirtyRef.current = false;
     setScheduledLiveAt(nextValue ?? "");
     setScheduledLiveAtIso(scheduledLiveIso);
     setSavingScheduledLive(false);
+    setScheduledLiveSaved(true);
+    scheduledLiveSavedTimerRef.current = window.setTimeout(() => {
+      setScheduledLiveSaved(false);
+      scheduledLiveSavedTimerRef.current = null;
+    }, 2200);
   }
 
   function handleScheduledLiveDateTimeChange(value: string) {
     scheduledLiveDraftDirtyRef.current = true;
+    setScheduledLiveSaved(false);
     setScheduledLiveAt(value);
   }
 
   function handleScheduledLiveTimeZoneChange(value: string) {
     scheduledLiveDraftDirtyRef.current = true;
+    setScheduledLiveSaved(false);
     setScheduledLiveTimeZone(value);
   }
 
@@ -811,6 +832,9 @@ export default function DashboardPage() {
             <p className="mt-2 text-sm text-brand-ink-muted">
               Send fans straight to your public booking page with one link.
             </p>
+            <p className="mt-2 rounded-xl border border-brand-live/20 bg-brand-live/10 px-3 py-2 text-xs font-medium leading-5 text-brand-ink-subtle">
+              Fans can also use this link to watch your live when you&apos;re on.
+            </p>
             <div className="mt-4 rounded-xl border border-brand-border bg-brand-elevated px-3 py-3 text-xs text-brand-ink-muted break-all">
               {clientOrigin && user?.username ? `${clientOrigin}/book/${user.username}` : `/book/${user?.username ?? ""}`}
             </div>
@@ -827,6 +851,7 @@ export default function DashboardPage() {
             scheduledLiveAtIso={scheduledLiveAtIso}
             liveRateConfigured={hasConfiguredLiveRate(liveRate)}
             saving={savingScheduledLive}
+            saved={scheduledLiveSaved}
             onChangeDateTime={handleScheduledLiveDateTimeChange}
             onChangeTimeZone={handleScheduledLiveTimeZoneChange}
             onSave={() => void saveScheduledLive(scheduledLiveAt)}

@@ -26,7 +26,7 @@ export async function GET(
         id, username, full_name, avatar_initials, avatar_color, avatar_url,
         creator_profiles(
           bio, category, timezone, booking_interval_minutes, live_join_fee,
-          is_live, current_live_session_id
+          is_live, current_live_session_id, scheduled_live_at, scheduled_live_timezone
         )
       `)
       .eq("role", "creator")
@@ -121,6 +121,8 @@ export async function GET(
         timeZone: cp?.timezone ?? "America/New_York",
         bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
         liveJoinFee: cp?.live_join_fee ? Number(cp.live_join_fee) : null,
+        scheduledLiveAt: cp?.scheduled_live_at ?? null,
+        scheduledLiveTimeZone: cp?.scheduled_live_timezone ?? cp?.timezone ?? null,
         isLive: Boolean(activeSession),
         currentLiveSessionId: activeSession?.id ?? null,
       },

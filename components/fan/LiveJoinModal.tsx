@@ -13,7 +13,7 @@ import { readJsonResponse } from "@/lib/http";
 import { formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
-import { getLiveFanChargeAmount, getLivePreauthFanChargeAmount, LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
+import { getLiveFanChargeAmount, LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
 import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
 import { getLiveSessionPath } from "@/lib/routes";
 
@@ -110,7 +110,6 @@ export function LiveJoinModal({
 
   const joinFee = creator.liveJoinFee ?? 0;
   const fanPerMinuteCharge = getLiveFanChargeAmount(joinFee);
-  const fanPreauthHold = getLivePreauthFanChargeAmount(joinFee);
   const liveProcessingFee = Math.max(0, fanPerMinuteCharge - joinFee);
 
   function handleModalClose() {
@@ -372,7 +371,7 @@ export function LiveJoinModal({
                   <span className="font-semibold text-brand-live">{formatCurrency(fanPerMinuteCharge)} / min</span>
                 </div>
                 <p className="mt-2 text-xs text-brand-ink-subtle">
-                  A temporary hold of up to {formatCurrency(fanPreauthHold)} covers the maximum {LIVE_STAGE_MAX_MINUTES} minute live turn.
+                  You only pay for the time you are admitted live with the creator.
                 </p>
               </div>
 

@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Loader2, Mic, MicOff, Send, ShieldX, SkipForward, StopCircle, Users, Video, VideoOff, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
+import { RemoteAudioTracks } from "@/components/video/RemoteAudioTracks";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { readJsonResponse } from "@/lib/http";
 import { createClient } from "@/lib/supabase/client";
@@ -24,7 +25,6 @@ import {
   getLiveStageRemainingSeconds,
 } from "@/lib/live";
 import {
-  DailyAudioTrack,
   DailyVideo,
   useDaily,
   useLocalSessionId,
@@ -293,9 +293,11 @@ function CreatorMobileLiveStage({
 
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden overscroll-none bg-violet-500" style={MOBILE_LIVE_VIEWPORT_STYLE}>
-      {audibleIds.map((id) => (
-        <DailyAudioTrack key={id} sessionId={id} />
-      ))}
+      <RemoteAudioTracks
+        sessionIds={audibleIds}
+        className="px-4 pb-1 text-white/70"
+        buttonClassName="border-white/20 bg-white/15 text-white hover:bg-white/20"
+      />
       <style dangerouslySetInnerHTML={VIDEO_FILL} />
 
       {/* Header */}

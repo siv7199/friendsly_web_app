@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Home,
   Loader2,
   Lock,
   Mail,
@@ -44,6 +45,8 @@ type CreatorPayload = {
   isLive: boolean;
   liveJoinFee?: number | null;
   currentLiveSessionId?: string | null;
+  scheduledLiveAt?: string | null;
+  scheduledLiveTimeZone?: string | null;
 };
 
 type PackagePayload = {
@@ -125,6 +128,23 @@ function rangesOverlap(
   const rightStart = new Date(rightStartIso).getTime();
   const rightEnd = rightStart + (rightDurationMinutes * 60 * 1000);
   return leftStart < rightEnd && rightStart < leftEnd;
+}
+
+function getScheduledLiveCountdown(scheduledLiveAt?: string | null, nowMs = Date.now()) {
+  if (!scheduledLiveAt) return null;
+  const diff = new Date(scheduledLiveAt).getTime() - nowMs;
+  if (diff <= 0) return "Going live soon";
+  const totalMinutes = Math.floor(diff / 60000);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const days = Math.floor(totalHours / 24);
+  const minutes = totalMinutes % 60;
+
+  if (days >= 1) {
+    const remainingHours = totalHours % 24;
+    return remainingHours > 0 ? `Going live in ${days}d ${remainingHours}h` : `Going live in ${days}d`;
+  }
+
+  return totalHours > 0 ? `Going live in ${totalHours}h ${minutes}m` : `Going live in ${minutes}m`;
 }
 
 function getDraftKey(slug: string) {
@@ -248,6 +268,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const [signUpPassword, setSignUpPassword] = useState("");
   const [settingFanRole, setSettingFanRole] = useState(false);
   const [awaitingEmailVerification, setAwaitingEmailVerification] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
   const paymentInitKeyRef = useRef<string | null>(null);
   const hasHandledLiveIntentRef = useRef(false);
   const hasHandledRedirectRef = useRef(false);
@@ -283,6 +304,32 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const packageAvailability = availability.filter((slot) =>
     !selectedPackage?.id ? slot.package_id == null : slot.package_id == null || slot.package_id === selectedPackage.id
   );
+  const hasLiveRate = Boolean(creator?.liveJoinFee && creator.liveJoinFee > 0);
+  const scheduledLiveCountdown = creator?.isLive ? null : getScheduledLiveCountdown(creator?.scheduledLiveAt, currentTime);
+  const scheduledLiveLabel = (() => {
+    if (!creator?.scheduledLiveAt || creator.isLive) return null;
+    const scheduledDate = new Date(creator.scheduledLiveAt);
+    const timeZone = creator.scheduledLiveTimeZone || creator.timeZone;
+    const abbreviation = timeZone ? getTimeZoneAbbreviation(scheduledDate, timeZone) : null;
+    return `${scheduledDate.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })}${abbreviation ? ` ${abbreviation}` : ""}`;
+  })();
+  const showLivePanel = Boolean(creator && (creator.isLive || hasLiveRate || scheduledLiveCountdown || scheduledLiveLabel));
+  const liveButtonLabel = (() => {
+    if (creator?.isLive) return user?.role === "fan" ? "Join Live Now" : "Sign in or create account to join";
+    if (scheduledLiveCountdown) return scheduledLiveCountdown;
+    return "Live not scheduled";
+  })();
+  const liveButtonDisabled = !creator?.isLive;
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(Date.now()), 30000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -308,6 +355,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
     window.addEventListener("focus", refreshIfVisible);
     document.addEventListener("visibilitychange", refreshIfVisible);
+    void refreshLiveStatus();
 
     return () => {
       cancelled = true;
@@ -449,11 +497,20 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         paymentIntentId,
       }),
     });
-    const data = await readJsonResponse<{ error?: string }>(response);
+    const data = await readJsonResponse<{
+      booking?: { scheduled_at?: string; scheduledAt?: string; duration?: number };
+      error?: string;
+    }>(response);
     if (!response.ok) {
       throw new Error(data?.error ?? "Could not create booking.");
     }
 
+    const confirmedScheduledAt = data?.booking?.scheduled_at ?? data?.booking?.scheduledAt ?? parseSlotToIso(selectedDate, selectedTime);
+    const confirmedDuration = Number(data?.booking?.duration ?? selectedPackage.duration);
+    setExistingBookingWindows((current) => [
+      ...current,
+      { scheduledAt: confirmedScheduledAt, duration: confirmedDuration },
+    ]);
     window.sessionStorage.removeItem(draftKey);
     setSuccessMessage(`Your call with ${creator.name} is confirmed.`);
     setStep("success");
@@ -639,6 +696,9 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     awaitingEmailVerification,
     creator?.id,
     creator?.isLive,
+    creator?.currentLiveSessionId,
+    creator?.slug,
+    creator?.username,
     liveIntentRequested,
     router,
     setRole,
@@ -738,6 +798,16 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
 
   return (
     <div className="mx-auto w-full max-w-5xl overflow-x-hidden px-4 py-8 md:px-6 md:py-12">
+      <div className="mb-4 flex justify-end">
+        <Button
+          variant="outline"
+          className="min-h-11 whitespace-normal px-4 text-sm"
+          onClick={() => router.push("/")}
+        >
+          <Home className="h-4 w-4" />
+          Go to Friendsly
+        </Button>
+      </div>
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <section className="min-w-0 space-y-5">
           <div className="max-w-full overflow-hidden rounded-3xl border border-brand-border bg-brand-surface p-5 md:p-8">
@@ -759,22 +829,48 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                     {creator.bio}
                   </p>
                 )}
-                {creator.isLive && (
-                  <div className="mt-4 max-w-full overflow-hidden rounded-2xl border border-brand-live/20 bg-brand-live/10 p-3">
+                {showLivePanel && (
+                  <div
+                    className={cn(
+                      "mt-4 max-w-full overflow-hidden rounded-2xl border p-3",
+                      creator.isLive
+                        ? "border-brand-live/20 bg-brand-live/10"
+                        : "border-brand-border bg-brand-elevated"
+                    )}
+                  >
                     <div className="flex min-w-0 items-start gap-3">
-                      <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-live animate-pulse" />
+                      <span
+                        className={cn(
+                          "mt-1 h-2.5 w-2.5 shrink-0 rounded-full",
+                          creator.isLive ? "bg-brand-live animate-pulse" : "bg-brand-ink-muted"
+                        )}
+                      />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-live">
-                          Live on Friendsly now
+                        <p
+                          className={cn(
+                            "text-xs font-semibold uppercase tracking-[0.18em]",
+                            creator.isLive ? "text-brand-live" : "text-brand-ink-muted"
+                          )}
+                        >
+                          {creator.isLive ? "Live on Friendsly now" : "Friendsly Live"}
                         </p>
                         <p className="mt-1 text-sm text-brand-ink-subtle">
-                          Jump into {creator.name.split(" ")[0]}&apos;s live room from this link.
+                          {creator.isLive
+                            ? `Jump into ${creator.name.split(" ")[0]}'s live room from this link.`
+                            : scheduledLiveLabel
+                            ? `Next live starts ${scheduledLiveLabel}.`
+                            : `${creator.name.split(" ")[0]}'s live room will appear here when it opens.`}
                         </p>
                       </div>
                     </div>
-                    <Button variant="live" className="mt-3 min-h-11 w-full min-w-0 whitespace-normal px-3 text-center leading-tight" onClick={handleJoinLive}>
+                    <Button
+                      variant={liveButtonDisabled ? "surface" : "live"}
+                      className="mt-3 min-h-11 w-full min-w-0 whitespace-normal px-3 text-center leading-tight"
+                      onClick={handleJoinLive}
+                      disabled={liveButtonDisabled}
+                    >
                       <Radio className="w-4 h-4" />
-                      {user?.role === "fan" ? "Join Live Now" : "Sign in or create account to join"}
+                      {liveButtonLabel}
                     </Button>
                   </div>
                 )}

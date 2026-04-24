@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
+import { RemoteAudioTracks } from "@/components/video/RemoteAudioTracks";
 import { cn } from "@/lib/utils";
 import { LIVE_STAGE_MAX_MINUTES } from "@/lib/live";
-import { DailyAudioTrack, DailyVideo, useDaily, useLocalSessionId } from "@daily-co/daily-react";
+import { DailyVideo, useDaily, useLocalSessionId } from "@daily-co/daily-react";
 import { useAuthContext } from "@/lib/context/AuthContext";
 
 function formatStageElapsed(totalSeconds: number) {
@@ -331,9 +332,7 @@ function LiveStage({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-[28px] border border-brand-border bg-brand-surface p-2.5 md:gap-3 md:p-4 xl:gap-2.5 xl:p-3.5">
-      {audibleSessionIds.map((sessionId) => (
-        <DailyAudioTrack key={sessionId} sessionId={sessionId} />
-      ))}
+      <RemoteAudioTracks sessionIds={audibleSessionIds} />
       <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between xl:gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">

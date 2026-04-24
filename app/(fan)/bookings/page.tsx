@@ -500,8 +500,7 @@ export default function BookingsPage() {
                     {/* Actions */}
                     {(booking.status === "upcoming" || booking.status === "live") && (
                       <div className="flex flex-wrap gap-2 mt-3">
-                        {booking.status === "upcoming" && (
-                          <>
+                        {booking.status === "upcoming" ? (
                           <Button
                             variant="outline"
                             size="sm"
@@ -511,21 +510,20 @@ export default function BookingsPage() {
                             <Edit2 className="w-3.5 h-3.5" />
                             Edit
                           </Button>
-                          <div className="flex flex-col gap-1.5">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCancel(booking.id)}
-                              disabled={cancellingId === booking.id}
-                              className="gap-1.5 text-red-400 border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              {cancellingId === booking.id ? "Cancelling..." : "Cancel"}
-                            </Button>
-                            <RefundPolicyModal trigger="link" />
-                          </div>
-                          </>
-                        )}
+                        ) : null}
+                        <div className="flex flex-col gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCancel(booking.id)}
+                            disabled={cancellingId === booking.id}
+                            className="gap-1.5 text-red-400 border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            {cancellingId === booking.id ? "Cancelling..." : "Cancel"}
+                          </Button>
+                          <RefundPolicyModal trigger="link" />
+                        </div>
                         {isJoinable && (
                           <Link href={`/room/${booking.id}`}>
                             <Button

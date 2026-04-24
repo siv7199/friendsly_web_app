@@ -30,12 +30,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Could not load booked times." }, { status: 500 });
     }
 
-    return NextResponse.json({
-      bookings: (data ?? []).map((booking: any) => ({
-        scheduledAt: booking.scheduled_at,
-        duration: Number(booking.duration ?? 0),
-      })),
-    });
+    return NextResponse.json(
+      {
+        bookings: (data ?? []).map((booking: any) => ({
+          scheduledAt: booking.scheduled_at,
+          duration: Number(booking.duration ?? 0),
+        })),
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not load booked times.";
     return NextResponse.json({ error: message }, { status: 500 });

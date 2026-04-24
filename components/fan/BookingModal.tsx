@@ -296,12 +296,21 @@ export function BookingModal({
         paymentIntentId,
       }),
     });
-    const data = await readJsonResponse<{ error?: string }>(res);
+    const data = await readJsonResponse<{
+      booking?: { scheduled_at?: string; scheduledAt?: string; duration?: number };
+      error?: string;
+    }>(res);
 
     if (!res.ok) {
       throw new Error(data?.error ?? "Could not create booking.");
     }
 
+    const confirmedScheduledAt = data?.booking?.scheduled_at ?? data?.booking?.scheduledAt ?? scheduledDate.toISOString();
+    const confirmedDuration = Number(data?.booking?.duration ?? selectedPackage.duration);
+    setExistingBookingWindows((current) => [
+      ...current,
+      { scheduledAt: confirmedScheduledAt, duration: confirmedDuration },
+    ]);
     setStep("success");
   }
 
