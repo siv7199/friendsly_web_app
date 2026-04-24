@@ -33,7 +33,7 @@ async function notifyCreatorDecision(email: string, decision: "approved" | "reje
 
   if (!functionsBaseUrl || !serviceRoleKey) return;
 
-  await fetch(`${functionsBaseUrl}/creator-signup-notify`, {
+  await fetch(`${functionsBaseUrl}/super-worker`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${serviceRoleKey}`,
