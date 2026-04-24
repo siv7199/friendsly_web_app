@@ -51,9 +51,9 @@ export async function getCreatorAnalyticsSnapshot(creatorId: string, range: Anal
       .gte("viewed_at", startDate.toISOString()),
     supabase
       .from("bookings")
-      .select("id, created_at, scheduled_at, duration, status, price, fan_id, late_fee_amount, late_fee_paid_at")
+      .select("id, created_at, scheduled_at, duration, status, price, fan_id, creator_present, fan_present, late_fee_amount, late_fee_paid_at")
       .eq("creator_id", creatorId)
-      .gte("created_at", startDate.toISOString()),
+      .or(`created_at.gte.${startDate.toISOString()},scheduled_at.gte.${startDate.toISOString()}`),
     supabase
       .from("live_sessions")
       .select("id, live_queue_entries(id, fan_id, joined_at, ended_at, status, amount_charged)")
@@ -86,17 +86,31 @@ export async function getCreatorAnalyticsSnapshot(creatorId: string, range: Anal
 
   let completedCalls = 0;
   let creatorRevenue = 0;
+  let bookingsCreated = 0;
   const bookings = bookingsRes.data || [];
   bookings.forEach((booking: any) => {
     const createdAt = new Date(booking.created_at);
-    const point = dailyMap.get(dayKey(createdAt));
-    if (point) point.bookings += 1;
-    if (booking.fan_id) {
+    const wasCreatedInRange = createdAt >= startDate && createdAt <= now;
+    if (wasCreatedInRange) {
+      bookingsCreated += 1;
+      const point = dailyMap.get(dayKey(createdAt));
+      if (point) point.bookings += 1;
+    }
+    if (wasCreatedInRange && booking.fan_id) {
       uniqueConverters.add(String(booking.fan_id));
     }
 
-    const normalizedStatus = deriveBookingStatus(booking.status, booking.scheduled_at, booking.duration, now);
-    if (normalizedStatus === "completed" && hasBookingEnded(booking.scheduled_at, booking.duration, now)) {
+    const scheduledAt = new Date(booking.scheduled_at);
+    const completedInRange = scheduledAt >= startDate && scheduledAt <= now;
+    const normalizedStatus = deriveBookingStatus(
+      booking.status,
+      booking.scheduled_at,
+      booking.duration,
+      now,
+      booking.creator_present,
+      booking.fan_present
+    );
+    if (completedInRange && normalizedStatus === "completed" && hasBookingEnded(booking.scheduled_at, booking.duration, now)) {
       completedCalls += 1;
       creatorRevenue += getCreatorRevenueShare(getBookingGrossAmount(
         Number(booking.price ?? 0),
@@ -110,16 +124,21 @@ export async function getCreatorAnalyticsSnapshot(creatorId: string, range: Anal
   (liveRes.data || []).forEach((session: any) => {
     (session.live_queue_entries || []).forEach((entry: any) => {
       const joinedAt = entry.joined_at ? new Date(entry.joined_at) : null;
-      if (!joinedAt || joinedAt < startDate) return;
+      const joinedInRange = Boolean(joinedAt && joinedAt >= startDate && joinedAt <= now);
 
-      liveQueueJoins += 1;
-      if (entry.fan_id) {
-        uniqueConverters.add(String(entry.fan_id));
+      if (joinedAt && joinedInRange) {
+        liveQueueJoins += 1;
+        if (entry.fan_id) {
+          uniqueConverters.add(String(entry.fan_id));
+        }
+        const point = dailyMap.get(dayKey(joinedAt));
+        if (point) point.liveJoins += 1;
       }
-      const point = dailyMap.get(dayKey(joinedAt));
-      if (point) point.liveJoins += 1;
 
       if ((entry.status === "completed" || entry.status === "skipped") && entry.amount_charged) {
+        const completedAt = entry.ended_at ? new Date(entry.ended_at) : joinedAt;
+        if (!completedAt) return;
+        if (completedAt < startDate || completedAt > now) return;
         completedCalls += 1;
         creatorRevenue += getCreatorRevenueShare(
           getLiveRevenueShareableAmountFromChargedAmount(entry.amount_charged)
@@ -129,7 +148,6 @@ export async function getCreatorAnalyticsSnapshot(creatorId: string, range: Anal
   });
 
   const profileViews = views.length;
-  const bookingsCreated = bookings.length;
   const conversionBase = uniqueViewers > 0 ? uniqueViewers : profileViews;
   const conversionRate = conversionBase > 0
     ? Math.min(100, Math.round(((uniqueConverters.size / conversionBase) * 100) * 10) / 10)
