@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ChevronDown, ChevronUp, Flag, Loader2, Mic, MicOff, Send, Users, Video, VideoOff, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { CallContainer } from "@/components/video/CallContainer";
@@ -15,6 +16,7 @@ import {
 } from "@daily-co/daily-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthContext } from "@/lib/context/AuthContext";
+import { GuestAuthModal } from "@/components/shared/GuestAuthModal";
 
 // ─── helpers ──────────────────────────────────────────────────────────────
 
@@ -170,6 +172,8 @@ function MobileLiveInner({
   const daily = useDaily();
   const localSessionId = useLocalSessionId();
   const { user } = useAuthContext();
+  const pathname = usePathname();
+  const [authOpen, setAuthOpen] = useState(false);
 
   const [creatorParticipant, setCreatorParticipant] = useState<any>(null);
   const [activeFanParticipant, setActiveFanParticipant] = useState<any>(null);
@@ -671,23 +675,41 @@ function MobileLiveInner({
           className="flex shrink-0 items-center gap-2 px-4 pt-1.5"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
         >
-          <input
-            type="text"
-            value={chatText}
-            onChange={(e) => setChatText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") void sendChat(); }}
-            placeholder="Say something..."
-            style={{ fontSize: '16px', touchAction: 'manipulation' }}
-            className="flex-1 bg-slate-100 rounded-full px-4 py-2.5 text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300 transition-all"
-          />
-          <button
-            onClick={() => void sendChat()}
-            disabled={!chatText.trim() || sending}
-            className="w-10 h-10 rounded-full bg-violet-500 flex items-center justify-center shrink-0 transition-all active:scale-95 disabled:opacity-40"
-          >
-            <Send className="w-4 h-4 text-white" />
-          </button>
+          {user ? (
+            <>
+              <input
+                type="text"
+                value={chatText}
+                onChange={(e) => setChatText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") void sendChat(); }}
+                placeholder="Say something..."
+                style={{ fontSize: '16px', touchAction: 'manipulation' }}
+                className="flex-1 bg-slate-100 rounded-full px-4 py-2.5 text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-300 transition-all"
+              />
+              <button
+                onClick={() => void sendChat()}
+                disabled={!chatText.trim() || sending}
+                className="w-10 h-10 rounded-full bg-violet-500 flex items-center justify-center shrink-0 transition-all active:scale-95 disabled:opacity-40"
+              >
+                <Send className="w-4 h-4 text-white" />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAuthOpen(true)}
+              className="h-11 w-full rounded-full bg-violet-500 px-4 text-sm font-semibold text-white transition-all active:scale-[0.99]"
+            >
+              Make an account to chat
+            </button>
+          )}
         </div>
+        <GuestAuthModal
+          open={authOpen}
+          onClose={() => setAuthOpen(false)}
+          next={pathname}
+          reason="Make an account to chat in this live room."
+        />
       </div>
     </div>
   );

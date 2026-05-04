@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Star, Video, Clock, Zap, Heart, Users } from "lucide-react";
+import { Star, Clock, Zap, Heart, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BookingModal } from "@/components/fan/BookingModal";
 import type { Creator, CallPackage } from "@/types";
@@ -228,6 +228,16 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
               New
             </div>
           )}
+
+          {!creator.isLive && hasPackages ? (
+            <Link
+              href={profileHref}
+              className="absolute inset-x-3 bottom-3 z-10 hidden translate-y-2 items-center justify-center rounded-full bg-white/95 px-3 py-2 text-xs font-bold text-brand-ink opacity-0 shadow-sm backdrop-blur-sm transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 md:flex"
+              aria-label={`See ${creator.name}'s available times`}
+            >
+              See times
+            </Link>
+          ) : null}
         </div>
 
         {/* ── Content area ── */}
@@ -291,9 +301,9 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
           </div>
         </div>
 
-        {/* ── CTA footer ── */}
-        <div className="mt-auto px-3.5 pb-3.5">
-          {creator.isLive ? (
+        {(creator.isLive || !hasPackages) && (
+          <div className="mt-auto px-3.5 pb-3.5">
+            {creator.isLive ? (
             hasLiveRate ? (
               <Link href={liveHref} className="block">
                 <Button
@@ -315,23 +325,7 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
                 Live · No rate set
               </Button>
             )
-          ) : hasPackages ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleOpenBooking()}
-              className="min-h-[34px] w-full rounded-full font-display font-semibold transition-all duration-200 group-hover:border-brand-primary group-hover:bg-brand-primary group-hover:text-white"
-              disabled={isLoadingBookingData}
-            >
-              <Video className="w-3.5 h-3.5 group-hover:hidden" />
-              <span className="group-hover:hidden">
-                {isLoadingBookingData ? "Loading…" : `Book from ${formatCurrency(creator.callPrice)}`}
-              </span>
-              <span className="hidden group-hover:inline">
-                {isLoadingBookingData ? "Loading…" : "See times →"}
-              </span>
-            </Button>
-          ) : (
+            ) : (
             <Button
               variant="ghost"
               size="sm"
@@ -341,8 +335,9 @@ export function InfluencerCard({ creator, initialIsSaved = false, showSaveButton
               <Clock className="w-3.5 h-3.5" />
               Coming Soon
             </Button>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </article>
 
       <BookingModal

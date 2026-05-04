@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Home, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Home, Loader2, MessageSquare } from "lucide-react";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { WaitingRoom } from "@/components/fan/WaitingRoom";
@@ -45,6 +45,106 @@ function mapQueueProfile(entry: any, fallbackName: string) {
     avatarUrl: fan?.avatar_url ?? undefined,
     admittedDailySessionId: entry.admitted_daily_session_id ?? undefined,
   };
+}
+
+function MobileLiveChatSheet({
+  creatorName,
+  queueCount,
+  children,
+}: {
+  creatorName: string;
+  queueCount: number;
+  children: ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const startYRef = useRef<number | null>(null);
+  const draggingRef = useRef(false);
+  const movedDuringDragRef = useRef(false);
+
+  function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
+    startYRef.current = event.clientY;
+    draggingRef.current = true;
+    movedDuringDragRef.current = false;
+    setDragOffset(0);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLButtonElement>) {
+    if (!draggingRef.current || startYRef.current == null) return;
+    const delta = event.clientY - startYRef.current;
+    if (Math.abs(delta) > 4) movedDuringDragRef.current = true;
+    setDragOffset(isOpen ? Math.max(0, delta) : Math.min(0, delta));
+  }
+
+  function handlePointerUp(event: PointerEvent<HTMLButtonElement>) {
+    const startY = startYRef.current;
+    draggingRef.current = false;
+    startYRef.current = null;
+
+    if (startY != null) {
+      const delta = event.clientY - startY;
+      if (!isOpen && delta < -36) setIsOpen(true);
+      if (isOpen && delta > 48) setIsOpen(false);
+    }
+
+    setDragOffset(0);
+  }
+
+  const closedOffsetExpression = dragOffset >= 0 ? `+ ${dragOffset}px` : `- ${Math.abs(dragOffset)}px`;
+  const transform = isOpen
+    ? `translateY(${dragOffset}px)`
+    : `translateY(calc(100% - 68px ${closedOffsetExpression}))`;
+
+  return (
+    <div
+      className="fixed inset-x-0 bottom-0 z-30 h-[min(72dvh,620px)] px-3 pb-3 lg:hidden"
+      style={{
+        transform,
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)",
+        transition: draggingRef.current ? "none" : "transform 180ms ease-out",
+      }}
+    >
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-t-[24px] border border-brand-dark-border/70 bg-brand-dark-surface shadow-[0_-18px_44px_rgba(16,8,26,0.28)]">
+        <button
+          type="button"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onClick={() => {
+            if (movedDuringDragRef.current) {
+              movedDuringDragRef.current = false;
+              return;
+            }
+            setIsOpen((current) => !current);
+          }}
+          className="flex h-[68px] shrink-0 touch-none items-center justify-between gap-3 border-b border-brand-dark-border/60 px-4 text-left text-white"
+          aria-expanded={isOpen}
+          aria-label={isOpen ? "Collapse live chat" : "Open live chat"}
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
+              <MessageSquare className="h-4 w-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-bold">Live chat</span>
+              <span className="block truncate text-xs text-white/50">
+                {queueCount > 0 ? `${queueCount} waiting for ${creatorName}` : `Watching ${creatorName}`}
+              </span>
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2 text-xs font-semibold text-white/55">
+            <span className="h-1.5 w-10 rounded-full bg-white/25" />
+            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </span>
+        </button>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function WaitingRoomPage({ params }: { params: { id: string } }) {
@@ -505,7 +605,7 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
             ) : (
               <div className="rounded-[28px] border border-brand-border bg-brand-surface h-full flex items-center justify-center p-10 text-center">
                 <div>
-                  <p className="text-2xl font-serif font-normal text-brand-ink">Waiting for the live to start</p>
+                  <p className="text-2xl font-serif font-normal text-brand-ink">Waiting for {creatorState.name} to go live</p>
                   <p className="mt-2 text-sm text-brand-ink-subtle">
                     This page will update automatically when {creatorState.name} goes live.
                   </p>
@@ -532,6 +632,25 @@ export default function WaitingRoomPage({ params }: { params: { id: string } }) 
           </div>
         </div>
       </div>
+
+      {liveSessionId ? (
+        <MobileLiveChatSheet creatorName={creatorState.name} queueCount={waitingQueue.length}>
+          <WaitingRoom
+            queue={[]}
+            currentUserPosition={0}
+            creatorName={creatorState.name}
+            creatorInitials={creatorState.avatarInitials}
+            creatorColor={creatorState.avatarColor}
+            creatorAvatarUrl={creatorState.avatarUrl}
+            creatorId={creatorState.id}
+            sessionId={liveSessionId}
+            showQueueTab={false}
+            activeFanAdmittedAt={activeFanAdmittedAt}
+            queuePreview={waitingQueue.slice(0, 5).map((e) => ({ id: e.id, fanName: e.fanName, avatarInitials: e.avatarInitials, avatarColor: e.avatarColor, avatarUrl: e.avatarUrl }))}
+            totalQueueCount={waitingQueue.length}
+          />
+        </MobileLiveChatSheet>
+      ) : null}
 
       {creatorState.liveJoinFee ? (
         <LiveJoinModal

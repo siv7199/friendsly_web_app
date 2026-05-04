@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
@@ -11,13 +11,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  ExternalLink,
   Home,
+  Instagram,
   Loader2,
   Lock,
   Mail,
   MessageSquare,
+  Music2,
   Radio,
+  Star,
   User,
+  Video,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -29,6 +34,9 @@ import { getAvailableStartTimesForViewerDate, getBrowserTimeZone, getTimeZoneAbb
 import { RefundPolicyModal } from "@/components/shared/RefundPolicyModal";
 import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
 import { getLiveSessionPath } from "@/lib/routes";
+import { sanitizeSocialUrl } from "@/lib/social";
+import { BookingModal } from "@/components/fan/BookingModal";
+import type { CallPackage, Creator } from "@/types";
 
 type CreatorPayload = {
   id: string;
@@ -37,9 +45,15 @@ type CreatorPayload = {
   username: string;
   bio: string;
   category: string;
+  tags?: string[];
+  rating?: number;
+  reviewCount?: number;
   avatarInitials: string;
   avatarColor: string;
   avatarUrl?: string;
+  instagramUrl?: string | null;
+  tiktokUrl?: string | null;
+  xUrl?: string | null;
   timeZone: string;
   bookingIntervalMinutes: number;
   isLive: boolean;
@@ -49,12 +63,24 @@ type CreatorPayload = {
   scheduledLiveTimeZone?: string | null;
 };
 
+type ReviewPayload = {
+  id: string;
+  fan: string;
+  initials: string;
+  color: string;
+  imageUrl?: string;
+  rating: number;
+  comment: string;
+  date: string;
+};
+
 type PackagePayload = {
   id: string;
   name: string;
   description: string;
   duration: number;
   price: number;
+  isActive?: boolean;
 };
 
 type AvailabilitySlot = {
@@ -83,6 +109,7 @@ type PaymentInitKey = {
   creatorId: string;
   packageId: string;
   scheduledAtIso: string;
+  mode?: "authenticated" | "guest";
 };
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -154,12 +181,18 @@ function getDraftKey(slug: string) {
 function PaymentForm({
   onBack,
   onSubmit,
+  accountFields,
+  canSubmit = true,
+  submitDisabledReason,
   isSubmitting,
   setIsSubmitting,
   setError,
 }: {
   onBack: () => void;
   onSubmit: (paymentIntentId: string) => Promise<void>;
+  accountFields?: ReactNode;
+  canSubmit?: boolean;
+  submitDisabledReason?: string;
   isSubmitting: boolean;
   setIsSubmitting: (value: boolean) => void;
   setError: (value: string) => void;
@@ -170,6 +203,10 @@ function PaymentForm({
 
   async function handlePay() {
     if (!stripe || !elements || !isReady) return;
+    if (!canSubmit) {
+      setError(submitDisabledReason ?? "Complete all required details before paying.");
+      return;
+    }
     setIsSubmitting(true);
     setError("");
 
@@ -204,6 +241,7 @@ function PaymentForm({
   return (
     <div className="space-y-4">
       <PaymentElement options={{ layout: "tabs" }} onReady={() => setIsReady(true)} />
+      {accountFields}
       <div className="flex flex-col gap-3 min-[420px]:flex-row">
         <Button variant="outline" className="flex-1" onClick={onBack} disabled={isSubmitting}>
           Back
@@ -212,7 +250,7 @@ function PaymentForm({
           variant="gold"
           className="flex-1 whitespace-normal text-center leading-tight"
           onClick={handlePay}
-          disabled={isSubmitting || !stripe || !isReady}
+          disabled={isSubmitting || !stripe || !isReady || !canSubmit}
         >
           {isSubmitting ? (
             <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
@@ -244,6 +282,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const [creator, setCreator] = useState<CreatorPayload | null>(null);
   const [packages, setPackages] = useState<PackagePayload[]>([]);
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [reviews, setReviews] = useState<ReviewPayload[]>([]);
   const [existingBookingWindows, setExistingBookingWindows] = useState<ExistingBookingWindow[]>([]);
 
   const [step, setStep] = useState<Step>("select");
@@ -252,6 +291,8 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [topic, setTopic] = useState("");
   const [weekOffset, setWeekOffset] = useState(0);
+  const [showBookingTimes, setShowBookingTimes] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [fetchingIntent, setFetchingIntent] = useState(false);
@@ -266,6 +307,8 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
   const [signUpName, setSignUpName] = useState("");
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
+  const [guestAgreedToTerms, setGuestAgreedToTerms] = useState(false);
+  const [guestConfirmedAge, setGuestConfirmedAge] = useState(false);
   const [settingFanRole, setSettingFanRole] = useState(false);
   const [awaitingEmailVerification, setAwaitingEmailVerification] = useState(false);
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -282,12 +325,37 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     () => packages.find((pkg) => pkg.id === selectedPackageId) ?? null,
     [packages, selectedPackageId]
   );
+  const bookingPackages = useMemo<CallPackage[]>(
+    () => packages.map((pkg) => ({
+      id: pkg.id,
+      name: pkg.name,
+      duration: pkg.duration,
+      price: pkg.price,
+      description: pkg.description,
+      isActive: pkg.isActive ?? true,
+      bookingsCount: 0,
+    })),
+    [packages]
+  );
 
   const sessionPrice = selectedPackage?.price ?? 0;
   const sessionDuration = selectedPackage?.duration ?? 15;
   const totalCents = Math.round(sessionPrice * 1.025 * 100);
   const sessionGrossPrice = totalCents / 100;
   const platformFeeAmount = sessionGrossPrice - sessionPrice;
+  const guestAccountReady = Boolean(
+    user?.role === "fan" ||
+    (
+      signUpName.trim() &&
+      signUpEmail.trim() &&
+      signUpEmail.includes("@") &&
+      signUpPassword.length >= 8 &&
+      /[A-Z]/.test(signUpPassword) &&
+      /[^A-Za-z0-9]/.test(signUpPassword) &&
+      guestAgreedToTerms &&
+      guestConfirmedAge
+    )
+  );
   const availableDates = getAvailableDates(weekOffset);
   const canReviewAndPay = Boolean(selectedPackage && selectedDate && selectedTime);
   const needsPackageSelection = !selectedPackage;
@@ -319,6 +387,36 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     })}${abbreviation ? ` ${abbreviation}` : ""}`;
   })();
   const showLivePanel = Boolean(creator && (creator.isLive || hasLiveRate || scheduledLiveCountdown || scheduledLiveLabel));
+  const bookingCreator = creator ? ({
+    id: creator.id,
+    name: creator.name,
+    username: `@${creator.username}`,
+    bio: creator.bio,
+    category: creator.category,
+    tags: creator.tags ?? [],
+    followers: "0",
+    rating: Number(creator.rating ?? 0),
+    reviewCount: creator.reviewCount ?? reviews.length,
+    avatarInitials: creator.avatarInitials,
+    avatarColor: creator.avatarColor,
+    avatarUrl: creator.avatarUrl,
+    isLive: creator.isLive,
+    currentLiveSessionId: creator.currentLiveSessionId ?? undefined,
+    queueCount: 0,
+    callPrice: packages.length ? Math.min(...packages.map((pkg) => pkg.price)) : 0,
+    callDuration: packages[0]?.duration ?? 15,
+    nextAvailable: "",
+    totalCalls: 0,
+    responseTime: "",
+    liveJoinFee: creator.liveJoinFee ?? undefined,
+    scheduledLiveAt: creator.scheduledLiveAt ?? undefined,
+    scheduledLiveTimeZone: creator.scheduledLiveTimeZone ?? undefined,
+    timeZone: creator.timeZone,
+    bookingIntervalMinutes: creator.bookingIntervalMinutes,
+    instagramUrl: creator.instagramUrl ?? undefined,
+    tiktokUrl: creator.tiktokUrl ?? undefined,
+    xUrl: creator.xUrl ?? undefined,
+  } satisfies Creator) : null;
   const liveButtonLabel = (() => {
     if (creator?.isLive) return user?.role === "fan" ? "Join Live Now" : "Sign in or create account to join";
     if (scheduledLiveCountdown) return scheduledLiveCountdown;
@@ -377,6 +475,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
           creator?: CreatorPayload;
           packages?: PackagePayload[];
           availability?: AvailabilitySlot[];
+          reviews?: ReviewPayload[];
           error?: string;
         }>(creatorRes);
         if (!creatorRes.ok) {
@@ -390,6 +489,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         setCreator(creatorData.creator);
         setPackages(creatorData.packages ?? []);
         setAvailability(creatorData.availability ?? []);
+        setReviews(creatorData.reviews ?? []);
 
         const bookedRes = await fetch(
           `/api/public/bookings/availability?creatorId=${encodeURIComponent(creatorData.creator.id)}`
@@ -516,6 +616,50 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     setStep("success");
   }
 
+  async function handleGuestBookingSuccess(paymentIntentId: string) {
+    if (!creator || !selectedPackage || !selectedDate || !selectedTime) {
+      throw new Error("Missing booking details.");
+    }
+
+    const response = await fetch("/api/public/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        creatorId: creator.id,
+        packageId: selectedPackage.id,
+        scheduledAt: parseSlotToIso(selectedDate, selectedTime),
+        topic,
+        paymentIntentId,
+        fullName: signUpName.trim(),
+        email: signUpEmail.trim(),
+        password: signUpPassword,
+      }),
+    });
+    const data = await readJsonResponse<{
+      booking?: { scheduled_at?: string; scheduledAt?: string; duration?: number };
+      error?: string;
+    }>(response);
+    if (!response.ok) {
+      throw new Error(data?.error ?? "Could not create booking.");
+    }
+
+    setAuthIntent(null);
+    const loginResult = await login(signUpEmail.trim(), signUpPassword);
+    if (!loginResult.success) {
+      throw new Error("Your booking is confirmed, but we could not sign you in automatically. Please sign in with the email and password you just used.");
+    }
+
+    const confirmedScheduledAt = data?.booking?.scheduled_at ?? data?.booking?.scheduledAt ?? parseSlotToIso(selectedDate, selectedTime);
+    const confirmedDuration = Number(data?.booking?.duration ?? selectedPackage.duration);
+    setExistingBookingWindows((current) => [
+      ...current,
+      { scheduledAt: confirmedScheduledAt, duration: confirmedDuration },
+    ]);
+    window.sessionStorage.removeItem(draftKey);
+    setSuccessMessage(`Your call with ${creator.name} is confirmed.`);
+    setStep("success");
+  }
+
   function focusAuthCard() {
     window.requestAnimationFrame(() => {
       authCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -541,16 +685,19 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     focusAuthCard();
   }
 
+  function handleSeeTimes() {
+    setShowBookingModal(true);
+  }
+
   function handleContinueFromDetails() {
     if (user?.role === "fan") {
       setStep("payment");
       return;
     }
 
-    setAuthIntent("booking");
-    setAuthTab("signin");
-    setStep("identity");
-    focusAuthCard();
+    setAuthIntent(null);
+    setAuthTab("signup");
+    setStep("payment");
   }
 
   async function handleSignInSubmit(event: FormEvent<HTMLFormElement>) {
@@ -577,12 +724,11 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     }
     if (authLoading) return;
 
-    if (user?.role !== "fan") return;
-
     const nextPaymentInitKey = JSON.stringify({
       creatorId: creator?.id ?? "",
       packageId: selectedPackage.id,
       scheduledAtIso: parseSlotToIso(selectedDate, selectedTime),
+      mode: user?.role === "fan" ? "authenticated" : "guest",
     } satisfies PaymentInitKey);
 
     if (paymentInitKeyRef.current === nextPaymentInitKey) {
@@ -597,12 +743,15 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
         setPaymentError("");
         paymentInitKeyRef.current = nextPaymentInitKey;
 
-        const response = await fetch("/api/create-payment-intent", {
+        const scheduledAtIso = parseSlotToIso(selectedDate!, selectedTime!);
+        const response = await fetch(user?.role === "fan" ? "/api/create-payment-intent" : "/api/public/create-payment-intent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             amount: totalCents,
+            creatorId: creator?.id,
             packageId: selectedPackage?.id,
+            scheduledAt: scheduledAtIso,
             creatorName: creator?.name,
             packageName: selectedPackage?.name ?? "Call",
             saveForFuture: false,
@@ -796,296 +945,297 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
     );
   }
 
-  return (
-    <div className="mx-auto w-full max-w-5xl overflow-x-hidden px-4 py-8 md:px-6 md:py-12">
-      <div className="mb-4 flex justify-end">
-        <Button
-          variant="outline"
-          className="min-h-11 whitespace-normal px-4 text-sm"
-          onClick={() => router.push("/")}
-        >
-          <Home className="h-4 w-4" />
-          Go to Friendsly
-        </Button>
+  const socialLinks = [
+    {
+      key: "instagram",
+      label: "Instagram",
+      href: sanitizeSocialUrl(creator.instagramUrl ?? ""),
+      icon: Instagram,
+    },
+    {
+      key: "tiktok",
+      label: "TikTok",
+      href: sanitizeSocialUrl(creator.tiktokUrl ?? ""),
+      icon: Music2,
+    },
+    {
+      key: "x",
+      label: "X",
+      href: sanitizeSocialUrl(creator.xUrl ?? ""),
+      icon: ExternalLink,
+    },
+  ].filter((link) => link.href);
+
+  const reviewCount = creator.reviewCount ?? reviews.length;
+  const creatorRating = Number(creator.rating ?? 0);
+  const liveCard = showLivePanel ? (
+    <div
+      className={cn(
+        "rounded-2xl border p-4 shadow-card",
+        creator.isLive
+          ? "border-brand-live/25 bg-brand-live/5"
+          : "border-brand-border bg-brand-surface"
+      )}
+    >
+      <div className="inline-flex items-center gap-1.5 rounded-lg bg-brand-live px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
+        <Radio className="h-3 w-3" />
+        Join Friendsly Live
       </div>
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-        <section className="min-w-0 space-y-5">
-          <div className="max-w-full overflow-hidden rounded-3xl border border-brand-border bg-brand-surface p-5 md:p-8">
-            <div className="flex min-w-0 items-start gap-4">
-              <Avatar
-                initials={creator.avatarInitials}
-                color={creator.avatarColor}
-                imageUrl={creator.avatarUrl}
-                size="xl"
+      <h2 className="mt-3 text-base font-bold text-brand-ink md:text-xl md:font-serif md:font-normal">
+        Free to watch
+      </h2>
+      <p className="mt-1 text-sm text-brand-ink-muted">
+        {creator.isLive
+          ? `Jump into ${creator.name.split(" ")[0]}'s live room from this link.`
+          : scheduledLiveLabel
+          ? `Next live starts ${scheduledLiveLabel}.`
+          : `${creator.name.split(" ")[0]}'s live room will appear here when it opens.`}
+      </p>
+      <Button
+        variant={liveButtonDisabled ? "surface" : "live"}
+        className="mt-3 min-h-11 w-full min-w-0 whitespace-normal px-3 text-center leading-tight"
+        onClick={handleJoinLive}
+        disabled={liveButtonDisabled}
+      >
+        <Radio className="w-4 h-4" />
+        {liveButtonLabel}
+      </Button>
+    </div>
+  ) : null;
+
+  const reviewsSection = (
+    <section className="rounded-3xl border border-brand-border bg-brand-surface p-5 shadow-card md:p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-brand-ink">
+          Reviews <span className="font-normal text-brand-ink-subtle">({reviewCount})</span>
+        </h2>
+        {creatorRating > 0 && (
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Star
+                key={n}
+                className={cn(
+                  "h-4 w-4",
+                  n <= Math.round(creatorRating) ? "fill-brand-gold text-brand-gold" : "text-brand-ink-subtle"
+                )}
               />
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-primary-light">
-                  Shareable Booking Link
-                </p>
-                <h1 className="mt-2 text-3xl font-serif font-normal text-brand-ink">{creator.name}</h1>
-                <p className="mt-1 text-sm text-brand-ink-subtle">{creator.category}</p>
-                {creator.bio && (
-                  <p className="mt-4 max-w-2xl text-sm leading-relaxed text-brand-ink-subtle">
-                    {creator.bio}
-                  </p>
-                )}
-                {showLivePanel && (
-                  <div
-                    className={cn(
-                      "mt-4 max-w-full overflow-hidden rounded-2xl border p-3",
-                      creator.isLive
-                        ? "border-brand-live/20 bg-brand-live/10"
-                        : "border-brand-border bg-brand-elevated"
-                    )}
-                  >
-                    <div className="flex min-w-0 items-start gap-3">
-                      <span
-                        className={cn(
-                          "mt-1 h-2.5 w-2.5 shrink-0 rounded-full",
-                          creator.isLive ? "bg-brand-live animate-pulse" : "bg-brand-ink-muted"
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={cn(
-                            "text-xs font-semibold uppercase tracking-[0.18em]",
-                            creator.isLive ? "text-brand-live" : "text-brand-ink-muted"
-                          )}
-                        >
-                          {creator.isLive ? "Live on Friendsly now" : "Friendsly Live"}
-                        </p>
-                        <p className="mt-1 text-sm text-brand-ink-subtle">
-                          {creator.isLive
-                            ? `Jump into ${creator.name.split(" ")[0]}'s live room from this link.`
-                            : scheduledLiveLabel
-                            ? `Next live starts ${scheduledLiveLabel}.`
-                            : `${creator.name.split(" ")[0]}'s live room will appear here when it opens.`}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant={liveButtonDisabled ? "surface" : "live"}
-                      className="mt-3 min-h-11 w-full min-w-0 whitespace-normal px-3 text-center leading-tight"
-                      onClick={handleJoinLive}
-                      disabled={liveButtonDisabled}
-                    >
-                      <Radio className="w-4 h-4" />
-                      {liveButtonLabel}
-                    </Button>
-                  </div>
-                )}
+            ))}
+            <span className="ml-2 text-sm font-bold text-brand-gold">{creatorRating}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3 md:space-y-4">
+        {reviews.length === 0 && (
+          <div className="rounded-2xl border border-brand-border bg-brand-elevated p-8 text-center">
+            <Star className="mx-auto mb-3 h-8 w-8 text-brand-ink-subtle" />
+            <p className="text-brand-ink-subtle">No reviews yet.</p>
+            <p className="mt-1 text-sm text-brand-ink-subtle">Be the first to leave a review!</p>
+          </div>
+        )}
+        {reviews.map((review) => (
+          <div key={review.id} className="rounded-2xl border border-brand-border bg-brand-elevated p-4 md:p-5">
+            <div className="flex items-start gap-3">
+              <Avatar initials={review.initials} color={review.color} imageUrl={review.imageUrl} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="truncate text-sm font-semibold text-brand-ink">{review.fan}</p>
+                  <span className="shrink-0 text-xs text-brand-ink-subtle">
+                    {new Date(review.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </span>
+                </div>
+                <div className="mb-1 mt-0.5 flex items-center gap-0.5 md:mb-2">
+                  {Array.from({ length: review.rating }).map((_, index) => (
+                    <Star key={index} className="h-3 w-3 fill-brand-gold text-brand-gold md:h-3.5 md:w-3.5" />
+                  ))}
+                </div>
+                <p className="text-xs leading-relaxed text-brand-ink-muted md:text-sm">{review.comment}</p>
               </div>
             </div>
           </div>
+        ))}
+      </div>
+    </section>
+  );
 
-          <div className="max-w-full overflow-hidden rounded-3xl border border-brand-border bg-brand-surface p-5 md:p-6">
-            <div className="flex min-w-0 items-center justify-between gap-3">
-              <h2 className="text-lg font-bold text-brand-ink">Choose your session</h2>
-              <span className="shrink-0 text-xs text-brand-ink-muted">
-                Step {currentStepLabel} of 3
-              </span>
+  const exampleQuestions = [
+    "Build a realistic weekly fitness plan around your schedule.",
+    "Review your nutrition habits and identify simple upgrades.",
+    "Ask about form, recovery, consistency, or getting unstuck.",
+    "Leave with practical next steps you can start this week.",
+  ];
+
+  const exampleQuestionsSection = packages.length > 0 ? (
+    <section className="mt-5 rounded-2xl border border-brand-border bg-brand-elevated p-4">
+      <p className="text-sm font-bold text-brand-ink">What you can ask</p>
+      <ul className="mt-3 space-y-2">
+        {exampleQuestions.map((item) => (
+          <li key={item} className="flex gap-2 text-sm leading-5 text-brand-ink-muted">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary-light" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ) : null;
+
+  const howItWorksSection = (
+    <section className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card md:p-8">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-primary-light">How it works</p>
+      <h2 className="mt-2 text-2xl font-serif font-normal text-brand-ink">Simple, personal, and live.</h2>
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
+        {[
+          ["1", "Pick a time", "Choose a time that works and share what you want to cover."],
+          ["2", "Meet live", "Join the video call from Friendsly when your session starts."],
+          ["3", "Leave with next steps", "Get specific advice you can use after the call."],
+        ].map(([number, title, body]) => (
+          <div key={number} className="rounded-2xl border border-brand-border bg-brand-elevated p-5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-ink text-sm font-bold text-white">
+              {number}
             </div>
+            <p className="mt-4 font-bold text-brand-ink">{title}</p>
+            <p className="mt-2 text-sm leading-6 text-brand-ink-muted">{body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 
-            {packages.length > 0 && (
-              <div
-                className={cn(
-                  "mt-5 grid gap-2",
-                  packages.length === 1 && "grid-cols-1",
-                  packages.length === 2 && "grid-cols-2",
-                  packages.length >= 3 && "grid-cols-3",
-                )}
-              >
-                {packages.map((pkg) => (
-                  <button
-                    key={pkg.id}
-                    onClick={() => {
-                      setSelectedPackageId(pkg.id);
-                      setSelectedDate(null);
-                      setSelectedTime(null);
-                    }}
+  return (
+    <div className="mx-auto w-full max-w-5xl overflow-x-hidden px-4 py-4 md:px-6 md:py-6">
+      <div className="mb-4 flex justify-start">
+        <Button
+          variant="outline"
+          className="min-h-11 whitespace-normal px-4 text-sm md:min-h-0"
+          onClick={() => router.push("/discover")}
+        >
+          <Home className="h-4 w-4" />
+          Back to Discover
+        </Button>
+      </div>
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,4fr)_minmax(0,6fr)] lg:gap-7">
+        <section className="min-w-0 space-y-4 lg:sticky lg:top-4 lg:self-start">
+          <div className="relative aspect-square overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated md:rounded-3xl">
+            {creator.avatarUrl ? (
+              <img src={creator.avatarUrl} alt={creator.name} className="h-full w-full object-cover" />
+            ) : (
+              <div className={cn("flex h-full w-full items-center justify-center", creator.avatarColor ?? "bg-brand-primary")}>
+                <span className="text-8xl font-bold text-white/70">{creator.avatarInitials}</span>
+              </div>
+            )}
+            {creator.isLive && (
+              <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-brand-live px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-md">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.18)]" />
+                LIVE NOW
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-2 text-xl font-bold leading-tight text-brand-ink md:text-[2rem] md:font-serif md:font-normal">
+              {creator.name}
+              <CheckCircle2 className="hidden h-5 w-5 text-brand-primary md:block" />
+            </h1>
+            {creator.category && (
+              <p className="mt-1 text-sm text-brand-ink-muted">{creator.category}</p>
+            )}
+            <p className="mt-1 text-xs text-brand-ink-subtle">@{creator.username}</p>
+            {creatorRating > 0 && (
+              <div className="mt-2 flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Star
+                    key={n}
                     className={cn(
-                      "flex w-full min-w-0 max-w-full flex-col items-start gap-1 overflow-hidden rounded-2xl border p-3 text-left transition-all",
-                      selectedPackage?.id === pkg.id
-                        ? "border-brand-primary bg-brand-primary/10"
-                        : "border-brand-border bg-brand-elevated hover:border-brand-primary/40",
+                      "h-4 w-4",
+                      n <= Math.round(creatorRating) ? "fill-brand-gold text-brand-gold" : "text-brand-border"
                     )}
-                  >
-                    <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
-                    {pkg.description && (
-                      <p className="line-clamp-2 w-full text-xs leading-relaxed text-brand-ink-subtle">
-                        {pkg.description}
-                      </p>
-                    )}
-                    <p className="text-[11px] text-brand-ink-muted">{pkg.duration} min</p>
-                    <p className="mt-1 text-base font-bold text-amber-600">{formatCurrency(pkg.price)}</p>
-                  </button>
+                  />
                 ))}
+                <span className="ml-1 text-sm font-bold text-brand-gold">{creatorRating}</span>
+                <span className="text-xs text-brand-ink-subtle">({reviewCount})</span>
               </div>
             )}
 
-            {needsPackageSelection && (
-              <div className="mt-6 rounded-2xl border border-dashed border-brand-primary/35 bg-brand-primary/5 p-4">
-                <p className="text-sm font-semibold text-brand-ink">
-                  {packages.length > 1 ? "Choose a booking type first" : "Select your session to get started"}
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-brand-ink-subtle">
-                  {packages.length > 1
-                    ? "Pick the kind of session you want, then we'll show the available dates and times."
-                    : "Tap the session above to see available dates and times."}
-                </p>
-              </div>
-            )}
-
-            {(step === "select" || step === "details" || step === "identity" || step === "payment") && (
-              <div className="mt-6 min-w-0 space-y-5">
-                {selectedPackage && (
-                  <>
-                    <div className="min-w-0">
-                      <p className="mb-2 text-xs text-brand-ink-muted">
-                        Times shown in your local time ({getTimeZoneAbbreviation(new Date(), viewerTimeZone)}).
-                      </p>
-                      <div className="mb-3 flex flex-col gap-2 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between">
-                        <label className="flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
-                          <Calendar className="w-4 h-4 text-brand-primary-light" />
-                          Select Date
-                        </label>
-                        <div className="flex shrink-0 items-center gap-1.5 self-end min-[380px]:self-auto">
-                          <button
-                            onClick={() => setWeekOffset((value) => Math.max(0, value - 1))}
-                            disabled={weekOffset === 0}
-                            className="rounded-md border border-brand-border bg-brand-elevated p-1 text-brand-ink-subtle transition-colors hover:text-brand-ink disabled:opacity-30"
-                          >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setWeekOffset((value) => Math.min(3, value + 1))}
-                            disabled={weekOffset >= 3}
-                            className="rounded-md border border-brand-border bg-brand-elevated p-1 text-brand-ink-subtle transition-colors hover:text-brand-ink disabled:opacity-30"
-                          >
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="grid min-w-0 grid-cols-4 gap-1 min-[380px]:gap-2">
-                        {availableDates.map((date) => {
-                          const isSelected = selectedDate?.toDateString() === date.toDateString();
-                          const hasTimes = availableDateKeys.has(date.toDateString());
-                          return (
-                            <button
-                              key={date.toISOString()}
-                              onClick={() => {
-                                if (!hasTimes) return;
-                                setSelectedDate(date);
-                                setSelectedTime(null);
-                              }}
-                              disabled={!hasTimes}
-                              className={cn(
-                                "flex min-w-0 flex-col items-center rounded-xl border px-1 py-2 text-xs font-medium transition-all min-[380px]:p-2",
-                                isSelected
-                                  ? "border-brand-primary bg-brand-primary/20 text-brand-primary-light ring-1 ring-brand-primary/30"
-                                  : hasTimes
-                                  ? "border-brand-primary/40 bg-white text-brand-ink font-semibold shadow-sm hover:border-brand-primary hover:bg-brand-primary/5"
-                                  : "cursor-not-allowed border-brand-border/40 bg-brand-elevated/40 text-brand-ink-muted opacity-35"
-                              )}
-                            >
-                              <span className="text-[10px] uppercase opacity-70">
-                                {date.toLocaleDateString("en-US", { weekday: "short" })}
-                              </span>
-                              <span className="mt-0.5 text-base font-bold">{date.getDate()}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+            {(creator.bio || socialLinks.length > 0 || (creator.tags?.length ?? 0) > 0) && (
+              <div className="mt-4 border-t border-brand-border pb-1 pt-4">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h2 className="text-base font-bold text-brand-ink">About</h2>
+                  {socialLinks.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      {socialLinks.map(({ key, label, href, icon: Icon }) => (
+                        <a
+                          key={key}
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={label}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-border bg-brand-elevated text-brand-ink-muted transition-colors hover:border-brand-primary/40 hover:text-brand-ink"
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                        </a>
+                      ))}
                     </div>
-
-                    {selectedDate && (
-                      <div className="min-w-0">
-                        <label className="mb-3 flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
-                          <Clock className="w-4 h-4 text-brand-primary-light" />
-                          Select Time
-                        </label>
-                        {availableTimeSlots.length === 0 ? (
-                          <p className="rounded-xl border border-brand-border bg-brand-elevated px-4 py-3 text-sm text-brand-ink-muted">
-                            No times available on that date.
-                          </p>
-                        ) : (
-                          <div className="grid min-w-0 grid-cols-2 gap-2 min-[380px]:grid-cols-3">
-                            {availableTimeSlots.map((slot) => (
-                              <button
-                                key={slot}
-                                onClick={() => setSelectedTime(slot)}
-                                className={cn(
-                                  "min-w-0 rounded-xl border px-2 py-2 text-xs font-medium transition-all min-[380px]:px-3",
-                                  selectedTime === slot
-                                    ? "border-brand-primary bg-brand-primary/20 text-brand-primary-light"
-                                    : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:border-brand-primary/40 hover:text-brand-ink"
-                                )}
-                              >
-                                {slot}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {selectedDate && selectedTime && (
-                      <div className="space-y-4">
-                        <div>
-                          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-brand-ink-subtle">
-                            <MessageSquare className="w-4 h-4 text-brand-primary-light" />
-                            What do you want to cover?
-                          </label>
-                          <textarea
-                            value={topic}
-                            onChange={(event) => setTopic(event.target.value)}
-                            rows={3}
-                            placeholder={`Let ${creator.name.split(" ")[0]} know what you'd like to talk about.`}
-                            className="w-full rounded-xl border border-brand-border bg-brand-elevated px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink-muted focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                          />
-                        </div>
-
-                        <div className="max-w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated p-4 lg:hidden">
-                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-ink-muted">Your booking</p>
-                          <div className="mt-3 space-y-2 text-sm">
-                            <div className="grid grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] items-start gap-3">
-                              <span className="min-w-0 text-brand-ink-muted">Session</span>
-                              <span className="min-w-0 text-right font-medium text-brand-ink break-words">{selectedPackage.name}</span>
-                            </div>
-                            <div className="grid grid-cols-[minmax(0,0.35fr)_minmax(0,0.65fr)] items-start gap-3">
-                              <span className="min-w-0 text-brand-ink-muted">When</span>
-                              <span className="min-w-0 text-right font-medium text-brand-ink break-words">{`${formatShortDate(selectedDate)} at ${selectedTime}`}</span>
-                            </div>
-                            <div className="grid grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] items-start gap-3">
-                              <span className="min-w-0 text-brand-ink-muted">Total</span>
-                              <span className="min-w-0 text-right font-bold text-amber-600">{formatCurrency(sessionGrossPrice)}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {(step === "select" || step === "details") && (
-                          <div className="min-w-0 rounded-2xl border border-brand-border bg-brand-surface p-4 lg:hidden">
-                            <Button
-                              variant="gold"
-                              className="min-h-11 w-full min-w-0 whitespace-normal px-3 text-center leading-tight"
-                              onClick={handleContinueFromDetails}
-                              disabled={!canReviewAndPay}
-                            >
-                              Review and pay
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
+                  )}
+                </div>
+                {creator.bio && (
+                  <p className="whitespace-pre-line break-words text-sm leading-relaxed text-brand-ink-muted [overflow-wrap:anywhere]">
+                    {creator.bio}
+                  </p>
+                )}
+                {(creator.tags?.length ?? 0) > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {creator.tags?.slice(0, 6).map((tag) => (
+                      <span key={tag} className="rounded-full border border-brand-border bg-brand-elevated px-2.5 py-1 text-[11px] font-medium text-brand-ink-subtle">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
           </div>
         </section>
 
-        <aside className="min-w-0 space-y-5">
-          <div className="hidden rounded-3xl border border-brand-border bg-brand-surface p-6 lg:block">
+        <div className="min-w-0 space-y-5">
+          {creator.isLive ? liveCard : null}
+
+          <section className="min-w-0">
+          <div className="max-w-full overflow-hidden rounded-3xl border border-brand-border bg-brand-surface p-5 shadow-card md:p-6">
+            <div className="flex min-w-0 flex-col gap-3 min-[520px]:flex-row min-[520px]:items-start min-[520px]:justify-between">
+              <div className="min-w-0">
+                <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-ink px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white">
+                  <Video className="h-3 w-3" />
+                  Book a video call
+                </div>
+                <h2 className="text-xl font-serif font-normal text-brand-ink">Book a Session</h2>
+                <p className="mt-1 text-sm text-brand-ink-muted">
+                  Book a 1:1 live video consultation &amp; get personalized advice.
+                </p>
+              </div>
+            </div>
+
+            {packages.length === 0 ? (
+              <div className="mt-4 rounded-2xl border border-brand-border bg-brand-elevated py-8 text-center">
+                <p className="text-sm text-brand-ink-subtle">No booking packages available yet.</p>
+                <p className="mt-1 text-xs text-brand-ink-subtle">Check back soon or watch their public live.</p>
+              </div>
+            ) : (
+              <>
+                <Button variant="primary" size="lg" className="mt-5 w-full" onClick={handleSeeTimes}>
+                  See times
+                </Button>
+                {exampleQuestionsSection}
+              </>
+            )}
+          </div>
+        </section>
+
+          {!creator.isLive ? liveCard : null}
+          {reviewsSection}
+        </div>
+
+        <div className="hidden">
+          <div className="hidden">
             <h2 className="text-lg font-bold text-brand-ink">Booking summary</h2>
             <div className="mt-4 space-y-3 text-sm">
               <div className="flex items-center gap-3 rounded-2xl border border-brand-border bg-brand-elevated p-3">
@@ -1148,7 +1298,7 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
           </div>
 
           {(step === "select" || step === "details") && (
-            <div className="hidden rounded-3xl border border-brand-border bg-brand-surface p-6 lg:block">
+            <div className="hidden">
               <Button
                 variant="gold"
                 className="w-full"
@@ -1329,7 +1479,70 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
                 <Elements stripe={stripePromise} options={{ ...STRIPE_OPTIONS, clientSecret }}>
                   <PaymentForm
                     onBack={() => setStep("select")}
-                    onSubmit={handleAuthenticatedBookingSuccess}
+                    onSubmit={user?.role === "fan" ? handleAuthenticatedBookingSuccess : handleGuestBookingSuccess}
+                    canSubmit={user?.role === "fan" || guestAccountReady}
+                    submitDisabledReason="Add your name, email, password, and confirmations under the card details."
+                    accountFields={user?.role === "fan" ? null : (
+                      <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4">
+                        <p className="text-sm font-semibold text-brand-ink">Create your account after payment</p>
+                        <p className="mt-1 text-xs leading-5 text-brand-ink-subtle">
+                          Your paid checkout confirms this fan account. No email confirmation step is required.
+                        </p>
+                        <div className="mt-4 space-y-3">
+                          <Input
+                            label="Full Name"
+                            type="text"
+                            value={signUpName}
+                            onChange={(event) => setSignUpName(event.target.value)}
+                            icon={<User className="h-4 w-4" />}
+                            placeholder="Jordan Kim"
+                            required
+                            autoComplete="name"
+                          />
+                          <Input
+                            label="Email"
+                            type="email"
+                            value={signUpEmail}
+                            onChange={(event) => setSignUpEmail(event.target.value)}
+                            icon={<Mail className="h-4 w-4" />}
+                            placeholder="you@example.com"
+                            required
+                            autoComplete="email"
+                          />
+                          <Input
+                            label="Password"
+                            type="password"
+                            value={signUpPassword}
+                            onChange={(event) => setSignUpPassword(event.target.value)}
+                            icon={<Lock className="h-4 w-4" />}
+                            placeholder="Create a password"
+                            required
+                            autoComplete="new-password"
+                          />
+                          <p className="text-xs leading-relaxed text-brand-ink-subtle">
+                            Password must be at least 8 characters and include an uppercase letter and a special character.
+                          </p>
+                          <label className="flex cursor-pointer items-start gap-2 rounded-2xl border border-brand-border bg-white px-3 py-3 text-xs leading-relaxed text-brand-ink-subtle">
+                            <input
+                              type="checkbox"
+                              checked={guestAgreedToTerms}
+                              onChange={(event) => setGuestAgreedToTerms(event.target.checked)}
+                              className="mt-0.5 h-4 w-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary/30"
+                            />
+                            <span>I agree to the Terms of Service and Privacy Policy.</span>
+                          </label>
+                          <label className="flex cursor-pointer items-start gap-2 rounded-2xl border border-brand-border bg-white px-3 py-3 text-xs leading-relaxed text-brand-ink-subtle">
+                            <input
+                              type="checkbox"
+                              checked={guestConfirmedAge}
+                              onChange={(event) => setGuestConfirmedAge(event.target.checked)}
+                              className="mt-0.5 h-4 w-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary/30"
+                            />
+                            <span>I confirm that I am 18 years of age or older.</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
                     isSubmitting={isSubmitting}
                     setIsSubmitting={setIsSubmitting}
                     setError={setPaymentError}
@@ -1372,8 +1585,24 @@ export function PublicBookingFlow({ creatorSlug }: { creatorSlug: string }) {
               </Button>
             </div>
           )}
-        </aside>
+        </div>
+
+        <div className="hidden">
+          {reviewsSection}
+        </div>
       </div>
+      <div className="mt-6">
+        {howItWorksSection}
+      </div>
+      {bookingCreator && (
+        <BookingModal
+          creator={bookingCreator}
+          open={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
+          packages={bookingPackages}
+          availability={availability}
+        />
+      )}
     </div>
   );
 }

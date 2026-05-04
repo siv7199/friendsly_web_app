@@ -14,9 +14,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const SHARED_PROTECTED  = ["/settings", "/room", "/m/room"];
-const PROTECTED_FAN     = ["/discover", "/profile", "/waiting-room", "/bookings", "/payments", "/saved", "/m/waiting-room"];
+const SHARED_PROTECTED  = ["/room", "/m/room"];
+const PROTECTED_FAN     = ["/bookings", "/payments", "/saved"];
 const PROTECTED_CREATOR = ["/dashboard", "/management", "/calendar", "/live", "/earnings", "/m/live"];
+const ACCOUNT_GATE_ROUTES = ["/settings", "/bookings", "/payments", "/saved"];
 const MOBILE_CALL_ROUTES = ["/waiting-room", "/live", "/room", "/guest-room"];
 const ONBOARDING_PREFIX = "/onboarding";
 const AUTH_ROUTES       = ["/login", "/signup"];
@@ -138,7 +139,7 @@ export async function middleware(request: NextRequest) {
   if (isAuthRoute(pathname)) return response;
 
   // 5. No session + protected route → send to login
-  if (isProtected(pathname)) {
+  if (isProtected(pathname) && !matchesProtectedRoute(pathname, ACCOUNT_GATE_ROUTES)) {
     const url = new URL("/login", request.url);
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);

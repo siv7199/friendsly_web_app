@@ -23,7 +23,7 @@ function sanitizeNextPath(nextPath: string | null, role?: string | null) {
   if (nextPath.startsWith("//") || nextPath.startsWith("/\\")) return null;
 
   const creatorOnlyPrefixes = ["/dashboard", "/management", "/calendar", "/live", "/earnings", "/m/live"];
-  const fanOnlyPrefixes = ["/discover", "/profile", "/bookings", "/payments", "/saved", "/m/waiting-room"];
+  const fanOnlyPrefixes = ["/discover", "/profile", "/waiting-room", "/bookings", "/payments", "/saved", "/m/waiting-room"];
   const matchesPrefix = (prefixes: string[]) => prefixes.some((prefix) => nextPath === prefix || nextPath.startsWith(`${prefix}/`));
 
   if (role === "fan" && matchesPrefix(creatorOnlyPrefixes)) return null;

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
-import { CheckCircle2, Clock, Loader2, Zap } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, Lock, Mail, User, Zap } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
 import type { Creator } from "@/types";
 import { readJsonResponse } from "@/lib/http";
@@ -30,11 +31,17 @@ interface SavedPaymentMethod {
 
 function PaymentForm({
   onSuccess,
+  accountFields,
+  canSubmit = true,
+  submitDisabledReason,
   isSubmitting,
   setIsSubmitting,
   setPayError,
 }: {
   onSuccess: () => void;
+  accountFields?: ReactNode;
+  canSubmit?: boolean;
+  submitDisabledReason?: string;
   isSubmitting: boolean;
   setIsSubmitting: (value: boolean) => void;
   setPayError: (value: string) => void;
@@ -45,6 +52,10 @@ function PaymentForm({
 
   async function handleSubmit() {
     if (!stripe || !elements || !isReady) return;
+    if (!canSubmit) {
+      setPayError(submitDisabledReason ?? "Complete all required details before paying.");
+      return;
+    }
     setIsSubmitting(true);
     setPayError("");
 
@@ -65,13 +76,14 @@ function PaymentForm({
   return (
     <div className="space-y-4">
       <PaymentElement options={{ layout: "tabs" }} onReady={() => setIsReady(true)} />
-      <Button variant="live" size="lg" className="w-full gap-2 whitespace-normal text-center leading-tight" onClick={handleSubmit} disabled={isSubmitting || !stripe || !isReady}>
+      {accountFields}
+      <Button variant="live" size="lg" className="w-full gap-2 whitespace-normal text-center leading-tight" onClick={handleSubmit} disabled={isSubmitting || !stripe || !isReady || !canSubmit}>
         {isSubmitting ? (
           <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
         ) : !isReady ? (
           <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</>
         ) : (
-          <><Zap className="w-4 h-4" /> Join Queue</>
+          <><Zap className="w-4 h-4" /> Join Call</>
         )}
       </Button>
     </div>
@@ -90,7 +102,7 @@ export function LiveJoinModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const { user } = useAuthContext();
+  const { user, login } = useAuthContext();
   const [step, setStep] = useState<Step>("info");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
@@ -102,6 +114,11 @@ export function LiveJoinModal({
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [saveNewCard, setSaveNewCard] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(creator.currentLiveSessionId);
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPassword, setGuestPassword] = useState("");
+  const [guestAgreedToTerms, setGuestAgreedToTerms] = useState(false);
+  const [guestConfirmedAge, setGuestConfirmedAge] = useState(false);
   const liveHref = getLiveSessionPath({
     creatorId: creator.id,
     creatorUsername: creator.username,
@@ -111,12 +128,29 @@ export function LiveJoinModal({
   const joinFee = creator.liveJoinFee ?? 0;
   const fanPerMinuteCharge = getLiveFanChargeAmount(joinFee);
   const liveProcessingFee = Math.max(0, fanPerMinuteCharge - joinFee);
+  const guestAccountReady = Boolean(
+    user ||
+    (
+      guestName.trim() &&
+      guestEmail.trim() &&
+      guestEmail.includes("@") &&
+      guestPassword.length >= 8 &&
+      /[A-Z]/.test(guestPassword) &&
+      /[^A-Za-z0-9]/.test(guestPassword) &&
+      guestAgreedToTerms &&
+      guestConfirmedAge
+    )
+  );
 
   function handleModalClose() {
     onClose();
     if (step === "success") {
       router.push(liveHref);
     }
+  }
+
+  function handleJoinSignup() {
+    setStep("payment");
   }
 
   async function findExistingQueueEntry(sessionId: string) {
@@ -212,7 +246,7 @@ export function LiveJoinModal({
     if (step !== "payment" || clientSecret || selectedPaymentMethodId) return;
 
     setFetchingIntent(true);
-    fetch("/api/create-live-preauth", {
+    fetch(user ? "/api/create-live-preauth" : "/api/public/live/preauth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -233,11 +267,40 @@ export function LiveJoinModal({
       })
       .catch(() => setPayError("Network error. Please try again."))
       .finally(() => setFetchingIntent(false));
-  }, [clientSecret, creator.name, joinFee, saveNewCard, selectedPaymentMethodId, step]);
+  }, [clientSecret, creator.id, creator.name, currentSessionId, joinFee, saveNewCard, selectedPaymentMethodId, step, user]);
 
   async function finishQueueJoin(intentId: string) {
     if (!user) {
+      if (!currentSessionId) {
+        setPayError("Creator is offline or still setting up. Please try again in a moment.");
+        setIsSubmitting(false);
+        setStep("info");
+        return;
+      }
+
+      const response = await fetch("/api/public/live/join-queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          paymentIntentId: intentId,
+          fullName: guestName.trim(),
+          email: guestEmail.trim(),
+          password: guestPassword,
+        }),
+      });
+      const data = await readJsonResponse<{ error?: string }>(response);
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Could not join the live queue.");
+      }
+
+      const loginResult = await login(guestEmail.trim(), guestPassword);
+      if (!loginResult.success) {
+        throw new Error("You're in the queue, but we could not sign you in automatically. Please sign in with the email and password you just used.");
+      }
+
       setStep("success");
+      setIsSubmitting(false);
       return;
     }
 
@@ -317,10 +380,11 @@ export function LiveJoinModal({
   }
 
   return (
+    <>
     <Dialog open={open} onClose={handleModalClose}>
       <DialogContent
         className="mx-auto w-[calc(100vw-1rem)] max-w-md"
-        title={step === "success" ? "You're In The Queue" : `Join ${creator.name}'s Live`}
+        title={step === "success" ? "You're In Line" : `Join ${creator.name}'s Live`}
       >
         {step === "success" ? (
           <div className="flex flex-col items-center text-center gap-4 py-4">
@@ -402,10 +466,17 @@ export function LiveJoinModal({
 
             <div className="flex gap-3 pt-1">
               <Button variant="outline" className="flex-1" onClick={handleModalClose}>Cancel</Button>
-              <Button variant="live" className="flex-1 gap-2" onClick={() => setStep("payment")} disabled={joinFee <= 0}>
-                <Zap className="w-4 h-4" />
-                Continue
-              </Button>
+              {user ? (
+                <Button variant="live" className="flex-1 gap-2" onClick={() => setStep("payment")} disabled={joinFee <= 0}>
+                  <Zap className="w-4 h-4" />
+                  Continue
+                </Button>
+              ) : (
+                <Button variant="live" className="flex-1 gap-2" onClick={handleJoinSignup}>
+                  <Zap className="w-4 h-4" />
+                  Continue
+                </Button>
+              )}
             </div>
           </div>
         ) : null}
@@ -458,7 +529,7 @@ export function LiveJoinModal({
                   {isSubmitting ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
                   ) : (
-                    <><Zap className="w-4 h-4" /> Join Queue</>
+                    <><Zap className="w-4 h-4" /> Join Call</>
                   )}
                 </Button>
               </div>
@@ -477,16 +548,83 @@ export function LiveJoinModal({
                   </div>
                 ) : null}
                 <Elements stripe={stripePromise} options={{ ...STRIPE_OPTIONS, clientSecret }}>
-                  <label className="flex items-center gap-2 text-xs text-brand-ink-subtle mb-3">
-                    <input
-                      type="checkbox"
-                      checked={saveNewCard}
-                      onChange={(event) => setSaveNewCard(event.target.checked)}
-                      className="rounded border-brand-border bg-brand-elevated"
-                    />
-                    Save this payment method for future payments
-                  </label>
-                  <PaymentForm onSuccess={handlePaymentSuccess} isSubmitting={isSubmitting} setIsSubmitting={setIsSubmitting} setPayError={setPayError} />
+                  {user ? (
+                    <label className="flex items-center gap-2 text-xs text-brand-ink-subtle mb-3">
+                      <input
+                        type="checkbox"
+                        checked={saveNewCard}
+                        onChange={(event) => setSaveNewCard(event.target.checked)}
+                        className="rounded border-brand-border bg-brand-elevated"
+                      />
+                      Save this payment method for future payments
+                    </label>
+                  ) : null}
+                  <PaymentForm
+                    onSuccess={handlePaymentSuccess}
+                    canSubmit={user ? true : guestAccountReady}
+                    submitDisabledReason="Add your name, email, password, and confirmations under the card details."
+                    accountFields={user ? null : (
+                      <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4">
+                        <p className="text-sm font-semibold text-brand-ink">Create your account after payment</p>
+                        <p className="mt-1 text-xs leading-5 text-brand-ink-subtle">
+                          Your paid live join confirms this fan account. No email confirmation step is required.
+                        </p>
+                        <div className="mt-4 space-y-3">
+                          <Input
+                            label="Full Name"
+                            type="text"
+                            value={guestName}
+                            onChange={(event) => setGuestName(event.target.value)}
+                            icon={<User className="h-4 w-4" />}
+                            required
+                            autoComplete="name"
+                          />
+                          <Input
+                            label="Email"
+                            type="email"
+                            value={guestEmail}
+                            onChange={(event) => setGuestEmail(event.target.value)}
+                            icon={<Mail className="h-4 w-4" />}
+                            required
+                            autoComplete="email"
+                          />
+                          <Input
+                            label="Password"
+                            type="password"
+                            value={guestPassword}
+                            onChange={(event) => setGuestPassword(event.target.value)}
+                            icon={<Lock className="h-4 w-4" />}
+                            required
+                            autoComplete="new-password"
+                          />
+                          <p className="text-xs leading-relaxed text-brand-ink-subtle">
+                            Password must be at least 8 characters and include an uppercase letter and a special character.
+                          </p>
+                          <label className="flex cursor-pointer items-start gap-2 rounded-2xl border border-brand-border bg-white px-3 py-3 text-xs leading-relaxed text-brand-ink-subtle">
+                            <input
+                              type="checkbox"
+                              checked={guestAgreedToTerms}
+                              onChange={(event) => setGuestAgreedToTerms(event.target.checked)}
+                              className="mt-0.5 h-4 w-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary/30"
+                            />
+                            <span>I agree to the Terms of Service and Privacy Policy.</span>
+                          </label>
+                          <label className="flex cursor-pointer items-start gap-2 rounded-2xl border border-brand-border bg-white px-3 py-3 text-xs leading-relaxed text-brand-ink-subtle">
+                            <input
+                              type="checkbox"
+                              checked={guestConfirmedAge}
+                              onChange={(event) => setGuestConfirmedAge(event.target.checked)}
+                              className="mt-0.5 h-4 w-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary/30"
+                            />
+                            <span>I confirm that I am 18 years of age or older.</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                    isSubmitting={isSubmitting}
+                    setIsSubmitting={setIsSubmitting}
+                    setPayError={setPayError}
+                  />
                 </Elements>
               </>
             ) : null}
@@ -498,5 +636,6 @@ export function LiveJoinModal({
         ) : null}
       </DialogContent>
     </Dialog>
+    </>
   );
 }

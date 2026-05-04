@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -8,10 +8,12 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import { Calendar, Clock, MessageSquare, CheckCircle2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, Clock, MessageSquare, CheckCircle2, Loader2, ChevronLeft, ChevronRight, Lock, Mail, User } from "lucide-react";
+import Link from "next/link";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import { readJsonResponse } from "@/lib/http";
 import type { Creator, CallPackage } from "@/types";
 import { formatCurrency } from "@/lib/utils";
@@ -113,18 +115,34 @@ function meetsBookingLeadTime(date: Date, slot: string) {
 interface PaymentFormProps {
   onSuccess: (paymentIntentId: string) => Promise<void>;
   onBack: () => void;
+  accountFields?: ReactNode;
+  canSubmit?: boolean;
+  submitDisabledReason?: string;
   isSubmitting: boolean;
   setIsSubmitting: (v: boolean) => void;
   setPayError: (v: string) => void;
 }
 
-function PaymentForm({ onSuccess, onBack, isSubmitting, setIsSubmitting, setPayError }: PaymentFormProps) {
+function PaymentForm({
+  onSuccess,
+  onBack,
+  accountFields,
+  canSubmit = true,
+  submitDisabledReason,
+  isSubmitting,
+  setIsSubmitting,
+  setPayError,
+}: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isReady, setIsReady] = useState(false);
 
   async function handlePay() {
     if (!stripe || !elements || !isReady) return;
+    if (!canSubmit) {
+      setPayError(submitDisabledReason ?? "Complete all required details before paying.");
+      return;
+    }
     setIsSubmitting(true);
     setPayError("");
 
@@ -154,6 +172,7 @@ function PaymentForm({ onSuccess, onBack, isSubmitting, setIsSubmitting, setPayE
         }}
         onReady={() => setIsReady(true)}
       />
+      {accountFields}
       <div className="flex flex-col gap-3 min-[420px]:flex-row">
         <Button variant="outline" className="flex-1" onClick={onBack} disabled={isSubmitting}>
           ← Back
@@ -162,7 +181,7 @@ function PaymentForm({ onSuccess, onBack, isSubmitting, setIsSubmitting, setPayE
             variant="gold"
             className="flex-1 gap-2 whitespace-normal text-center leading-tight"
             onClick={handlePay}
-            disabled={isSubmitting || !stripe || !isReady}
+            disabled={isSubmitting || !stripe || !isReady || !canSubmit}
           >
             {isSubmitting ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
@@ -200,7 +219,7 @@ export function BookingModal({
   initialPackageId,
   initialDate,
 }: BookingModalProps) {
-  const { user } = useAuthContext();
+  const { user, login } = useAuthContext();
   const [step, setStep] = useState<Step>("select");
   const [selectedPackage, setSelectedPackage] = useState<CallPackage | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -219,6 +238,11 @@ export function BookingModal({
   const [saveNewCard, setSaveNewCard] = useState(false);
   const [existingBookingWindows, setExistingBookingWindows] = useState<ExistingBookingWindow[]>([]);
   const [loadingExistingBookings, setLoadingExistingBookings] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPassword, setGuestPassword] = useState("");
+  const [guestAgreedToTerms, setGuestAgreedToTerms] = useState(false);
+  const [guestConfirmedAge, setGuestConfirmedAge] = useState(false);
 
   const availableDates = getAvailableDates(weekOffset);
   const sessionPrice = selectedPackage?.price ?? creator.callPrice;
@@ -269,32 +293,52 @@ export function BookingModal({
   const totalCents = Math.round(sessionPrice * 1.025 * 100);
   const sessionGrossPrice = totalCents / 100;
   const platformFeeAmount = sessionGrossPrice - sessionPrice;
+  const scheduledAtIso = selectedDate && selectedTime
+    ? parseViewerSlotToDate(selectedDate, selectedTime).toISOString()
+    : null;
+  const guestAccountReady = Boolean(
+    user ||
+    (
+      guestName.trim() &&
+      guestEmail.trim() &&
+      guestEmail.includes("@") &&
+      guestPassword.length >= 8 &&
+      /[A-Z]/.test(guestPassword) &&
+      /[^A-Za-z0-9]/.test(guestPassword) &&
+      guestAgreedToTerms &&
+      guestConfirmedAge
+    )
+  );
 
   async function handlePaymentSuccess(paymentIntentId: string) {
-    if (!user || !selectedDate || !selectedTime || !selectedPackage) return;
+    if (!selectedDate || !selectedTime || !selectedPackage) return;
     
-    const timeParts = selectedTime.match(/(\d+):(\d+)\s+(AM|PM)/);
-    let hours = 12;
-    let mins = 0;
-    if (timeParts) {
-      hours = parseInt(timeParts[1]);
-      mins = parseInt(timeParts[2]);
-      if (timeParts[3] === "PM" && hours !== 12) hours += 12;
-      if (timeParts[3] === "AM" && hours === 12) hours = 0;
-    }
-    const scheduledDate = new Date(selectedDate);
-    scheduledDate.setHours(hours, mins, 0, 0);
+    const scheduledDate = parseViewerSlotToDate(selectedDate, selectedTime);
+    const isGuestCheckout = !user;
 
-    const res = await fetch("/api/bookings", {
+    const res = await fetch(isGuestCheckout ? "/api/public/bookings" : "/api/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        creatorId: creator.id,
-        packageId: selectedPackage.id,
-        scheduledAt: scheduledDate.toISOString(),
-        topic,
-        paymentIntentId,
-      }),
+      body: JSON.stringify(
+        isGuestCheckout
+          ? {
+              creatorId: creator.id,
+              packageId: selectedPackage.id,
+              scheduledAt: scheduledDate.toISOString(),
+              topic,
+              paymentIntentId,
+              fullName: guestName.trim(),
+              email: guestEmail.trim(),
+              password: guestPassword,
+            }
+          : {
+              creatorId: creator.id,
+              packageId: selectedPackage.id,
+              scheduledAt: scheduledDate.toISOString(),
+              topic,
+              paymentIntentId,
+            }
+      ),
     });
     const data = await readJsonResponse<{
       booking?: { scheduled_at?: string; scheduledAt?: string; duration?: number };
@@ -303,6 +347,13 @@ export function BookingModal({
 
     if (!res.ok) {
       throw new Error(data?.error ?? "Could not create booking.");
+    }
+
+    if (isGuestCheckout) {
+      const loginResult = await login(guestEmail.trim(), guestPassword);
+      if (!loginResult.success) {
+        throw new Error("Your booking is confirmed, but we could not sign you in automatically. Please sign in with the email and password you just used.");
+      }
     }
 
     const confirmedScheduledAt = data?.booking?.scheduled_at ?? data?.booking?.scheduledAt ?? scheduledDate.toISOString();
@@ -342,6 +393,11 @@ export function BookingModal({
       setIsSubmitting(false);
       setSelectedPaymentMethodId(null);
       setSaveNewCard(false);
+      setGuestName("");
+      setGuestEmail("");
+      setGuestPassword("");
+      setGuestAgreedToTerms(false);
+      setGuestConfirmedAge(false);
     }
   }, [open, packages, initialPackageId, initialDate]);
 
@@ -369,11 +425,11 @@ export function BookingModal({
   }, [open, user]);
 
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open) return;
 
     setLoadingExistingBookings(true);
 
-    fetch(`/api/bookings/availability?creatorId=${creator.id}`)
+    fetch(`${user ? "/api/bookings/availability" : "/api/public/bookings/availability"}?creatorId=${creator.id}`)
       .then((response) => readJsonResponse<{ bookings?: { scheduledAt: string; duration: number }[] }>(response))
       .then((data) => {
         setExistingBookingWindows(
@@ -396,19 +452,30 @@ export function BookingModal({
 
   // Create a PaymentIntent when the user reaches the confirm step
   useEffect(() => {
-    if (step !== "confirm" || clientSecret || selectedPaymentMethodId) return;
+    if (step !== "confirm" || clientSecret || selectedPaymentMethodId || !selectedPackage) return;
+    if (!user && !scheduledAtIso) return;
 
     setFetchingIntent(true);
-    fetch("/api/create-payment-intent", {
+    fetch(user ? "/api/create-payment-intent" : "/api/public/create-payment-intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount: totalCents,
-        packageId: selectedPackage?.id,
-        creatorName: creator.name,
-        packageName: selectedPackage?.name ?? "Call",
-        saveForFuture: saveNewCard,
-      }),
+      body: JSON.stringify(
+        user
+          ? {
+              amount: totalCents,
+              packageId: selectedPackage.id,
+              creatorName: creator.name,
+              packageName: selectedPackage.name ?? "Call",
+              saveForFuture: saveNewCard,
+            }
+          : {
+              creatorId: creator.id,
+              packageId: selectedPackage.id,
+              scheduledAt: scheduledAtIso,
+              creatorName: creator.name,
+              packageName: selectedPackage.name ?? "Call",
+            }
+      ),
     })
       .then((r) => readJsonResponse<{ clientSecret?: string; error?: string }>(r))
       .then((data) => {
@@ -417,7 +484,7 @@ export function BookingModal({
       })
       .catch(() => setPayError("Network error. Please try again."))
       .finally(() => setFetchingIntent(false));
-  }, [step, clientSecret, totalCents, creator.name, selectedPackage, saveNewCard, selectedPaymentMethodId]);
+  }, [step, clientSecret, totalCents, creator.id, creator.name, selectedPackage, saveNewCard, selectedPaymentMethodId, scheduledAtIso, user]);
 
   async function handleSavedPaymentSubmit() {
     if (!selectedPaymentMethodId) return;
@@ -819,18 +886,85 @@ export function BookingModal({
                   stripe={stripePromise}
                   options={{ ...STRIPE_OPTIONS, clientSecret }}
                 >
-                  <label className="flex items-center gap-2 text-xs text-brand-ink-subtle mb-3">
-                    <input
-                      type="checkbox"
-                      checked={saveNewCard}
-                      onChange={(e) => setSaveNewCard(e.target.checked)}
-                      className="rounded border-brand-border bg-brand-elevated"
-                    />
-                    Save this payment method for future payments
-                  </label>
+                  {user && (
+                    <label className="flex items-center gap-2 text-xs text-brand-ink-subtle mb-3">
+                      <input
+                        type="checkbox"
+                        checked={saveNewCard}
+                        onChange={(e) => setSaveNewCard(e.target.checked)}
+                        className="rounded border-brand-border bg-brand-elevated"
+                      />
+                      Save this payment method for future payments
+                    </label>
+                  )}
                   <PaymentForm
                     onSuccess={handlePaymentSuccess}
                     onBack={() => setStep("details")}
+                    canSubmit={Boolean(user) || guestAccountReady}
+                    submitDisabledReason="Add your name, email, password, and confirmations under the card details."
+                    accountFields={user ? null : (
+                      <div className="rounded-2xl border border-brand-border bg-brand-elevated p-4">
+                        <p className="text-sm font-semibold text-brand-ink">Create your account after payment</p>
+                        <p className="mt-1 text-xs leading-5 text-brand-ink-subtle">
+                          Your paid checkout confirms this fan account. No email confirmation step is required.
+                        </p>
+                        <div className="mt-4 space-y-3">
+                          <Input
+                            label="Full Name"
+                            value={guestName}
+                            onChange={(event) => setGuestName(event.target.value)}
+                            icon={<User className="h-4 w-4" />}
+                            placeholder="Jordan Kim"
+                            autoComplete="name"
+                            required
+                          />
+                          <Input
+                            label="Email"
+                            type="email"
+                            value={guestEmail}
+                            onChange={(event) => setGuestEmail(event.target.value)}
+                            icon={<Mail className="h-4 w-4" />}
+                            placeholder="you@example.com"
+                            autoComplete="email"
+                            required
+                          />
+                          <Input
+                            label="Password"
+                            type="password"
+                            value={guestPassword}
+                            onChange={(event) => setGuestPassword(event.target.value)}
+                            icon={<Lock className="h-4 w-4" />}
+                            placeholder="Create a password"
+                            autoComplete="new-password"
+                            required
+                          />
+                          <p className="text-xs leading-relaxed text-brand-ink-subtle">
+                            Password must be at least 8 characters and include an uppercase letter and a special character.
+                          </p>
+                          <label className="flex cursor-pointer items-start gap-2 rounded-2xl border border-brand-border bg-white px-3 py-3 text-xs leading-relaxed text-brand-ink-subtle">
+                            <input
+                              type="checkbox"
+                              checked={guestAgreedToTerms}
+                              onChange={(event) => setGuestAgreedToTerms(event.target.checked)}
+                              className="mt-0.5 h-4 w-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary/30"
+                            />
+                            <span>
+                              I agree to the <Link href="/terms" className="font-semibold text-brand-primary hover:underline">Terms</Link> and{" "}
+                              <Link href="/privacy" className="font-semibold text-brand-primary hover:underline">Privacy Policy</Link>.
+                            </span>
+                          </label>
+                          <label className="flex cursor-pointer items-start gap-2 rounded-2xl border border-brand-border bg-white px-3 py-3 text-xs leading-relaxed text-brand-ink-subtle">
+                            <input
+                              type="checkbox"
+                              checked={guestConfirmedAge}
+                              onChange={(event) => setGuestConfirmedAge(event.target.checked)}
+                              className="mt-0.5 h-4 w-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary/30"
+                            />
+                            <span>I confirm that I am 18 years of age or older.</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
                     isSubmitting={isSubmitting}
                     setIsSubmitting={setIsSubmitting}
                     setPayError={setPayError}

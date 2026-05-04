@@ -14,6 +14,8 @@ import {
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { createClient } from "@/lib/supabase/client";
+import { useAuthContext } from "@/lib/context/AuthContext";
+import { GuestAuthModal } from "@/components/shared/GuestAuthModal";
 
 const LIVE_SESSION_STALE_MS = 45000;
 const LIVE_COUNT_REFRESH_MS = 60000;
@@ -26,9 +28,13 @@ const NAV_ITEMS = [
   { label: "Settings",    href: "/settings",  icon: Settings },
 ];
 
+const ACCOUNT_ONLY_HREFS = new Set(["/bookings", "/payments", "/saved", "/settings"]);
+
 export function FanSidebar() {
   const pathname = usePathname();
+  const { user } = useAuthContext();
   const [liveCount, setLiveCount] = useState(0);
+  const [authNext, setAuthNext] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -80,23 +86,49 @@ export function FanSidebar() {
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const requiresAccount = !user && ACCOUNT_ONLY_HREFS.has(item.href);
+          const className = cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
+            isActive
+              ? "bg-gradient-primary text-white shadow-nav-active"
+              : "text-brand-ink-muted hover:text-brand-ink hover:bg-brand-elevated"
+          );
+          const content = (
+            <>
+              <Icon className={cn("w-4 h-4 shrink-0", isActive ? "opacity-90" : "")} />
+              <span className={cn("font-display", isActive ? "font-semibold" : "font-medium")}>{item.label}</span>
+            </>
+          );
+          if (requiresAccount) {
+            return (
+              <button
+                key={item.href}
+                type="button"
+                onClick={() => setAuthNext(item.href)}
+                className={cn(className, "w-full text-left")}
+              >
+                {content}
+              </button>
+            );
+          }
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
-                isActive
-                  ? "bg-gradient-primary text-white shadow-nav-active"
-                  : "text-brand-ink-muted hover:text-brand-ink hover:bg-brand-elevated"
-              )}
+              className={className}
             >
-              <Icon className={cn("w-4 h-4 shrink-0", isActive ? "opacity-90" : "")} />
-              <span className={cn("font-display", isActive ? "font-semibold" : "font-medium")}>{item.label}</span>
+              {content}
             </Link>
           );
         })}
       </nav>
+
+      <GuestAuthModal
+        open={Boolean(authNext)}
+        onClose={() => setAuthNext(null)}
+        next={authNext ?? undefined}
+        reason="Make an account to use this area."
+      />
     </aside>
   );
 }

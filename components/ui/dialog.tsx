@@ -24,6 +24,7 @@ interface DialogProps {
   children: React.ReactNode;
   closeOnOverlayClick?: boolean;
   closeOnEscape?: boolean;
+  backdropClassName?: string;
 }
 
 interface DialogContentProps {
@@ -40,6 +41,7 @@ export function Dialog({
   children,
   closeOnOverlayClick = true,
   closeOnEscape = true,
+  backdropClassName,
 }: DialogProps) {
   const [mounted, setMounted] = React.useState(false);
 
@@ -87,7 +89,7 @@ export function Dialog({
       onClick={closeOnOverlayClick ? onClose : undefined}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70" />
+      <div className={cn("absolute inset-0 bg-black/70", backdropClassName)} />
       {/* Modal content — positioned above backdrop */}
       <div className="relative z-10 w-full max-w-[100vw] sm:w-auto sm:animate-slide-up" onClick={(e) => e.stopPropagation()}>{children}</div>
     </div>,
@@ -102,15 +104,27 @@ export function DialogContent({
   className,
   onClose,
 }: DialogContentProps) {
+  const hasHeaderContent = Boolean(title || description);
+
   return (
     <div
       className={cn(
+        "relative",
         "w-[calc(100vw-1rem)] max-w-lg sm:w-full rounded-2xl border border-brand-border bg-brand-elevated shadow-card",
         "max-h-[min(88dvh,900px)] overflow-x-hidden overflow-y-auto overscroll-contain",
         className
       )}
     >
-      {(title || description || onClose) && (
+      {!hasHeaderContent && onClose && (
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 z-10 rounded-lg p-1.5 text-brand-ink-subtle transition-colors hover:bg-brand-surface hover:text-brand-ink"
+          aria-label="Close"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
+      {hasHeaderContent && (
         <div className="relative px-5 pt-5 pb-3.5 border-b border-brand-border">
           {onClose && (
             <button

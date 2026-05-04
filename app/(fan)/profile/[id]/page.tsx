@@ -25,6 +25,7 @@ import {
 import { isNewCreator } from "@/lib/creators";
 import { getSocialHandleLabel, sanitizeSocialUrl } from "@/lib/social";
 import { getLiveSessionPath, isUuidLike } from "@/lib/routes";
+import { GuestAuthModal } from "@/components/shared/GuestAuthModal";
 
 // â”€â”€ Availability Calendar helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -397,6 +398,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
 
   const [showBooking, setShowBooking] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authReason, setAuthReason] = useState("Make an account to continue.");
   const [bookingInitialDate, setBookingInitialDate] = useState<Date | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [availabilityPackageId, setAvailabilityPackageId] = useState<string>("all");
@@ -698,7 +701,8 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     if (!creator || submittingLiveRequest) return;
 
     if (!user || user.role !== "fan") {
-      window.location.href = `/login?next=${encodeURIComponent(`/profile/${params.id}`)}`;
+      setAuthReason("Make an account to request this creator live.");
+      setAuthOpen(true);
       return;
     }
 
@@ -849,6 +853,51 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
     },
   ].filter((link) => link.href);
 
+  const exampleQuestions = [
+    "Build a realistic weekly fitness plan around your schedule.",
+    "Review your nutrition habits and identify simple upgrades.",
+    "Ask about form, recovery, consistency, or getting unstuck.",
+    "Leave with practical next steps you can start this week.",
+  ];
+
+  const exampleQuestionsSection = hasPackages ? (
+    <section className="mt-4 rounded-2xl border border-brand-border bg-brand-elevated p-4">
+      <p className="text-sm font-bold text-brand-ink">What you can ask</p>
+      <ul className="mt-3 space-y-2">
+        {exampleQuestions.map((item) => (
+          <li key={item} className="flex gap-2 text-sm leading-5 text-brand-ink-muted">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary-light" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ) : null;
+
+  const howItWorksSection = (
+    <section className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card md:p-8">
+      <div className="max-w-2xl">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-primary-light">How it works</p>
+        <h2 className="mt-2 text-2xl font-serif font-normal text-brand-ink">Simple, personal, and live.</h2>
+      </div>
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
+        {[
+          ["1", "Pick a time", "Choose a time that works and share what you want to cover."],
+          ["2", "Meet live", "Join the video call from Friendsly when your session starts."],
+          ["3", "Leave with next steps", "Get specific advice you can use after the call."],
+        ].map(([number, title, body]) => (
+          <div key={number} className="rounded-2xl border border-brand-border bg-brand-elevated p-5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-ink text-sm font-bold text-white">
+              {number}
+            </div>
+            <p className="mt-4 font-bold text-brand-ink">{title}</p>
+            <p className="mt-2 text-sm leading-6 text-brand-ink-muted">{body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+
   const mobileLiveCard = showLiveCard ? (
     <div ref={mobileLiveSectionRef} className="rounded-2xl border border-brand-live/20 bg-brand-surface p-4 shadow-card">
       <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-live/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-live">
@@ -949,11 +998,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <h1 className="text-xl font-bold text-brand-ink leading-tight">{creator.name}</h1>
-                  {hasPackages && (
-                    <p className="text-sm text-brand-ink-muted mt-0.5">
-                      {formatCurrency(creator.callPrice)} &bull; Session
-                    </p>
-                  )}
                   <p className="text-xs text-brand-ink-subtle mt-0.5">{creator.username}</p>
                 </div>
                 {creator.rating > 0 && (
@@ -971,36 +1015,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 )}
               </div>
 
-              {/* Price pills */}
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                {hasLiveRate && (
-                  showLiveCard ? (
-                    <button
-                      type="button"
-                      onClick={() => scrollToMobileSection("live")}
-                      className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live transition-colors active:bg-brand-live/10"
-                    >
-                      <Zap className="h-3 w-3" />
-                      {formatCurrency(creator.liveJoinFee!)} / min
-                    </button>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live">
-                      <Zap className="h-3 w-3" />
-                      {formatCurrency(creator.liveJoinFee!)} / min
-                    </span>
-                  )
-                )}
-                {hasPackages && (
-                  <button
-                    type="button"
-                    onClick={() => scrollToMobileSection("booking")}
-                    className="rounded-full border border-brand-border bg-brand-surface px-3 py-1.5 text-xs font-medium text-brand-ink transition-colors active:bg-brand-elevated"
-                  >
-                    from {formatCurrency(creator.callPrice)} / session
-                  </button>
-                )}
-              </div>
-
               {creator.isLive && (
                 <div className="mt-4">
                   {mobileLiveCard}
@@ -1010,7 +1024,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               {creator.bio && (
                 <div className="mt-4 border-t border-brand-border pb-1 pt-4">
                   <h2 className="mb-2 text-base font-bold text-brand-ink">About</h2>
-                  <p className="text-sm leading-relaxed text-brand-ink-muted">{creator.bio}</p>
+                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-brand-ink-muted [overflow-wrap:anywhere]">{creator.bio}</p>
                 </div>
               )}
             </div>
@@ -1022,201 +1036,13 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             {/* Book a Session */}
             {hasPackages && (
               <div ref={mobileBookingSectionRef} className="px-4 mb-6">
-              <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
-              <div
-                className={cn(
-                  "grid gap-3",
-                  activePackages.length === 1 && "grid-cols-1",
-                  activePackages.length === 2 && "grid-cols-2",
-                  activePackages.length >= 3 && "grid-cols-3",
-                )}
-              >
-                {activePackages.map((pkg) => (
-                  (() => {
-                    const accentIndex = activePackages.findIndex((candidate) => candidate.id === pkg.id);
-                    const accent = getPackageAccentClasses(accentIndex);
-                    const mobileAccentStyle = getMobilePackageAccentStyle(accentIndex);
-                    return (
-                  <button
-                    key={pkg.id}
-                    type="button"
-                    className="relative isolate flex w-full min-w-0 flex-col items-start gap-1 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface px-3 pt-3 pb-3.5 text-left shadow-[0_1px_2px_rgba(26,22,40,0.04)] transition-colors active:opacity-80"
-                    style={{ ...mobileAccentStyle, backgroundColor: "#FFFFFF", borderColor: "#CEC6E5" }}
-                    onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
-                  >
-                    <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
-                    {pkg.description && (
-                      <p className="line-clamp-2 w-full text-xs leading-relaxed text-brand-ink-subtle">
-                        {pkg.description}
-                      </p>
-                    )}
-                    <span className="inline-flex items-center gap-1 text-[11px] text-brand-ink-subtle">
-                      <Clock className="h-3 w-3" />
-                      {pkg.duration} min
-                    </span>
-                    <p className={cn("relative z-10 mt-1 text-base font-display font-bold", accent.price)}>{formatCurrency(pkg.price)}</p>
-                  </button>
-                    );
-                  })()
-                ))}
-              </div>
-              <Button variant="primary" size="lg" className="w-full mt-3" onClick={() => setShowBooking(true)}>
-                See times
-              </Button>
+                <h2 className="text-base font-bold text-brand-ink mb-3">Book a Session</h2>
+                <Button variant="primary" size="lg" className="w-full" onClick={() => openBooking()}>
+                  See times
+                </Button>
+                {exampleQuestionsSection}
               </div>
             )}
-
-
-            {/* Availability */}
-            <div className="px-4 mb-6">
-              <div className="rounded-2xl border border-brand-primary/15 bg-[linear-gradient(180deg,rgba(108,92,231,0.08),rgba(108,92,231,0.03))] p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="text-base font-bold text-brand-ink">Availability</h2>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
-                    disabled={weekOffset === 0}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-brand-border bg-white/90 text-brand-ink transition-colors disabled:cursor-not-allowed disabled:opacity-35"
-                    aria-label="Previous week"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="min-w-[78px] text-center text-[11px] font-semibold text-brand-primary-light">
-                    {weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : `${weekOffset} weeks out`}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setWeekOffset((w) => Math.min(3, w + 1))}
-                    disabled={weekOffset >= 3}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-brand-border bg-white/90 text-brand-ink transition-colors disabled:cursor-not-allowed disabled:opacity-35"
-                    aria-label="Next week"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-            {activePackages.length > 1 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                <button
-                  onClick={() => setAvailabilityPackageId("all")}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
-                    availabilityPackageId === "all"
-                      ? "border-brand-primary bg-brand-primary text-white shadow-sm"
-                      : "border-brand-border bg-white text-brand-ink-subtle"
-                  )}
-                >
-                  All offerings
-                </button>
-                {activePackages.map((pkg) => (
-                  (() => {
-                    const accent = getPackageAccentClasses(activePackages.findIndex((candidate) => candidate.id === pkg.id));
-                    return (
-                  <button
-                    key={pkg.id}
-                    onClick={() => setAvailabilityPackageId(pkg.id)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
-                      availabilityPackageId === pkg.id
-                        ? accent.pill
-                        : "border-white/70 bg-white/80 text-brand-ink-subtle"
-                    )}
-                  >
-                    {pkg.name}
-                  </button>
-                    );
-                  })()
-                ))}
-              </div>
-            )}
-
-            {filteredAvailability.length === 0 ? (
-              <p className="text-sm text-brand-ink-subtle py-4 text-center">No availability set yet.</p>
-            ) : (
-              <div className="grid grid-cols-7 gap-1.5">
-                {weekDates.map((date) => {
-                  const dow = date.getDay();
-                  const slots = getAvailableStartTimesForViewerDate({
-                    date,
-                    availability: filteredAvailability,
-                    creatorTimeZone: creator.timeZone ?? "America/New_York",
-                    durationMinutes: creator.callDuration,
-                    incrementMinutes: creator.bookingIntervalMinutes ?? 30,
-                    packageId: availabilityPackageId === "all" ? undefined : availabilityPackageId,
-                  });
-                  const isToday = isSameDay(date, today);
-                  const isPast = date < today && !isToday;
-                  const hasAnySlots = slots.length > 0 && !isPast;
-                  const canBookDate = hasAnySlots && hasBookableLeadTimeSlot(date);
-                  const isScheduledLiveDay = scheduledLiveDateKey === localDateKey(date);
-                  const isLiveAndAvailable = isScheduledLiveDay && hasAnySlots;
-                  return (
-                    <button
-                      type="button"
-                      key={date.toISOString()}
-                      onClick={() => {
-                        if (!canBookDate) return;
-                        openBooking(date);
-                      }}
-                      disabled={!canBookDate}
-                      aria-label={
-                        canBookDate
-                          ? `Book ${creator.name} on ${formatShortDate(date)}`
-                          : hasAnySlots
-                            ? `${formatShortDate(date)} has availability but cannot be booked within 24 hours`
-                            : `${formatShortDate(date)} has no availability`
-                      }
-                      className={cn(
-                        "flex min-h-[84px] flex-col items-center justify-center rounded-xl border px-1.5 py-2 text-center transition-colors",
-                        isLiveAndAvailable
-                          ? "border-brand-live/45 bg-white shadow-sm"
-                          : isScheduledLiveDay
-                          ? "border-brand-live/45 bg-brand-live/12 shadow-sm"
-                          : isToday
-                          ? "border-brand-primary bg-brand-primary/20 shadow-sm"
-                          : canBookDate
-                          ? "border-brand-info/45 bg-white active:bg-brand-info/15"
-                          : hasAnySlots
-                          ? "border-brand-border bg-white/80"
-                          : "border-brand-border bg-brand-elevated opacity-50"
-                      )}
-                    >
-                      <p className={cn("text-[9px] font-medium uppercase", isLiveAndAvailable ? "text-brand-live" : "text-brand-ink-subtle")}>{DAY_NAMES[dow]}</p>
-                      <p className={cn(
-                        "mt-0.5 text-sm font-bold",
-                        isLiveAndAvailable
-                          ? "text-brand-live"
-                          : isScheduledLiveDay
-                          ? "text-brand-live"
-                          : isToday
-                          ? "text-brand-primary-light"
-                          : canBookDate
-                          ? "text-brand-info"
-                          : "text-brand-ink-subtle"
-                      )}>
-                        {date.getDate()}
-                      </p>
-                      <p className={cn(
-                        "mt-1 flex w-full items-center justify-center text-center text-[8px] font-medium leading-[1.1]",
-                        isLiveAndAvailable
-                          ? "text-brand-live"
-                          : isScheduledLiveDay
-                          ? "text-brand-live"
-                          : canBookDate
-                          ? "text-brand-info"
-                          : "text-brand-ink-subtle"
-                      )}>
-                        {isScheduledLiveDay ? "Live" : hasAnySlots ? "Available" : isPast ? "-" : "Off"}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-              </div>
-            </div>
 
             {!creator.isLive && (
               <div className="px-4 mb-6">
@@ -1299,6 +1125,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               </div>
               </div>
             )}
+
+            <div className="px-4 mb-6">
+              {howItWorksSection}
+            </div>
           </div>
         </div>
 
@@ -1310,7 +1140,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           >
             <div className={cn("grid gap-2", hasPackages && shouldShowLiveButton ? "grid-cols-2" : "grid-cols-1")}>
               {hasPackages && (
-                <Button variant="primary" size="lg" className="w-full" onClick={() => setShowBooking(true)}>
+                <Button variant="primary" size="lg" className="w-full" onClick={() => openBooking()}>
                   See Times
                 </Button>
               )}
@@ -1338,20 +1168,10 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
             </div>
           </div>
         )}
-        {false && creator && (
-          <div className={cn("fixed bottom-0 left-0 right-0 z-20 px-4 py-3 bg-white/95 backdrop-blur-sm border-t border-brand-border flex flex-col gap-2", hasPackages && "pb-20")}>
-            <Link href={liveHref ?? "#"}>
-              <Button variant="live" size="lg" className="w-full gap-2">
-                <Zap className="w-4 h-4" />
-                Join Live · {formatCurrency(creator?.liveJoinFee ?? 0)} / min
-              </Button>
-            </Link>
-          </div>
-        )}
       </div>
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ DESKTOP LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <div className="hidden md:block px-6 lg:px-8 py-6 max-w-6xl mx-auto space-y-6">
+      <div className="hidden md:block px-6 py-6 max-w-5xl mx-auto space-y-6">
         {/* Back */}
         <Link href="/discover" className="inline-flex items-center gap-2 text-sm text-brand-ink-subtle hover:text-brand-ink transition-colors">
           <ArrowLeft className="w-4 h-4" />
@@ -1359,7 +1179,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         </Link>
 
         {/* Two-column split: photo/bio on left, offering cards stacked on right */}
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div className="grid gap-7 lg:grid-cols-[minmax(0,4fr)_minmax(0,6fr)]">
           {/* â”€â”€ LEFT: Creator photo + identity + bio â”€â”€ */}
           <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
             {/* Large portrait photo */}
@@ -1405,23 +1225,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            {/* Pricing pills */}
-            {(hasPackages || hasLiveRate) && (
-              <div className="flex flex-wrap gap-2">
-                {hasLiveRate && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-brand-live/25 bg-brand-live/5 px-3 py-1.5 text-xs font-semibold text-brand-live">
-                    <Zap className="h-3 w-3" />
-                    {formatCurrency(creator.liveJoinFee!)} / min
-                  </span>
-                )}
-                {hasPackages && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-brand-primary/25 bg-brand-primary/5 px-3 py-1.5 text-xs font-semibold text-brand-primary-light">
-                    from {formatCurrency(creator.callPrice)} / session
-                  </span>
-                )}
-              </div>
-            )}
-
             {/* About + socials */}
             {(creator.bio || socialLinks.length > 0) && (
               <div className="border-t border-brand-border pt-4">
@@ -1445,7 +1248,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                   )}
                 </div>
                 {creator.bio && (
-                  <p className="text-sm leading-relaxed text-brand-ink-muted whitespace-pre-line">{creator.bio}</p>
+                  <p className="whitespace-pre-line break-words text-sm leading-relaxed text-brand-ink-muted [overflow-wrap:anywhere]">{creator.bio}</p>
                 )}
                 {creator.tags.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1482,207 +1285,15 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
                 </div>
               ) : (
                 <>
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm text-brand-ink-muted">Starting at</p>
-                      <p className="text-2xl font-display font-bold text-brand-ink">
-                        {formatCurrency(Math.min(...activePackages.map((p) => p.price)))}
-                      </p>
-                    </div>
-                    {creator.rating > 0 && (
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <Star key={n} className={cn("h-3.5 w-3.5", n <= Math.round(creator.rating) ? "fill-brand-gold text-brand-gold" : "text-brand-border")} />
-                        ))}
-                        <span className="ml-1 text-sm font-bold text-brand-gold">{creator.rating}</span>
-                        <span className="text-xs text-brand-ink-subtle">({creator.reviewCount})</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div
-                    className={cn(
-                      "mt-4 grid gap-2",
-                      activePackages.length === 1 && "grid-cols-1",
-                      activePackages.length === 2 && "grid-cols-2",
-                      activePackages.length >= 3 && "grid-cols-3",
-                    )}
-                  >
-                    {activePackages.map((pkg) => (
-                      (() => {
-                        const accent = getPackageAccentClasses(activePackages.findIndex((candidate) => candidate.id === pkg.id));
-                        return (
-                      <button
-                        key={pkg.id}
-                        type="button"
-                        onClick={() => { setAvailabilityPackageId(pkg.id); setShowBooking(true); }}
-                        className={cn("flex w-full min-w-0 flex-col items-start gap-1 rounded-2xl border p-3 text-left transition-colors", accent.card)}
-                      >
-                        <p className="w-full truncate font-bold text-brand-ink">{pkg.name}</p>
-                        {pkg.description && (
-                          <p className="line-clamp-2 w-full text-xs leading-relaxed text-brand-ink-subtle">
-                            {pkg.description}
-                          </p>
-                        )}
-                        <span className="inline-flex items-center gap-1 text-xs text-brand-ink-subtle">
-                          <Clock className="h-3 w-3" />
-                          {pkg.duration} min
-                        </span>
-                        <p className={cn("mt-1 text-lg font-display font-bold", accent.price)}>{formatCurrency(pkg.price)}</p>
-                      </button>
-                        );
-                      })()
-                    ))}
-                  </div>
-
-                  <Button variant="primary" size="lg" className="mt-4 w-full" onClick={() => setShowBooking(true)}>
+                  <Button variant="primary" size="lg" className="mt-5 w-full" onClick={() => openBooking()}>
                     See times
                   </Button>
+                  {exampleQuestionsSection}
                 </>
               )}
             </div>
 
             {!creator.isLive ? desktopLiveCard : null}
-
-            {/* Availability card */}
-            <div className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-serif font-normal text-brand-ink flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-brand-primary-light" />
-                    Availability
-                  </h2>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
-                    disabled={weekOffset === 0}
-                    className="flex items-center gap-1 rounded-lg border border-brand-border bg-brand-elevated px-2.5 py-1.5 text-xs font-medium text-brand-ink-muted transition-colors hover:border-brand-primary/40 hover:text-brand-ink disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" /> Prev
-                  </button>
-                  <span className="min-w-[80px] px-2 text-center text-xs font-semibold text-brand-primary-light">
-                    {weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : `${weekOffset} weeks out`}
-                  </span>
-                  <button
-                    onClick={() => setWeekOffset((w) => Math.min(3, w + 1))}
-                    disabled={weekOffset >= 3}
-                    className="flex items-center gap-1 rounded-lg border border-brand-border bg-brand-elevated px-2.5 py-1.5 text-xs font-medium text-brand-ink-muted transition-colors hover:border-brand-primary/40 hover:text-brand-ink disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    Next <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {activePackages.length > 1 && (
-                <div className="mb-4 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setAvailabilityPackageId("all")}
-                    className={cn("rounded-full border px-3 py-1.5 text-xs font-medium transition-colors", availabilityPackageId === "all" ? "border-brand-primary bg-brand-primary/15 text-brand-primary-light" : "border-brand-border bg-brand-elevated text-brand-ink-subtle hover:text-brand-ink")}
-                  >
-                    All offerings
-                  </button>
-                  {activePackages.map((pkg) => (
-                    (() => {
-                      const accent = getPackageAccentClasses(activePackages.findIndex((candidate) => candidate.id === pkg.id));
-                      return (
-                    <button
-                      key={pkg.id}
-                      onClick={() => setAvailabilityPackageId(pkg.id)}
-                      className={cn("rounded-full border px-3 py-1.5 text-xs font-medium transition-colors", availabilityPackageId === pkg.id ? accent.pill : accent.pillInactive)}
-                    >
-                      {pkg.name}
-                    </button>
-                      );
-                    })()
-                  ))}
-                </div>
-              )}
-
-              {filteredAvailability.length === 0 ? (
-                <p className="py-6 text-center text-sm text-brand-ink-subtle">No availability set for this offering yet.</p>
-              ) : (
-                <div className="grid grid-cols-7 gap-1.5">
-                  {weekDates.map((date) => {
-                    const dow = date.getDay();
-                    const slots = getAvailableStartTimesForViewerDate({
-                      date,
-                      availability: filteredAvailability,
-                      creatorTimeZone: creator.timeZone ?? "America/New_York",
-                      durationMinutes: creator.callDuration,
-                      incrementMinutes: creator.bookingIntervalMinutes ?? 30,
-                      packageId: availabilityPackageId === "all" ? undefined : availabilityPackageId,
-                    });
-                    const isToday = isSameDay(date, today);
-                    const isPast = date < today && !isToday;
-                    const hasAnySlots = slots.length > 0 && !isPast;
-                    const canBookDate = hasAnySlots && hasBookableLeadTimeSlot(date);
-                    const isScheduledLiveDay = scheduledLiveDateKey === localDateKey(date);
-                    const isLiveAndAvailable = isScheduledLiveDay && hasAnySlots;
-                    return (
-                      <button
-                        type="button"
-                        key={date.toISOString()}
-                        onClick={() => {
-                          if (!canBookDate) return;
-                          openBooking(date);
-                        }}
-                        disabled={!canBookDate}
-                        aria-label={
-                          canBookDate
-                            ? `Book ${creator.name} on ${formatShortDate(date)}`
-                            : hasAnySlots
-                              ? `${formatShortDate(date)} has availability but cannot be booked within 24 hours`
-                              : `${formatShortDate(date)} has no availability`
-                        }
-                        className={cn(
-                          "rounded-xl border p-2 text-center transition-all",
-                          isLiveAndAvailable
-                            ? "border-brand-live/45 bg-white hover:border-brand-live"
-                            : isScheduledLiveDay
-                            ? "border-brand-live/45 bg-brand-live/12 hover:border-brand-live"
-                            : isToday
-                            ? "border-brand-primary/50 bg-brand-primary/10 hover:border-brand-primary"
-                            : canBookDate
-                            ? "border-brand-info/35 bg-brand-info/10 hover:border-brand-info hover:bg-brand-info/15 cursor-pointer"
-                            : hasAnySlots
-                            ? "border-brand-border bg-brand-elevated cursor-not-allowed"
-                            : "border-brand-border bg-brand-elevated opacity-50 cursor-not-allowed"
-                        )}
-                      >
-                        <p className={cn("text-[10px] font-medium uppercase", isLiveAndAvailable ? "text-brand-live" : "text-brand-ink-subtle")}>{DAY_NAMES[dow]}</p>
-                        <p className={cn(
-                          "mt-0.5 text-base font-bold",
-                          isLiveAndAvailable
-                            ? "text-brand-live"
-                            : isScheduledLiveDay
-                            ? "text-brand-live"
-                            : isToday
-                            ? "text-brand-primary-light"
-                            : canBookDate
-                            ? "text-brand-ink"
-                            : "text-brand-ink-subtle"
-                        )}>
-                          {date.getDate()}
-                        </p>
-                        <p className={cn(
-                          "mt-1 block w-full text-center text-[7px] font-medium leading-[1.05] sm:text-[8px]",
-                          isLiveAndAvailable
-                            ? "text-brand-live"
-                            : isScheduledLiveDay
-                            ? "text-brand-live"
-                            : canBookDate
-                            ? "text-brand-info"
-                            : "text-brand-ink-subtle"
-                        )}>
-                          {isScheduledLiveDay ? "Live" : hasAnySlots ? "Available" : isPast ? "-" : "Off"}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
 
             {/* Reviews */}
             <section className="rounded-3xl border border-brand-border bg-brand-surface p-6 shadow-card">
@@ -1787,6 +1398,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
+        {howItWorksSection}
       </div>
 
       <BookingModal
@@ -1797,6 +1409,12 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
         availability={availability}
         initialPackageId={availabilityPackageId === "all" ? undefined : availabilityPackageId}
         initialDate={bookingInitialDate}
+      />
+      <GuestAuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        next={`/profile/${params.id}`}
+        reason={authReason}
       />
     </>
   );

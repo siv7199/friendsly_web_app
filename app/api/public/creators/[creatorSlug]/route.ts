@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { MAX_ACTIVE_PACKAGES } from "@/lib/pricing-limits";
+import { isUuidLike, normalizeCreatorSlug } from "@/lib/routes";
 import { createServiceClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +14,16 @@ export async function GET(
   { params }: { params: { creatorSlug: string } }
 ) {
   try {
-    const creatorSlug = params.creatorSlug?.trim().toLowerCase();
-    if (!creatorSlug) {
+    const creatorRef = params.creatorSlug?.trim();
+    if (!creatorRef) {
+      return NextResponse.json({ error: "Missing creator slug." }, { status: 400 });
+    }
+    const creatorLookupColumn = isUuidLike(creatorRef) ? "id" : "username";
+    const creatorLookupValue = creatorLookupColumn === "username"
+      ? normalizeCreatorSlug(creatorRef)
+      : creatorRef;
+
+    if (!creatorLookupValue) {
       return NextResponse.json({ error: "Missing creator slug." }, { status: 400 });
     }
 
@@ -23,14 +32,15 @@ export async function GET(
     const { data: profile } = await supabase
       .from("profiles")
       .select(`
-        id, username, full_name, avatar_initials, avatar_color, avatar_url,
+        id, username, full_name, created_at, avatar_initials, avatar_color, avatar_url,
         creator_profiles(
-          bio, category, timezone, booking_interval_minutes, live_join_fee,
-          is_live, current_live_session_id, scheduled_live_at, scheduled_live_timezone
+          bio, category, tags, avg_rating, timezone, booking_interval_minutes, live_join_fee,
+          is_live, current_live_session_id, scheduled_live_at, scheduled_live_timezone,
+          instagram_url, tiktok_url, x_url
         )
       `)
       .eq("role", "creator")
-      .eq("username", creatorSlug)
+      .eq(creatorLookupColumn, creatorLookupValue)
       .single();
 
     if (!profile) {
@@ -57,7 +67,7 @@ export async function GET(
           .order("started_at", { ascending: false })
           .limit(1);
 
-    const [packagesRes, availabilityRes, liveSessionsRes] = await Promise.all([
+    const [packagesRes, availabilityRes, liveSessionsRes, reviewsCountRes, reviewsRes] = await Promise.all([
       supabase
         .from("call_packages")
         .select("id, name, description, duration, price, is_active")
@@ -72,6 +82,16 @@ export async function GET(
         .eq("is_active", true)
         .order("day_of_week"),
       liveSessionQuery,
+      supabase
+        .from("reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("creator_id", profile.id),
+      supabase
+        .from("reviews")
+        .select("id, rating, comment, created_at, fan:profiles!fan_id(id, full_name, avatar_initials, avatar_color, avatar_url)")
+        .eq("creator_id", profile.id)
+        .order("created_at", { ascending: false })
+        .limit(10),
     ]);
 
     const sessions = liveSessionsRes.data ?? [];
@@ -115,9 +135,15 @@ export async function GET(
         username: profile.username,
         bio: cp?.bio ?? "",
         category: cp?.category ?? "",
+        tags: cp?.tags ?? [],
+        rating: Number(cp?.avg_rating ?? 0),
+        reviewCount: reviewsCountRes.count ?? 0,
         avatarInitials: profile.avatar_initials,
         avatarColor: profile.avatar_color,
         avatarUrl: profile.avatar_url ? `/api/public/avatar/${profile.id}` : undefined,
+        instagramUrl: cp?.instagram_url ?? null,
+        tiktokUrl: cp?.tiktok_url ?? null,
+        xUrl: cp?.x_url ?? null,
         timeZone: cp?.timezone ?? "America/New_York",
         bookingIntervalMinutes: cp?.booking_interval_minutes ? Number(cp.booking_interval_minutes) : 30,
         liveJoinFee: cp?.live_join_fee ? Number(cp.live_join_fee) : null,
@@ -126,6 +152,19 @@ export async function GET(
         isLive: Boolean(activeSession),
         currentLiveSessionId: activeSession?.id ?? null,
       },
+      reviews: (reviewsRes.data ?? []).map((review: any) => {
+        const fan = Array.isArray(review.fan) ? review.fan[0] : review.fan;
+        return {
+          id: review.id,
+          fan: fan?.full_name ?? "Fan",
+          initials: fan?.avatar_initials ?? "F",
+          color: fan?.avatar_color ?? "bg-violet-500",
+          imageUrl: fan?.avatar_url ? `/api/public/avatar/${fan.id}` : undefined,
+          rating: Number(review.rating ?? 0),
+          comment: review.comment ?? "",
+          date: review.created_at,
+        };
+      }),
       packages,
       availability,
     }, {

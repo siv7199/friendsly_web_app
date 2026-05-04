@@ -37,6 +37,7 @@ import { sanitizeSocialUrl } from "@/lib/social";
 import { removeAvatarFile, uploadAvatarFile } from "@/lib/avatar-upload";
 import { STRIPE_OPTIONS } from "@/lib/stripe-ui";
 import { getCreatorRevenueShare } from "@/lib/revenue";
+import { AccountRequired } from "@/components/shared/AccountRequired";
 
 const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : Promise.resolve(null);
@@ -455,7 +456,15 @@ export default function SettingsPage() {
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <AccountRequired
+        title="Make an account to open settings"
+        description="Profile, billing, and account preferences are available after you create or sign into an account."
+        next="/settings"
+      />
+    );
+  }
 
   const isCreator = isCreatorProfile(user);
 

@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AccountRequired } from "@/components/shared/AccountRequired";
 import { cn, formatCurrency } from "@/lib/utils";
 
 type PaymentType = "booking" | "live";
@@ -46,7 +47,7 @@ function formatPaymentDate(date: string) {
 }
 
 export default function PaymentsPage() {
-  const { user } = useAuthContext();
+  const { user, isLoading: authLoading } = useAuthContext();
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -142,6 +143,24 @@ export default function PaymentsPage() {
 
     loadPayments();
   }, [user]);
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <AccountRequired
+        title="Make an account to view payments"
+        description="Payment history and saved billing details are private to your fan account."
+        next="/payments"
+      />
+    );
+  }
 
   if (loading) {
     return (

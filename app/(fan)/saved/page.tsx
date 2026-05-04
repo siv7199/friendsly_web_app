@@ -17,6 +17,7 @@ import { fetchLiveAudienceCounts } from "@/lib/live-audience";
 import { createClient } from "@/lib/supabase/client";
 import type { Creator } from "@/types";
 import { isNewCreator } from "@/lib/creators";
+import { AccountRequired } from "@/components/shared/AccountRequired";
 
 const LIVE_SESSION_STALE_MS = 45000;
 
@@ -36,7 +37,7 @@ function isSessionFresh(session: {
 }
 
 export default function SavedPage() {
-  const { user } = useAuthContext();
+  const { user, isLoading: authLoading } = useAuthContext();
   const [savedCreators, setSavedCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -225,6 +226,24 @@ export default function SavedPage() {
       .eq("fan_id", user.id)
       .eq("creator_id", creatorId);
     setSavedCreators((prev) => prev.filter((c) => c.id !== creatorId));
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <AccountRequired
+        title="Make an account to save creators"
+        description="Saved creators are tied to your account so you can come back to them from any device."
+        next="/saved"
+      />
+    );
   }
 
   if (loading) {

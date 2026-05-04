@@ -95,7 +95,7 @@ function FanVideoStage({
           ) : (
             <div className="flex flex-col items-center justify-center text-brand-ink-muted p-6 text-center z-10">
               <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="xl" className="opacity-50 mb-3" />
-              <p className="text-sm font-medium text-brand-ink-subtle">Waiting for {creatorName}...</p>
+              <p className="text-sm font-medium text-brand-ink-subtle">Connecting to {creatorName}&apos;s video</p>
             </div>
           )}
         </div>

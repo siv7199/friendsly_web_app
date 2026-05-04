@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isUuidLike, normalizeCreatorSlug } from "@/lib/routes";
 import { createServiceClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -12,8 +13,16 @@ export async function GET(
   { params }: { params: { creatorSlug: string } }
 ) {
   try {
-    const creatorSlug = params.creatorSlug?.trim().toLowerCase();
-    if (!creatorSlug) {
+    const creatorRef = params.creatorSlug?.trim();
+    if (!creatorRef) {
+      return NextResponse.json({ error: "Missing creator slug." }, { status: 400 });
+    }
+    const creatorLookupColumn = isUuidLike(creatorRef) ? "id" : "username";
+    const creatorLookupValue = creatorLookupColumn === "username"
+      ? normalizeCreatorSlug(creatorRef)
+      : creatorRef;
+
+    if (!creatorLookupValue) {
       return NextResponse.json({ error: "Missing creator slug." }, { status: 400 });
     }
 
@@ -25,7 +34,7 @@ export async function GET(
         creator_profiles(live_join_fee, current_live_session_id, scheduled_live_at, scheduled_live_timezone, timezone)
       `)
       .eq("role", "creator")
-      .eq("username", creatorSlug)
+      .eq(creatorLookupColumn, creatorLookupValue)
       .single();
 
     if (!profile) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { Flag, Loader2, Mic, MicOff, Video, VideoOff, Zap, Users, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,13 @@ function getBestRemoteParticipantSessionId(params: {
 function isParticipantVideoActive(participant: any) {
   const videoState = participant?.tracks?.video?.state;
   return videoState === "playable" || videoState === "loading";
+}
+
+function shouldIgnoreJoinPrompt(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(
+    target.closest("a, button, input, textarea, select, summary, [role='button'], [data-no-stage-join='true']")
+  );
 }
 
 function resolveRemoteParticipant(params: {
@@ -299,6 +306,12 @@ function LiveStage({
 
   const showRemoteGuestStage = Boolean(!isAdmitted && activeFan);
   const queuePreviewItems = queuePreview?.slice(0, 5) ?? [];
+  const canPromptJoin = !isAdmitted && !isQueued && !joinDisabled;
+
+  function handleStageClick(event: MouseEvent<HTMLElement>) {
+    if (!canPromptJoin || shouldIgnoreJoinPrompt(event.target)) return;
+    onJoinQueue();
+  }
 
   async function handleSubmitReport() {
     if (!user?.full_name || !user.email || !reportDescription.trim()) return;
@@ -367,7 +380,7 @@ function LiveStage({
           ) : !isAdmitted && !isQueued ? (
             <Button variant="live" className="gap-2 shrink-0" onClick={onJoinQueue} disabled={joinDisabled}>
               <Zap className="w-4 h-4" />
-              Join Live
+              Join Call
             </Button>
           ) : null}
         </div>
@@ -381,8 +394,11 @@ function LiveStage({
       )}>
         <div className={cn(
           "relative h-full rounded-[24px] overflow-hidden border border-brand-border bg-brand-elevated",
+          canPromptJoin && "cursor-pointer",
           isAdmitted || showRemoteGuestStage ? "min-h-[0] md:min-h-0 xl:min-h-[200px]" : "min-h-[0] md:min-h-0 xl:min-h-[250px]"
-        )}>
+        )}
+          onClick={handleStageClick}
+        >
           {!isAdmitted ? (
             <div className="absolute right-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-col items-end gap-2">
               <Button
@@ -465,7 +481,7 @@ function LiveStage({
             <div className="h-full w-full flex flex-col items-center justify-center gap-4 bg-[radial-gradient(circle_at_top,#1d4ed833,transparent_55%)]">
               <Avatar initials={creatorInitials} color={creatorColor} imageUrl={creatorAvatarUrl} size="xl" />
               <p className="text-sm text-brand-ink-subtle">
-                {creatorSessionId ? `${creatorName}'s camera is off` : `Connecting to ${creatorName}'s live video...`}
+                {creatorSessionId ? `${creatorName}'s camera is off` : `Connecting to ${creatorName}'s video`}
               </p>
             </div>
           )}
@@ -516,7 +532,7 @@ function LiveStage({
                     disabled={joinDisabled}
                     className="inline-flex shrink-0 items-center justify-center rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(22,8,34,0.56)] px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-[rgba(22,8,34,0.8)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Join
+                    Join Call
                   </button>
                 ) : null}
               </div>

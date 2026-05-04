@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Send, Users, MessageSquare } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import type { QueueEntry, ChatMessage } from "@/types";
 import { timeAgo, cn } from "@/lib/utils";
 import { useAuthContext } from "@/lib/context/AuthContext";
 import { LIVE_STAGE_SECONDS, getLiveStageRemainingSeconds } from "@/lib/live";
+import { GuestAuthModal } from "@/components/shared/GuestAuthModal";
 
 interface WaitingRoomProps {
   queue: QueueEntry[];
@@ -52,6 +54,8 @@ export function WaitingRoom({
   totalQueueCount,
 }: WaitingRoomProps) {
   const { user } = useAuthContext();
+  const pathname = usePathname();
+  const [authOpen, setAuthOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [activeTab, setActiveTab] = useState<"chat" | "queue">("chat");
@@ -193,6 +197,10 @@ export function WaitingRoom({
     if (error) console.error("[WaitingRoom] chat insert failed:", error.message);
   }
 
+  function goToChatSignup() {
+    setAuthOpen(true);
+  }
+
   const currentUserWaitSeconds = currentUserPosition > 0
     ? Math.max(0, activeFanRemainingSeconds + Math.max(0, currentUserPosition - 1) * LIVE_STAGE_SECONDS)
     : 0;
@@ -290,7 +298,9 @@ export function WaitingRoom({
         <>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-3.5 xl:px-3.5 xl:py-2.5 xl:space-y-2.5">
             {messages.length === 0 && (
-              <p className="text-center text-[12px] text-white/35 py-6">No messages yet. Say something!</p>
+              <p className="text-center text-[12px] text-white/35 py-6">
+                {user ? "No messages yet. Say something!" : "Watch for free. Make an account to chat."}
+              </p>
             )}
             {messages.map((msg) => (
               <div key={msg.id} className="flex items-start gap-2.5">
@@ -312,6 +322,7 @@ export function WaitingRoom({
             <div ref={chatBottomRef} />
           </div>
 
+          {user ? (
           <div className="flex shrink-0 gap-2 border-t border-brand-dark-border/50 px-4 py-3 xl:px-3.5 xl:py-2.5">
             <input
               value={newMessage}
@@ -324,6 +335,17 @@ export function WaitingRoom({
               <Send className="w-3.5 h-3.5" />
             </Button>
           </div>
+          ) : (
+            <div className="shrink-0 border-t border-brand-dark-border/50 px-4 py-3 xl:px-3.5 xl:py-2.5">
+              <button
+                type="button"
+                onClick={goToChatSignup}
+                className="flex h-11 w-full items-center justify-center rounded-xl bg-brand-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover"
+              >
+                Make an account to chat
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -353,6 +375,12 @@ export function WaitingRoom({
           ))}
         </div>
       )}
+      <GuestAuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        next={pathname}
+        reason="Make an account to chat in this live room."
+      />
     </div>
   );
 }

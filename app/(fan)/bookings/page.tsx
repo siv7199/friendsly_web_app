@@ -22,6 +22,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
 import { deriveBookingStatus, getNextAutoCancelCheckDelay, getNextBookingRefreshDelay, hasBookingEnded, isBookingJoinable, shouldRefetchOnBookingChange } from "@/lib/bookings";
 import { RefundPolicyModal } from "@/components/shared/RefundPolicyModal";
+import { AccountRequired } from "@/components/shared/AccountRequired";
 
 type Tab = "upcoming" | "completed" | "cancelled";
 
@@ -56,7 +57,7 @@ function dateTimeLocalToIso(value: string) {
 }
 
 export default function BookingsPage() {
-  const { user } = useAuthContext();
+  const { user, isLoading: authLoading } = useAuthContext();
   const [bookings, setBookings] = useState<FanBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("upcoming");
@@ -301,6 +302,24 @@ export default function BookingsPage() {
       b.fanPresent
     )
   );
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 text-brand-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <AccountRequired
+        title="Make an account to view bookings"
+        description="Your upcoming calls, receipts, and booking updates live here once you create or sign into a fan account."
+        next="/bookings"
+      />
+    );
+  }
 
   if (loading) {
     return (
